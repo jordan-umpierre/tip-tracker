@@ -243,3 +243,23 @@ First app code. To recreate:
    generated files looked right.
 
 `node_modules/` is not committed — regenerate it with `npm install`.
+
+## `38c8579` — docs: add BUILD_LOG.md, a commit-by-commit recreation log (2026-07-30)
+
+This file. Backfilled entries for all 18 commits up to and including
+`477c0e5b` by reading each commit's actual diff, not just its message. Added
+check 8 to `check-docs.sh`, a copy of the existing `BRAINSTORM.md` staleness
+check (warns if other files are staged while this file's `Last updated` date
+isn't today), and tested it the same way every check in this repo gets
+tested: set the date back on purpose, confirmed the warning fired, then set
+it back before committing. Added a one-line pointer to this file in
+`README.md`'s repo layout section.
+
+## `ca02120` — docs: mark Expo scaffold and BUILD_LOG.md done, point NEXT at expo-sqlite (2026-07-30)
+
+Caught immediately after the previous two commits: `BRAINSTORM.md`'s Order of
+Operations still listed the Expo scaffold as `NEXT` even though it had
+already shipped in `477c0e5b`, and the `BUILD_LOG.md` work itself hadn't been
+logged there either. Marked both done and moved `NEXT` to wiring `schema.sql`
+into `expo-sqlite` — the cold-agent handoff protocol in `CLAUDE.md` exists
+specifically so this doesn't get missed at the end of a session.
