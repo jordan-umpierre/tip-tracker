@@ -296,7 +296,24 @@ To recreate:
 
 Verified with `tsc --noEmit` and `CI=1 npx expo start` followed by fetching
 `http://localhost:8081/index.bundle?platform=android&dev=true` directly —
-confirms Metro resolves every import and bundles cleanly (789 modules) without
-needing a device. Did **not** verify on an actual Android/iOS
-device or emulator — no such tooling was available in this environment, so
-the native SQLite calls themselves are unverified past what bundling proves.
+confirms Metro resolves every import and bundles cleanly (789 modules).
+
+That bundling check doesn't prove the native SQLite calls actually run, and no
+Android/iOS tooling was available in the agent's environment to check further.
+Confirmed for real afterward on a physical iPhone: `App.tsx` rendered
+"database ready", meaning `openDatabaseAsync`, both `PRAGMA` calls, the
+`schema.sql` asset load, and `execAsync` against it all ran successfully on
+device.
+
+Getting Expo Go onto the phone needed its own detour, worth knowing about if
+this happens again: the App Store's Expo Go build lags Expo's SDK releases by
+Apple's review time, and was still stuck on SDK 54 while this project is on
+SDK 57 — a real, current gap, not a local misconfiguration (Expo's own
+changelogs confirm newer builds sit in App Store review for weeks). Fixed with
+`npx eas-cli@latest go`, which builds a custom Expo Go matched to this
+project's SDK and ships it to a personal TestFlight team under the Apple
+Developer account being used. Requires an Apple Developer Program membership;
+the App Store Connect API key EAS generates for this needs the **Admin**
+role specifically, not the more restricted App Manager role — Apple only
+exposes certificate/provisioning-profile management (which EAS needs to sign
+the build) to Admin over the API.

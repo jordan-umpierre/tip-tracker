@@ -90,9 +90,16 @@ Last updated: 2026-07-30
     launch with `PRAGMA user_version`, since `schema.sql` deliberately has no
     `IF NOT EXISTS`. `App.tsx` temporarily renders the open/fail status to
     prove it end to end; that gets replaced once there's a real screen.
-    Verified with `tsc --noEmit` and a bundling `CI=1 expo start` (789
-    modules, no resolution errors) — could not verify on an actual
-    device/emulator, no Android or iOS tooling in this environment
+    Confirmed working for real on a physical iPhone — "database ready"
+    rendered, meaning the schema actually loaded and ran on device. Getting
+    there needed a detour: the App Store's Expo Go build was still on SDK 54
+    while this project is on SDK 57 (Apple's review lag on Expo Go itself, a
+    real and current gap, not a local issue). Fixed with `npx eas-cli@latest
+    go`, which builds a custom Expo Go matched to our SDK and ships it via a
+    personal TestFlight team — needs an Apple Developer Program membership,
+    and the App Store Connect API key it generates needs the **Admin** role,
+    not App Manager, since only Admin can manage the certificates EAS needs
+    to sign the build
 17. **NEXT:** Rough screen sketches, focused on the log-a-shift flow
 
 ### Settled stack
