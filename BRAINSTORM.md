@@ -37,8 +37,8 @@ Last updated: 2026-07-29
 6. Split the feature set into MVP + three later layers
 7. Decided architecture: local-first, SQLite on device, sync added later (D1)
 8. Decided platform: Expo (React Native, TypeScript) (D2)
-9. Data model written as `schema.sql` — `jobs` and `shifts`, verified against
-   sqlite3 with tests confirming every constraint rejects bad data
+9. Data model written as `schema.sql` — `jobs` and `shifts`, checked by hand
+   against sqlite3
 10. Split `DECISIONS.md` out of this file once it passed 750 lines, and added
     `scripts/check-docs.sh` plus a git pre-commit hook to stop docs rotting
 11. **NEXT:** Scaffold the Expo app (`npx create-expo-app`)

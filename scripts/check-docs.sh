@@ -105,27 +105,18 @@ for f in "${docs[@]}"; do
   done < <(grep -oE '\]\([^)]+\)' "$f" | sed 's/^](//; s/)$//')
 done
 
-# --- 4. The schema still has to be valid SQL ------------------------------
-# A schema that stopped parsing is the worst kind of stale: it reads fine.
-if [ -f schema.sql ]; then
-  if command -v sqlite3 >/dev/null; then
-    tmp=$(mktemp -u).db
-    if ! sqlite3 "$tmp" < schema.sql 2>/tmp/schema_err; then
-      err "schema.sql does not parse: $(cat /tmp/schema_err)"
-    fi
-    rm -f "$tmp"
-  else
-    warn "sqlite3 not installed, skipping schema validation"
-  fi
-fi
+# Schema validation used to live here as a parse check. It moved to
+# scripts/test-schema.sh, which loads the file (so a parse error still fails)
+# and then goes further and checks the constraints actually reject bad data.
+# The pre-commit hook runs both scripts. This one is about the prose.
 
-# --- 5. Leftover TODO markers ---------------------------------------------
+# --- 4. Leftover TODO markers ---------------------------------------------
 # Fine to have. Not fine to forget. Listing them keeps them deliberate.
 # Requires a colon or paren, so prose *about* TODO markers doesn't match itself.
 todos=$(grep -nE 'TODO[(:]|FIXME[(:]' -- "${srcs[@]}" 2>/dev/null || true)
 [ -n "$todos" ] && warn "open TODO/FIXME markers:$(printf '\n        %s' "$todos")"
 
-# --- 6. Docs that outgrew the split threshold -----------------------------
+# --- 5. Docs that outgrew the split threshold -----------------------------
 # The rule in CLAUDE.md is ~500 lines, split by purpose. This is the nag.
 for f in "${docs[@]}"; do
   n=$(wc -l < "$f" | tr -d ' ')   # macOS wc pads with spaces
