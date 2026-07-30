@@ -67,13 +67,24 @@ Last updated: 2026-07-30
     `core.hooksPath` not actually set to `.githooks`, and this file's
     `Last updated` date being stale while other work is being committed. Both
     verified by triggering them on purpose before trusting them
-14. **NEXT:** Scaffold the Expo app (`npx create-expo-app`). Two traps: scaffold
-    into *this* directory or the result is `tip-tracker/tip-tracker/`, and
-    `create-expo-app` overwrites `README.md` and `.gitignore`. Both are real
-    files now, so restore them afterward and check `git status`
-15. *(not started)* Wire `schema.sql` into `expo-sqlite`, with `PRAGMA
+14. Scaffolded the Expo app. `create-expo-app` refuses a non-empty directory,
+    so it ran into a throwaway subdirectory and the result got moved up by
+    hand instead. That meant `app.json`'s `name`/`slug` and `package.json`'s
+    `name` came out as the throwaway directory's name — caught by
+    `expo-doctor`, fixed to `tip-tracker`. Kept the project's real
+    `CLAUDE.md` over Expo's generated stub, and merged Expo's `.gitignore`
+    rules into the existing file rather than overwriting it, per the trap
+    this file already had a note about. Verified with `tsc --noEmit`,
+    `expo-doctor` (20/20), and an actual `CI=1 expo start` bundling and
+    serving before committing
+15. Added `BUILD_LOG.md`: a commit-by-commit log detailed enough to recreate
+    the repo from scratch, separate from `DECISIONS.md` (why) and this file
+    (Q&A / what's next). Backfilled all 18 commits so far. Gave it the same
+    staleness check `check-docs.sh` already runs against this file's
+    `Last updated` date, verified by breaking it on purpose first
+16. **NEXT:** Wire `schema.sql` into `expo-sqlite`, with `PRAGMA
     foreign_keys = ON` on the connection
-16. *(not started)* Rough screen sketches, focused on the log-a-shift flow
+17. *(not started)* Rough screen sketches, focused on the log-a-shift flow
 
 ### Settled stack
 
