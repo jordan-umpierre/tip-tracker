@@ -4,6 +4,7 @@ CLAUDE.md
 # macOS
 .DS_Store
 
-# NOTE: running create-expo-app will overwrite this file with Expo's own
-# .gitignore. Re-add the CLAUDE.md line above afterward, or CLAUDE.md starts
-# getting tracked without anyone noticing.
+# NOTE: running create-expo-app overwrites both this file and README.md with
+# its own versions. Afterward: re-add the CLAUDE.md line above, or CLAUDE.md
+# starts getting tracked without anyone noticing, and restore README.md from
+# git rather than keeping the Expo default.
