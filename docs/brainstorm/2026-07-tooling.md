@@ -101,3 +101,67 @@ before it can be edited — no real line editor in that build. Fix: collapse a
 paste to one line, or write SQL to a `.sql` file and load it with `.read
 file.sql` (or `sqlite3 db < file.sql`) instead of pasting into a live prompt —
 closer to how it's actually done anyway.
+
+### 2026-07-30 — "How can I wire schema.sql into expo-sqlite? I have no idea how to do so."
+
+Three unfamiliar pieces at once, worth naming separately: getting
+`schema.sql`'s actual text into the running app (without copying it into a JS
+string, which would give two copies of the schema that can drift apart),
+opening a SQLite connection with `expo-sqlite`'s async API, and turning on
+foreign keys before running the schema — `schema.sql`'s own header comment
+already flags that SQLite ignores foreign keys by default, per connection.
+
+`schema.sql` ships as a bundled asset instead of an inlined string:
+`metro.config.js` gets `config.resolver.assetExts.push('sql')` so Metro
+treats it as a data file, then `Asset.fromModule(require('./schema.sql')).
+downloadAsync()` plus `new File(asset.localUri).text()` reads its contents
+at runtime. That keeps `db.ts` and `scripts/test-schema.sh` always running
+the exact same source of truth.
+
+The part that would've broken on the second app launch: `schema.sql` has no
+`IF NOT EXISTS` on its `CREATE TABLE` statements (on purpose, to keep it
+byte-identical to what `test-schema.sh` loads), so running it twice throws.
+Fixed with `PRAGMA user_version`, an integer SQLite stores in the database
+file for exactly this — skip re-running the schema if a previous launch
+already set it.
+
+### 2026-07-30 — "Should I install expo-crypto, or did you already? What is it exactly?"
+
+Already installed, at that point, via `npx expo install expo-crypto`.
+
+It's Expo's first-party wrapper around native crypto functions — the same
+role the Web Crypto API plays in a browser, backed by real OS-level crypto.
+The one function needed here is `Crypto.randomUUID()`. Needed at all because
+`schema.sql` uses text UUIDs as primary keys, not auto-incrementing numbers
+(D1: two devices independently minting "row 5" would collide once sync
+exists), and React Native doesn't reliably have `crypto.randomUUID()` built
+into its JS environment the way browsers do. `expo-crypto` fills that gap as
+a maintained Expo module rather than a random npm package — same reasoning
+as D2's general preference for first-party modules.
+
+### 2026-07-30 — Expo Go rejected the project: "requires a newer version of Expo Go"
+
+Not a bug in this project's code. The Apple App Store's Expo Go build lags
+behind Expo's own SDK releases by however long Apple's review takes — it was
+still on SDK 54 while this project scaffolded on SDK 57, and Expo's own
+changelogs confirm newer Expo Go builds routinely sit in App Store review for
+weeks with no committed timeline. The App Store showing no available update
+was correct; there genuinely wasn't a newer one published yet.
+
+Fixed with `npx eas-cli@latest go`, which builds a custom Expo Go matched to
+the project's actual SDK version on Expo's cloud build servers, then ships it
+to a personal TestFlight team under the Apple Developer account running the
+command. Requires an Apple Developer Program membership. The App Store
+Connect API key EAS generates along the way needs the **Admin** role, not
+the more restricted App Manager role — Apple only exposes
+certificate/provisioning-profile management (which EAS needs to sign the
+build) to Admin over the API, confirmed in Expo's own docs on required
+Apple Developer Program roles.
+
+One more wrinkle: the TestFlight app showed "Ready to Test" with a manual
+"Redeem my invitation code" prompt instead of the build just appearing.
+The code was in an email from Apple to the same Apple ID used for the
+Developer Program account — worth checking spam, and worth double-checking
+it's the same Apple ID as the one signed into TestFlight on the phone, since
+a mismatched Apple ID is the most common reason an invite silently fails to
+redeem.

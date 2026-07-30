@@ -100,7 +100,24 @@ Last updated: 2026-07-30
     and the App Store Connect API key it generates needs the **Admin** role,
     not App Manager, since only Admin can manage the certificates EAS needs
     to sign the build
-17. **NEXT:** Rough screen sketches, focused on the log-a-shift flow
+17. Revisited "screen sketches next" before starting it: this app has no
+    server backend at all in MVP (D1), so "build the backend first" doesn't
+    apply the normal way. What a screen actually needs first is a small
+    data-access layer — plain functions wrapping SQL — since `db.ts` alone
+    can open a connection and run `schema.sql` but can't insert or list
+    anything yet. Reordered to: data-access functions per table, then the
+    screen that calls them, one vertical slice at a time, rather than all
+    screens first or (nonexistent) "all backend" first
+18. Wrote `jobs.ts`: `createJob` and `listActiveJobs`, the first of that
+    data-access layer, using `expo-crypto`'s `Crypto.randomUUID()` for ids.
+    First pass at `listActiveJobs` copied `createJob` almost verbatim instead
+    of adapting it — still an `INSERT`, still generating a new id and
+    timestamp, wrong params, wrong return type. Rewritten to actually read:
+    `db.getAllAsync<Job>(...)` instead of `db.runAsync(...)`, filtering
+    `archived_at IS NULL` per D3. Verified with `tsc --noEmit`; not wired into
+    a screen yet, so nothing to run on device for this one
+19. **NEXT:** `shifts.ts` — `createShift` and `listShifts`, same pattern as
+    `jobs.ts`, then the log-a-shift screen that calls both files
 
 ### Settled stack
 
@@ -384,8 +401,11 @@ without limit, so it archives by calendar month and a pointer stays behind:
   historical shifts keep their own rate, SQL syntax from nothing, keeping docs
   from going stale, the first code review of the repo, why shifts keep a
   deleted_at tombstone, actually running and breaking the schema tests to trust
-  them, GUI vs CLI for SQLite, getting unstuck in the sqlite3 shell, and why
-  there's no "backend MVP" yet.
+  them, GUI vs CLI for SQLite, getting unstuck in the sqlite3 shell, why there's
+  no "backend MVP" yet, wiring `schema.sql` into `expo-sqlite` from nothing,
+  why UI shouldn't wait on a "backend" that doesn't exist for MVP, what
+  `expo-crypto` is and why it's needed, and the App Store's Expo Go lagging
+  behind Expo's own SDK releases.
 
 New questions get appended to the current month's file, not to this one.
 
@@ -401,3 +421,13 @@ New questions get appended to the current month's file, not to this one.
   the expensive part, and how that shapes MVP decisions
 - App store submission process for both platforms
 - W4 withholding math, and self-employment tax for 1099 (Layers 2 and 3)
+- `PRAGMA user_version` as a migration guard — right now it's a blunt 0/1
+  switch in `db.ts`, but the real pattern (every local-first sync library
+  uses it) is a ladder: `if (currentVersion < 1) { ... }`,
+  `if (currentVersion < 2) { ... }`, so a database can upgrade incrementally
+  no matter which version it started at. Matters for real the first time a
+  column gets added to `schema.sql` after the app has shipped
+- `expo-sqlite`'s read/write API split — `runAsync`/`execAsync` for writes,
+  `getAllAsync`/`getFirstAsync` for reads. Mixed these up writing the first
+  draft of `listActiveJobs` in `jobs.ts`, which stayed a copy-pasted `INSERT`
+  under a new name instead of becoming a `SELECT`

@@ -317,3 +317,34 @@ the App Store Connect API key EAS generates for this needs the **Admin**
 role specifically, not the more restricted App Manager role — Apple only
 exposes certificate/provisioning-profile management (which EAS needs to sign
 the build) to Admin over the API.
+
+## `1235eaf` — feat: add jobs data-access functions (2026-07-30)
+
+First piece of the data-access layer sitting on top of `db.ts`. No server
+backend exists for MVP (D1), so this file — plain functions wrapping SQL —
+is the closest thing to a "backend" this app has, and it's what a screen
+actually calls, not `db.ts` directly.
+
+To recreate:
+
+1. `npx expo install expo-crypto` — first-party module for
+   `Crypto.randomUUID()`, needed because `schema.sql` uses text UUIDs as
+   primary keys (D1: two devices independently picking row ids would
+   collide once sync exists) and React Native doesn't reliably have
+   `crypto.randomUUID()` built into its JS environment.
+2. `createJob(name, hourlyRateCents)`: generates a UUID, stamps
+   `created_at`/`updated_at` with the same `new Date().toISOString()` value,
+   and inserts with `db.runAsync` using `?` placeholders — never string-
+   splice values into the SQL, that's the direct path to SQL injection.
+   `archived_at` is explicitly `NULL` on insert.
+3. `listActiveJobs()`: reads with `db.getAllAsync<Job>(...)` instead of
+   `runAsync` — the read/write split in `expo-sqlite`'s API is real,
+   `runAsync` returns a write summary, not rows. Filters
+   `WHERE archived_at IS NULL`, the D3 rule for excluding archived jobs from
+   anything a user picks from.
+4. Rows come back typed via a `Job` type matching `schema.sql`'s columns
+   verbatim, snake_case included — no camelCase mapping layer added, since
+   nothing needs one yet.
+
+Verified with `tsc --noEmit`. Not yet wired into any screen, so nothing to
+bundle-check or run on device for this commit specifically.

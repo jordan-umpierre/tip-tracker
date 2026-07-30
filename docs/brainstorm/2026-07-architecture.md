@@ -112,3 +112,33 @@ MVP" isn't understating something that exists, it's describing a layer that was
 deliberately designed out. What does exist right now is the data layer: a
 schema whose constraints are proven to hold, which the eventual app will sit on
 top of via `expo-sqlite`.
+
+### 2026-07-30 — "We shouldn't begin UI work until our backend is complete though, right?"
+
+The instinct is right, the target is wrong. "Backend" here was doing double
+duty for two different things.
+
+There's no server backend to finish for MVP — that's D1, on purpose, no
+Express, no Postgres until sync is actually needed. So "backend complete"
+has no milestone to point at; there's nothing else coming before UI in that
+sense.
+
+What the instinct was actually reaching for is the **data-access layer**:
+functions like `createJob` or `listShifts` that a screen calls, sitting on
+top of `db.ts`. That's real and does need to exist before a screen can do
+anything, just much smaller than a full backend — plain functions wrapping
+SQL, not a server.
+
+The general reason "backend first" is a real pattern in other projects: a
+server API is a contract a separate frontend codebase (or team) depends on,
+and getting that contract wrong after the frontend is built is expensive to
+unwind. That risk mostly doesn't apply here — there's no second codebase and
+no network boundary, and `schema.sql` already *is* the contract, more
+locked-down than most APIs ever get (tested by `test-schema.sh`, decided and
+written up as D1–D4, enforced by the database's own constraints).
+
+Landed on: build one vertical slice at a time — a table's data-access
+functions, then the screen that calls them — rather than all data-access
+functions first or all screens first. Faster to find out if the schema is
+awkward to query against, since that shows up after one slice instead of
+after five screens are already built on it.

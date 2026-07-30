@@ -12,12 +12,8 @@ Built for both W2 and 1099 workers. iOS and Android.
 
 ## Status
 
-**Pre-code.** There is no app yet. What exists is the data model and the
-reasoning behind every decision made so far.
-
-That is deliberate rather than slow. The next commit scaffolds the Expo app, and
-by then the storage model, the delete semantics, and the platform choice are all
-settled and written down instead of being discovered halfway through.
+**Data layer, no screens yet.** The app runs — confirmed on a physical
+device — and can talk to its own database, but there's nothing to look at.
 
 Done:
 
@@ -26,12 +22,16 @@ Done:
 - Platform decided: Expo, with the escape hatch understood
 - [`schema.sql`](schema.sql) — the `jobs` and `shifts` tables, with tests
   confirming every constraint rejects bad data
+- Expo app scaffolded, confirmed running on a physical device
+- `schema.sql` wired into `expo-sqlite` ([`db.ts`](db.ts)), including the
+  `PRAGMA foreign_keys = ON` gotcha SQLite requires per connection
+- Jobs data-access functions ([`jobs.ts`](jobs.ts)): create and list
 
 Next:
 
-- Scaffold the Expo app
-- Wire the schema into `expo-sqlite`
-- Build the log-a-shift flow
+- Shifts data-access functions
+- The log-a-shift flow — the one screen this project obsesses over on UI
+  quality, per `BRAINSTORM.md`
 
 ## Stack
 
@@ -72,6 +72,10 @@ BRAINSTORM.md         product thinking, open questions, learning log
 DECISIONS.md          numbered decisions with their rejected alternatives
 BUILD_LOG.md          commit-by-commit history, detailed enough to recreate
 schema.sql            the data model
+db.ts                 opens the SQLite connection, runs schema.sql
+jobs.ts               data-access functions for the jobs table
+App.tsx               app entry point
+metro.config.js       bundler config (lets schema.sql ship as an asset)
 docs/brainstorm/      archived Q&A log, one file per month
 scripts/              the checks below
 .githooks/            pre-commit hook that runs them
