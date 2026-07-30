@@ -52,13 +52,21 @@ fi
 # Renaming a file silently breaks every markdown link to it.
 for f in "${docs[@]}"; do
   # Pull the target out of [text](target), skip URLs and #anchors.
-  grep -oE '\]\([^)#]+\)' "$f" | sed 's/^](//; s/)$//' | while read -r target; do
+  #
+  # The loop reads from a process substitution - "done < <(...)" - and not from
+  # a pipe. That detail is load-bearing. Piping into "while read" runs the loop
+  # in a subshell, which is a separate process with its own copy of every
+  # variable. err() would set fail=1 on the copy, the subshell would exit, and
+  # the copy would die with it. The parent still saw fail=0, so this check
+  # printed FAIL and then let the commit through anyway. Reading from a process
+  # substitution keeps the loop in this shell, so fail=1 sticks.
+  while read -r target; do
     case "$target" in http*|mailto:*) continue ;; esac
     # Strip any #L42 line anchor before checking the path.
     path="${target%%#*}"
     [ -z "$path" ] && continue
     [ -e "$path" ] || err "$f links to '$path', which doesn't exist"
-  done
+  done < <(grep -oE '\]\([^)#]+\)' "$f" | sed 's/^](//; s/)$//')
 done
 
 # --- 4. The schema still has to be valid SQL ------------------------------
