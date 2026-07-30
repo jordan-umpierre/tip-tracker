@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+#
+# Runs the doc checks before every commit.
+#
+# This lives in .githooks/ rather than .git/hooks/ so it's tracked in the repo.
+# Git doesn't look here by default, so a fresh clone has to run:
+#
+#   git config core.hooksPath .githooks
+#
+# To commit anyway when a check is wrong rather than the docs: git commit --no-verify
+
+exec ./scripts/check-docs.sh

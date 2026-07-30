@@ -39,12 +39,14 @@ Last updated: 2026-07-29
 8. Decided platform: Expo (React Native, TypeScript) (D2)
 9. Data model written as `schema.sql` — `jobs` and `shifts`, verified against
    sqlite3 with tests confirming every constraint rejects bad data
-10. **NEXT:** Scaffold the Expo app (`npx create-expo-app`)
-11. *(not started)* Rewrite `README.md` — after scaffolding, since
+10. Split `DECISIONS.md` out of this file once it passed 750 lines, and added
+    `scripts/check-docs.sh` plus a git pre-commit hook to stop docs rotting
+11. **NEXT:** Scaffold the Expo app (`npx create-expo-app`)
+12. *(not started)* Rewrite `README.md` — after scaffolding, since
     `create-expo-app` writes its own README that would overwrite it
-12. *(not started)* Wire `schema.sql` into `expo-sqlite`, with `PRAGMA
+13. *(not started)* Wire `schema.sql` into `expo-sqlite`, with `PRAGMA
     foreign_keys = ON` on the connection
-13. *(not started)* Rough screen sketches, focused on the log-a-shift flow
+14. *(not started)* Rough screen sketches, focused on the log-a-shift flow
 
 ### Settled stack
 
@@ -518,6 +520,63 @@ Constraints used here:
 Naming convention for this project: `snake_case` for tables and columns, plural
 table names (`jobs`, `shifts`), and units in the column name
 (`hourly_rate_cents`, not `hourly_rate`) so nobody has to guess.
+
+### 2026-07-29 — "How do we prevent anything becoming stale in the docs?"
+
+Short answer: don't rely on remembering. Write a check.
+
+Two real bugs got committed today, both from appending to a long file without
+re-reading the whole thing:
+
+- A duplicate `## Decision Log` heading, where the stale copy still said
+  *"(empty — no real decisions made yet)"* while D1, D2, and D3 sat above it.
+- A D2 subsection stranded after D3, so the React Native vs Flutter reasoning
+  appeared to belong to the soft-delete decision.
+
+Neither is the kind of thing a person reliably catches. Both are trivial for a
+script.
+
+So `scripts/check-docs.sh` now runs on every commit via a git hook. It checks:
+
+1. Duplicate headings in any markdown file — the exact bug above
+2. `D<n>` references that don't resolve to an entry in `DECISIONS.md`
+3. Markdown links pointing at files that don't exist
+4. That `schema.sql` still parses as valid SQL
+5. Leftover TODO/FIXME markers (warning, not a failure)
+6. Docs past the ~500 line split threshold (warning)
+
+Failures block the commit. Warnings just print. `--no-verify` overrides it when
+the check is wrong rather than the docs.
+
+#### The general principle
+
+> A rule nobody enforces is a rule that quietly stops being true.
+
+We wrote several doc conventions today. Every one of them would have decayed
+within a month on good intentions alone. The ones that survive are the ones with
+a check behind them.
+
+This is the same reasoning as putting `NOT NULL` and `CHECK` in the database
+instead of trusting app code — see `schema.sql`. Constraints that can't be
+bypassed beat discipline that can.
+
+Corollary worth remembering: when adding a new convention, add its check at the
+same time. If a convention can't be checked automatically, say so out loud
+rather than writing a rule that only looks enforced.
+
+#### Where the hook lives, and why it's slightly awkward
+
+Git normally looks in `.git/hooks/`, which is not tracked by version control —
+so a hook there would exist only on this laptop and vanish on a fresh clone.
+
+The fix: the hook lives in `.githooks/` (tracked, committed) and git is pointed
+at it with a one-time command:
+
+```
+git config core.hooksPath .githooks
+```
+
+Already run on this machine. Any fresh clone needs it once.
 
 ---
 
