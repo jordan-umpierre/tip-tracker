@@ -22,7 +22,10 @@ Splitting rule: docs get split by purpose, never into `BRAINSTORM_2.md`. A
 numbered sequel makes things unfindable — "which file has the Expo decision?"
 is a question nobody should have to ask. The Q&A log is the section that grows
 without limit, so it archives by month into `docs/brainstorm/YYYY-MM.md` — which
-happened on 2026-07-30, when this file hit 592 lines.
+happened on 2026-07-30, when this file hit 592 lines. The same rule applies
+recursively: `2026-07.md` itself passed ~500 lines the same day, so it split
+again by purpose into `2026-07-<topic>.md` files, with `2026-07.md` left behind
+as a short index.
 
 Last updated: 2026-07-30
 
@@ -47,13 +50,21 @@ Last updated: 2026-07-30
     cited D1 in the wrong file; and the claim that constraints were tested had
     no tests behind it. Fixed all three, added `scripts/test-schema.sh`, gave
     shifts a tombstone (D4), rewrote `README.md`, archived this file's Q&A log
-12. **NEXT:** Scaffold the Expo app (`npx create-expo-app`). Two traps: scaffold
+12. Installed `sqlite3` and DB Browser for SQLite (both via `winget`), since
+    `test-schema.sh` had been silently skipping on this machine the whole time
+    (`WARN sqlite3 not installed`). Verified the suite actually catches a
+    broken constraint by loosening a `CHECK` and watching it fail, not just
+    trusting the 19-checks-passed output. Found `core.hooksPath` wasn't
+    actually set on this machine despite being documented as done, and
+    re-ran it. Split the July Q&A archive again, this time by purpose, once
+    it itself passed the ~500 line threshold
+13. **NEXT:** Scaffold the Expo app (`npx create-expo-app`). Two traps: scaffold
     into *this* directory or the result is `tip-tracker/tip-tracker/`, and
     `create-expo-app` overwrites `README.md` and `.gitignore`. Both are real
     files now, so restore them afterward and check `git status`
-13. *(not started)* Wire `schema.sql` into `expo-sqlite`, with `PRAGMA
+14. *(not started)* Wire `schema.sql` into `expo-sqlite`, with `PRAGMA
     foreign_keys = ON` on the connection
-14. *(not started)* Rough screen sketches, focused on the log-a-shift flow
+15. *(not started)* Rough screen sketches, focused on the log-a-shift flow
 
 ### Settled stack
 
@@ -335,7 +346,10 @@ without limit, so it archives by calendar month and a pointer stays behind:
 - [July 2026](docs/brainstorm/2026-07.md) — why documentation comes before code,
   how to tell MVP from later, SQLite vs Postgres, Expo vs bare React Native, why
   historical shifts keep their own rate, SQL syntax from nothing, keeping docs
-  from going stale, and the first code review of the repo.
+  from going stale, the first code review of the repo, why shifts keep a
+  deleted_at tombstone, actually running and breaking the schema tests to trust
+  them, GUI vs CLI for SQLite, getting unstuck in the sqlite3 shell, and why
+  there's no "backend MVP" yet.
 
 New questions get appended to the current month's file, not to this one.
 
