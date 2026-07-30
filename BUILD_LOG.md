@@ -263,3 +263,40 @@ already shipped in `477c0e5b`, and the `BUILD_LOG.md` work itself hadn't been
 logged there either. Marked both done and moved `NEXT` to wiring `schema.sql`
 into `expo-sqlite` — the cold-agent handoff protocol in `CLAUDE.md` exists
 specifically so this doesn't get missed at the end of a session.
+
+## `8a13147` — feat: wire schema.sql into expo-sqlite (2026-07-30)
+
+To recreate:
+
+1. `npx expo install expo-sqlite expo-asset expo-file-system` — installs the
+   SDK-compatible versions and registers the config plugins in `app.json`
+   automatically.
+2. Add `metro.config.js` with `config.resolver.assetExts.push('sql')`, so
+   Metro treats `schema.sql` as a bundled asset instead of trying to parse it
+   as JavaScript when it's `require`'d.
+3. Write `db.ts`: `SQLite.openDatabaseAsync('tip-tracker.db')`, then
+   `db.execAsync('PRAGMA foreign_keys = ON;')` — SQLite ignores foreign keys
+   by default, per connection, not something saved in the database file
+   itself; `schema.sql`'s own header comment already flags this.
+4. Read `PRAGMA user_version` (defaults to `0`) to decide whether
+   `schema.sql` has already been run against this database file. If not:
+   load it via `Asset.fromModule(require('./schema.sql')).downloadAsync()`
+   then `new File(asset.localUri).text()`, run it with `db.execAsync`, and
+   set `PRAGMA user_version = 1`. The version guard exists because
+   `schema.sql` has no `IF NOT EXISTS` on purpose, to keep it byte-identical
+   to what `scripts/test-schema.sh` loads — so running it twice against the
+   same file would throw on the second app launch without this guard.
+5. `db.ts` caches the open connection in a module-level promise (`getDb()`),
+   so every caller awaits the same connection instead of racing to open a
+   second one — a second connection would need its own `PRAGMA foreign_keys`
+   call, since that setting doesn't carry over.
+6. Temporarily wired `App.tsx` to call `getDb()` on mount and render
+   "database ready" or the error message, purely to prove the chain works
+   end to end. Intended to be replaced once a real screen exists.
+
+Verified with `tsc --noEmit` and `CI=1 npx expo start` followed by fetching
+`http://localhost:8081/index.bundle?platform=android&dev=true` directly —
+confirms Metro resolves every import and bundles cleanly (789 modules) without
+needing a device. Did **not** verify on an actual Android/iOS
+device or emulator — no such tooling was available in this environment, so
+the native SQLite calls themselves are unverified past what bundling proves.

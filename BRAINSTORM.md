@@ -82,9 +82,18 @@ Last updated: 2026-07-30
     (Q&A / what's next). Backfilled all 18 commits so far. Gave it the same
     staleness check `check-docs.sh` already runs against this file's
     `Last updated` date, verified by breaking it on purpose first
-16. **NEXT:** Wire `schema.sql` into `expo-sqlite`, with `PRAGMA
-    foreign_keys = ON` on the connection
-17. *(not started)* Rough screen sketches, focused on the log-a-shift flow
+16. Wired `schema.sql` into `expo-sqlite` (`db.ts`). Opens the connection,
+    turns on `PRAGMA foreign_keys = ON`, then runs `schema.sql` — shipped as
+    a bundled asset via `metro.config.js` rather than duplicated as a JS
+    string, so `db.ts` and `test-schema.sh` always run the same source of
+    truth. Guarded against re-running the `CREATE TABLE` statements on every
+    launch with `PRAGMA user_version`, since `schema.sql` deliberately has no
+    `IF NOT EXISTS`. `App.tsx` temporarily renders the open/fail status to
+    prove it end to end; that gets replaced once there's a real screen.
+    Verified with `tsc --noEmit` and a bundling `CI=1 expo start` (789
+    modules, no resolution errors) — could not verify on an actual
+    device/emulator, no Android or iOS tooling in this environment
+17. **NEXT:** Rough screen sketches, focused on the log-a-shift flow
 
 ### Settled stack
 
