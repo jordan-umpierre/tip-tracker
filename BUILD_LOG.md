@@ -455,3 +455,43 @@ Layer 0 still isn't complete against `BRAINSTORM.md`'s own MVP scope, even
 though the core loop works — "edit and delete" shifts and gross totals are
 both still missing. `shifts.ts` has no `updateShift`/`deleteShift` yet; the
 `deleted_at` tombstone column has existed since D4 but nothing writes to it.
+
+## `66f3edb` — feat: add deleteShift function (2026-07-30)
+
+`deleteShift(id: string): Promise<void>` in `shifts.ts`. An `UPDATE`, not a
+`DELETE` — sets `deleted_at` and `updated_at` to `now`, `WHERE id = ?`. Soft
+delete per D4: the row has to stay so a second device, once sync exists,
+has something to receive saying "this one's gone" — a row that's truly
+removed is invisible to a device that never saw it, so it would just
+reappear on the next sync. Verified with `tsc --noEmit`.
+
+## `5f1aa13` — feat: add delete action to ShiftList, with confirmation (2026-07-30)
+
+To recreate:
+
+1. `ShiftList.tsx` gets a `Pressable` "Delete" per row, next to the
+   existing job/date/detail text (row layout switched to
+   `flexDirection: 'row'` with the text wrapped in a `flex: 1` view so the
+   button sits at the end).
+2. Tapping it calls `Alert.alert(...)` — React Native's built-in native
+   confirmation dialog, no extra dependency — with a Cancel and a
+   destructive-styled Delete option. Only the Delete option's `onPress`
+   actually calls `deleteShift(shift.id)` and then a new `onShiftDeleted`
+   callback prop. Confirmation matters here because delete reads as
+   permanent from the user's side even though it's a soft delete under the
+   hood — they don't know or care that the row technically still exists,
+   so a stray tap shouldn't be able to lose a shift with nothing to undo it.
+3. `App.tsx` passes `onShiftDeleted={refresh}` into `ShiftList`, same
+   pattern as the other two callbacks.
+
+Shipped as one commit rather than split further: `ShiftList` was already
+wired into `App.tsx` from the previous milestone, so making
+`onShiftDeleted` a required prop broke that call site immediately.
+`CreateJobForm` and `LogShiftForm` earlier could be committed standalone
+because they were dead code (unimported) until wired in on purpose — this
+change had no such working intermediate state, so splitting it would have
+meant a commit that doesn't typecheck.
+
+Verified with `tsc --noEmit` and `CI=1 npx expo start` against a freshly
+started Metro instance — 801 modules, no resolution errors. Not yet
+verified on a physical device.

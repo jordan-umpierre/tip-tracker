@@ -145,12 +145,23 @@ Last updated: 2026-07-30
     a job, logged several shifts, all showed up correctly in the list.
     First time anything in this app has been exercised as an actual user
     would, not just bundled or typechecked
-22. **NEXT:** Layer 0 isn't actually complete yet — its own scope in this
-    file calls for "edit and delete" shifts and gross totals, and neither
-    exists. `shifts.ts` has no `updateShift`/`deleteShift` (the tombstone
-    column is already there from D4, nothing writes to it yet). Start with
-    delete — smaller than edit, and `ShiftList` already has a row per shift
-    to attach an action to
+22. Added delete: `shifts.ts` got `deleteShift(id)`, an `UPDATE` setting
+    the D4 tombstone rather than a real `DELETE`. `ShiftList` got a Delete
+    button per row behind a native confirmation (`Alert.alert`, no new
+    dependency) — destructive from the user's point of view even though
+    it's soft under the hood, so a stray tap can't lose a shift silently.
+    Shipped as two commits, not three: the data-access function stood alone
+    fine (a new unused export doesn't break anything), but `ShiftList`'s
+    new required `onShiftDeleted` prop broke `App.tsx`'s existing call site
+    immediately, since that component was already wired in — unlike
+    `CreateJobForm`/`LogShiftForm` earlier, which were dead code until
+    wired, there was no working intermediate state to split there. Verified
+    with `tsc --noEmit` and a bundling `CI=1 expo start` (801 modules, no
+    resolution errors)
+23. **NEXT:** Verify delete on a physical device — logging is confirmed
+    working, delete isn't yet. After that, Layer 0 still needs `updateShift`
+    (edit) and gross totals before it's actually complete against this
+    file's own MVP scope
 
 ### Settled stack
 
