@@ -19,7 +19,24 @@ fail=0
 warn() { printf 'WARN  %s\n' "$1"; }
 err()  { printf 'FAIL  %s\n' "$1"; fail=1; }
 
-docs=(*.md)
+# Only the files git actually tracks, and read the same way as everywhere else
+# in this script - a loop fed by a process substitution, so it stays in this
+# shell. Two reasons this beats a plain *.md glob:
+#
+#   1. CLAUDE.md is gitignored local guidance. Checking it made this script
+#      behave differently on this laptop than on a fresh clone, which is the
+#      opposite of what a consistency check is for.
+#   2. *.md only matches the top level. Anything under docs/ was invisible.
+#
+# During a pre-commit run this reads the index, so a doc being added in this
+# very commit is already in the list and gets checked.
+docs=()
+while IFS= read -r f; do docs+=("$f"); done < <(git ls-files '*.md')
+
+# Same list plus the schema and the scripts, for the checks that look for
+# decision references and TODO markers in code as well as prose.
+srcs=()
+while IFS= read -r f; do srcs+=("$f"); done < <(git ls-files '*.md' '*.sql' 'scripts/*')
 
 # --- 1. Duplicate headings ------------------------------------------------
 # The exact bug from 2026-07-29. Two identical headings means one of them is
@@ -36,14 +53,14 @@ if [ -f DECISIONS.md ]; then
   # Decision numbers that actually exist, e.g. "### D3 - Soft delete..."
   defined=$(grep -o '^### D[0-9]\+' DECISIONS.md | grep -o '[0-9]\+' | sort -u)
   # Every D<n> mentioned anywhere, in docs or in code comments.
-  mentioned=$(grep -rhoE '\bD[0-9]+\b' -- *.md *.sql scripts/ 2>/dev/null \
+  mentioned=$(grep -hoE '\bD[0-9]+\b' -- "${srcs[@]}" 2>/dev/null \
                 | grep -oE '[0-9]+' | sort -u)
   for n in $mentioned; do
     grep -qx "$n" <<<"$defined" || err "D$n is referenced but not defined in DECISIONS.md"
   done
   # A decision nobody points at isn't necessarily wrong, but it's worth knowing.
   for n in $defined; do
-    count=$(grep -rhoE "\bD$n\b" -- *.md *.sql 2>/dev/null | grep -c . || true)
+    count=$(grep -hoE "\bD$n\b" -- "${srcs[@]}" 2>/dev/null | grep -c . || true)
     [ "$count" -le 1 ] && warn "D$n is defined but never referenced anywhere"
   done
 fi
@@ -62,11 +79,16 @@ for f in "${docs[@]}"; do
   # substitution keeps the loop in this shell, so fail=1 sticks.
   while read -r target; do
     case "$target" in http*|mailto:*) continue ;; esac
-    # Strip any #L42 line anchor before checking the path.
+    # Strip any #L42 line anchor before checking the path. A link that is only
+    # an anchor, like [jump](#risks), leaves nothing behind and is skipped.
     path="${target%%#*}"
     [ -z "$path" ] && continue
-    [ -e "$path" ] || err "$f links to '$path', which doesn't exist"
-  done < <(grep -oE '\]\([^)#]+\)' "$f" | sed 's/^](//; s/)$//')
+    # Resolve the path against the directory of the file the link was written
+    # in, not the repo root. A link inside docs/brainstorm/ that points at
+    # ../../schema.sql is correct, and checking it from the root would call it
+    # broken. For a top-level file dirname gives ".", so nothing changes there.
+    [ -e "$(dirname "$f")/$path" ] || err "$f links to '$path', which doesn't exist"
+  done < <(grep -oE '\]\([^)]+\)' "$f" | sed 's/^](//; s/)$//')
 done
 
 # --- 4. The schema still has to be valid SQL ------------------------------
@@ -86,7 +108,7 @@ fi
 # --- 5. Leftover TODO markers ---------------------------------------------
 # Fine to have. Not fine to forget. Listing them keeps them deliberate.
 # Requires a colon or paren, so prose *about* TODO markers doesn't match itself.
-todos=$(grep -rnE 'TODO[(:]|FIXME[(:]' -- *.md *.sql 2>/dev/null || true)
+todos=$(grep -nE 'TODO[(:]|FIXME[(:]' -- "${srcs[@]}" 2>/dev/null || true)
 [ -n "$todos" ] && warn "open TODO/FIXME markers:$(printf '\n        %s' "$todos")"
 
 # --- 6. Docs that outgrew the split threshold -----------------------------
