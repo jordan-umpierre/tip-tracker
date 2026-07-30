@@ -76,3 +76,15 @@ export async function listShifts(): Promise<Shift[]> {
      ORDER BY shift_date DESC;`
   );
 }
+
+export async function deleteShift(id: string): Promise<void> {
+  const db = await getDb();
+  const now = new Date().toISOString();
+
+  // Soft delete, per D4: set the tombstone instead of removing the row.
+  // The row has to stay so a second device, once sync exists, has
+  // something to receive that says "this one's gone" -- a row that's
+  // truly deleted is invisible to a device that never saw it in the first
+  // place, and it would just reappear on the next sync.
+  await db.runAsync(`UPDATE shifts SET deleted_at = ?, updated_at = ? WHERE id = ?;`, now, now, id);
+}
