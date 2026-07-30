@@ -47,7 +47,7 @@ export default function App() {
       ) : (
         <>
           <LogShiftForm jobs={jobs} onShiftLogged={refresh} />
-          <ShiftList shifts={shifts} jobs={jobs} />
+          <ShiftList shifts={shifts} jobs={jobs} onShiftDeleted={refresh} />
         </>
       )}
       <StatusBar style="auto" />
