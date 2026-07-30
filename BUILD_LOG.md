@@ -348,3 +348,29 @@ To recreate:
 
 Verified with `tsc --noEmit`. Not yet wired into any screen, so nothing to
 bundle-check or run on device for this commit specifically.
+
+## `bec551a` — feat: add shifts data-access functions (2026-07-30)
+
+Second and last piece of the data-access layer before any screen gets built.
+Same pattern as `jobs.ts`, adapted for `shifts`' extra columns and its
+foreign key.
+
+To recreate:
+
+1. `createShift(jobId, shiftDate, minutes, tipsCents, hourlyRateCents, note)`:
+   same UUID/timestamp/`runAsync`-with-placeholders shape as `createJob`.
+   `hourlyRateCents` is a required argument, not looked up from the job
+   inside the function — `schema.sql`'s own comment is explicit that this
+   column is a copy of the job's rate at the moment of the shift, not a live
+   reference, so a raise later can't rewrite what a past shift actually
+   paid. The caller (the log-a-shift screen) decides the value: default it
+   to the job's current rate, let the user override it for a special shift.
+   `deleted_at` is explicitly `NULL` on insert.
+2. `listShifts()`: `db.getAllAsync<Shift>(...)`, filtered
+   `WHERE deleted_at IS NULL` (the D4 tombstone rule), ordered by
+   `shift_date DESC` — most recent first, the natural order for a scrolling
+   list. Takes no filter arguments and returns every shift; the dataset is a
+   few thousand rows at most for MVP, so there's no performance reason to
+   push filtering into SQL before a screen actually needs a narrower query.
+
+Verified with `tsc --noEmit`. Not yet wired into any screen.

@@ -116,8 +116,18 @@ Last updated: 2026-07-30
     `db.getAllAsync<Job>(...)` instead of `db.runAsync(...)`, filtering
     `archived_at IS NULL` per D3. Verified with `tsc --noEmit`; not wired into
     a screen yet, so nothing to run on device for this one
-19. **NEXT:** `shifts.ts` — `createShift` and `listShifts`, same pattern as
-    `jobs.ts`, then the log-a-shift screen that calls both files
+19. Wrote `shifts.ts`: `createShift` and `listShifts`, same pattern as
+    `jobs.ts`. `hourlyRateCents` is a required argument rather than looked up
+    from the job inside the function — `schema.sql` is explicit that the
+    column copies the job's rate at the moment of the shift, not a live
+    reference, so the caller decides the value (default it to the job's
+    current rate, let the user override it). `listShifts` takes no filter
+    arguments for now, returns every non-deleted shift most recent first,
+    and leaves grouping to the caller — add a filtered variant once a screen
+    actually needs one. Verified with `tsc --noEmit`
+20. **NEXT:** The log-a-shift screen — first real UI, calling `createJob` /
+    `listActiveJobs` / `createShift` / `listShifts`. This is the screen
+    `BRAINSTORM.md`'s own Pushback section says to obsess over
 
 ### Settled stack
 
