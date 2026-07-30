@@ -9,8 +9,8 @@ Start to finish. Nothing gets decided in chat and forgotten.
   deliberately deferred.
 - **Pushback / Risks** — what a senior engineer would object to.
 - **Open Questions** — what's undecided and blocking.
-- **Q&A / Confusions** — every question I asked and the answer, kept verbatim
-  enough to be useful later.
+- **Q&A / Confusions** — every question I asked and the answer. Lives in
+  `docs/brainstorm/`, one file per month, with a pointer left here.
 - **Concepts to Learn** — things I hit but don't understand yet.
 
 **Companion docs:**
@@ -20,10 +20,11 @@ Start to finish. Nothing gets decided in chat and forgotten.
 
 Splitting rule: docs get split by purpose, never into `BRAINSTORM_2.md`. A
 numbered sequel makes things unfindable — "which file has the Expo decision?"
-is a question nobody should have to ask. When the Q&A log outgrows this file, it
-archives by month into `docs/brainstorm/YYYY-MM.md`.
+is a question nobody should have to ask. The Q&A log is the section that grows
+without limit, so it archives by month into `docs/brainstorm/YYYY-MM.md` — which
+happened on 2026-07-30, when this file hit 592 lines.
 
-Last updated: 2026-07-29
+Last updated: 2026-07-30
 
 ---
 
@@ -41,9 +42,15 @@ Last updated: 2026-07-29
    against sqlite3
 10. Split `DECISIONS.md` out of this file once it passed 750 lines, and added
     `scripts/check-docs.sh` plus a git pre-commit hook to stop docs rotting
-11. **NEXT:** Scaffold the Expo app (`npx create-expo-app`)
-12. *(not started)* Rewrite `README.md` — after scaffolding, since
-    `create-expo-app` writes its own README that would overwrite it
+11. First code review of the repo. `check-docs.sh` turned out to print FAIL and
+    exit 0, so nothing it found had ever blocked a commit; `schema.sql` still
+    cited D1 in the wrong file; and the claim that constraints were tested had
+    no tests behind it. Fixed all three, added `scripts/test-schema.sh`, gave
+    shifts a tombstone (D4), rewrote `README.md`, archived this file's Q&A log
+12. **NEXT:** Scaffold the Expo app (`npx create-expo-app`). Two traps: scaffold
+    into *this* directory or the result is `tip-tracker/tip-tracker/`, and
+    `create-expo-app` overwrites `README.md` and `.gitignore`. Both are real
+    files now, so restore them afterward and check `git status`
 13. *(not started)* Wire `schema.sql` into `expo-sqlite`, with `PRAGMA
     foreign_keys = ON` on the connection
 14. *(not started)* Rough screen sketches, focused on the log-a-shift flow
@@ -198,7 +205,8 @@ so a user who never touches it never sees it.
 ## Decision Log
 
 Moved to `DECISIONS.md` so it stays findable as this file grows. Currently
-D1 (local-first storage), D2 (Expo), D3 (soft delete for jobs).
+D1 (local-first storage), D2 (Expo), D3 (soft delete for jobs), D4 (tombstones
+for shifts).
 
 ---
 
@@ -321,262 +329,15 @@ day. Date-only, or timestamp?
 
 ## Q&A / Confusions
 
-Every question I ask goes here with its answer.
-
-### 2026-07-29 — "What's the next logical step or commit an engineer would do?"
-
-Write down what the app does before choosing any technology.
-
-The reason: every technical decision downstream (database, whether there's a
-server, what screens exist) is derived from the problem statement. Pick the
-stack first and you're guessing. Guess wrong and you rewrite the data model
-after you've already built on top of it.
-
-Concretely, the next commits are documentation, not features. That's normal and
-it reads well in a commit history — it shows the thinking happened before the
-typing.
-
-### 2026-07-29 — "Not sure what an actual engineer would have as MVP vs not MVP"
-
-The test isn't "is this feature important." Everything you listed is important.
-The test is: **what is the smallest version someone would genuinely use?**
-
-Two questions that sort any feature list:
-
-1. *Does this change the data model, or does it just read data I already have?*
-   Trends and charts only read existing shift data. So they can't block
-   anything, so they aren't MVP. Anything that adds new stored fields
-   (tax profile, mileage) is a bigger deal and needs more thought.
-2. *If I ship without this, is the app useless or just less good?* Useless means
-   MVP. Less good means later.
-
-Applied here: logging a shift and seeing your shifts is the useless/not-useless
-line. Everything else — trends, net income, 1099 — is "less good without it."
-
-The instinct to resist: building the most interesting part first. The tax engine
-is the fun problem. But if shift logging is annoying, nobody logs shifts, and a
-tax engine with no data is worth nothing.
-
-### 2026-07-29 — "Why use SQLite when my tech stack clearly states PostgreSQL?"
-
-Because they aren't competing for the same slot. They're different *kinds* of
-thing that happen to both be called databases.
-
-**Postgres is a server.** A separate program that runs continuously on a
-machine. Your app connects to it over a network. Something has to keep it alive,
-patch it, back it up.
-
-**SQLite is a library.** It's a file on disk, plus code linked into your app
-that reads and writes that file. No process to run, no network, no connection
-string, no port.
-
-That difference decides everything. You can't run Postgres on a phone — not
-"it's a bad idea," the model doesn't fit. Phones suspend and kill background
-processes, and there's no always-on machine to be the server.
-
-So the actual question is never "SQLite or Postgres." It's **where does the data
-live?**
-
-- Data on the device → SQLite. Effectively the only option.
-- Data on a server → Postgres. Correct choice, exactly as your stack says.
-- Both → both, which is the normal answer for serious mobile apps. SQLite on
-  device for instant offline reads and writes, Postgres on the server as the
-  source of truth, sync between them. That pattern is called **local-first**.
-
-Your stack list is a web stack. Postgres is on it because web servers talk to
-Postgres. Nothing about that changed — it just doesn't reach onto the phone.
-If we build the backend, it's Node + Express + Postgres, straight down your
-stack. SQLite sits underneath it on the device, not instead of it.
-
-Worth noticing the general pattern here: when a tool seems not to fit, check
-whether you're comparing two things that occupy the same slot. Often they don't,
-and the real question was one level up.
-
-### 2026-07-29 — "Are you saying I should use both Expo and native, like SQLite + Postgres?"
-
-No. This one is genuinely either/or, and the difference between the two
-situations is worth understanding because it comes up constantly.
-
-**SQLite + Postgres was additive.** Two different places needing storage: the
-phone and the server. Two tools, two locations, both exist at once.
-
-**Expo vs bare React Native is a single choice about a single project.** There's
-one app, and its native build config is either generated by a toolchain or
-managed by hand. It can't be both at the same time.
-
-#### The naming is what makes this confusing
-
-Three different things get called "native" in these conversations:
-
-| Tier | What it means | Language | Renders native UI? |
-|---|---|---|---|
-| Truly native | Separate iOS and Android apps | Swift + Kotlin | Yes |
-| Bare React Native | React Native, native build files managed by hand | TypeScript | Yes |
-| Expo | React Native, native build files generated by tooling | TypeScript | Yes |
-
-The trap: **"bare React Native" is not "native."** "Bare" describes the *build
-setup*, not the language. Tiers 2 and 3 are both React Native, both TypeScript,
-and both render genuinely native UI. Choosing bare over Expo does not make the
-app more native — it makes the build configuration your job.
-
-So "Expo vs native" is really two separate questions, and one is already
-settled:
-
-1. React Native vs truly native — **settled.** React Native, because it reuses
-   React and means one codebase.
-2. Expo vs bare React Native — **the actual open question.** Both are React
-   Native. Only the build tooling differs.
-
-#### The analogy that actually maps
-
-**Expo is to React Native what Next.js is to React on the web.**
-
-Next.js *is* React — plus routing, bundling, and build configuration handled for
-you. Nobody says "I'm choosing between React and Next.js" as if they were rival
-libraries. You use React *through* Next.js. Same relationship here: you use
-React Native through Expo.
-
-#### Why my earlier point sounded like "both"
-
-I said you can start on Expo and move to bare later. That's a **one-way
-transition, not simultaneous use.** `npx expo prebuild` writes out the `ios/`
-and `android/` folders, you commit them, and from then on they're yours to
-maintain. Like ejecting.
-
-It's a door you can walk through once if Expo ever stops serving the project.
-Not two things running side by side.
-
-#### So the practical answer
-
-Pick Expo. You are still using React. You are still using React Native. You are
-simply not hand-writing Xcode and Gradle configuration — and if that ever
-becomes necessary, prebuild hands those files over.
-
-### 2026-07-29 — Q2 answered: historical shifts keep their original rate
-
-My answer: the past 200 shifts should not change when the wage changes. Correct.
-
-The reason, stated so I can defend it: a Shift is a **record of something that
-happened.** It is not a live calculation. If a shift's pay is derived by looking
-up the job's current rate, then every raise silently rewrites history, and last
-year's earnings — the thing this app exists to report accurately — become wrong.
-
-So the rate has to be **copied onto the shift row** when the shift is created.
-Denormalization, deliberately. The general rule underneath it:
-
-> Anything that describes a past event gets stored with that event. Anything
-> that describes the current state of the world gets looked up.
-
-The Job's rate is current state — it's the default for the *next* shift. The
-rate on a Shift row is history and never changes.
-
-This same reasoning will come back in Layer 2, since tax rates also change year
-to year.
-
-### 2026-07-29 — "I don't know SQL syntax at all, and I don't know what files or directories to make. It's overwhelming."
-
-The overwhelm has a cause: trying to hold the whole app in your head at once.
-That isn't possible for anyone. The fix is shrinking the unit of work until it's
-boring.
-
-Three things that make this smaller than it feels:
-
-**1. You don't design the directory structure.** `npx create-expo-app` generates
-it. Not a decision to agonize over — the tool has a reasonable opinion. And
-we're not at that step yet.
-
-**2. SQLite has five data types.** `TEXT`, `INTEGER`, `REAL`, `BLOB`, `NULL`.
-That's the whole type system. Compare to memorizing all of CSS.
-
-**3. The next file is one file.** `schema.sql`. Not a project.
-
-#### SQL syntax, the 5% that covers this schema
-
-Creating a table is a list of columns. Each column is three things: a name, a
-type, and optional constraints.
-
-```sql
-CREATE TABLE table_name (
-  column_name TYPE CONSTRAINTS,
-  another_column TYPE CONSTRAINTS
-);
-```
-
-Types used here:
-
-- `TEXT` — strings. Also dates, since SQLite has no date type. ISO 8601
-  (`2026-07-29`) is used because it sorts correctly as plain text.
-- `INTEGER` — whole numbers. All money and all durations, to avoid floats.
-- `REAL` — floating point. Deliberately avoided in this schema.
-
-Constraints used here:
-
-- `PRIMARY KEY` — this column uniquely identifies the row.
-- `NOT NULL` — the database rejects a row missing this value. Validation that
-  lives in the database can't be forgotten by application code.
-- `FOREIGN KEY` — this column must point at a real row in another table. Stops
-  a shift from referencing a job that doesn't exist.
-
-Naming convention for this project: `snake_case` for tables and columns, plural
-table names (`jobs`, `shifts`), and units in the column name
-(`hourly_rate_cents`, not `hourly_rate`) so nobody has to guess.
-
-### 2026-07-29 — "How do we prevent anything becoming stale in the docs?"
-
-Short answer: don't rely on remembering. Write a check.
-
-Two real bugs got committed today, both from appending to a long file without
-re-reading the whole thing:
-
-- A duplicate `## Decision Log` heading, where the stale copy still said
-  *"(empty — no real decisions made yet)"* while D1, D2, and D3 sat above it.
-- A D2 subsection stranded after D3, so the React Native vs Flutter reasoning
-  appeared to belong to the soft-delete decision.
-
-Neither is the kind of thing a person reliably catches. Both are trivial for a
-script.
-
-So `scripts/check-docs.sh` now runs on every commit via a git hook. It checks:
-
-1. Duplicate headings in any markdown file — the exact bug above
-2. `D<n>` references that don't resolve to an entry in `DECISIONS.md`
-3. Markdown links pointing at files that don't exist
-4. That `schema.sql` still parses as valid SQL
-5. Leftover TODO/FIXME markers (warning, not a failure)
-6. Docs past the ~500 line split threshold (warning)
-
-Failures block the commit. Warnings just print. `--no-verify` overrides it when
-the check is wrong rather than the docs.
-
-#### The general principle
-
-> A rule nobody enforces is a rule that quietly stops being true.
-
-We wrote several doc conventions today. Every one of them would have decayed
-within a month on good intentions alone. The ones that survive are the ones with
-a check behind them.
-
-This is the same reasoning as putting `NOT NULL` and `CHECK` in the database
-instead of trusting app code — see `schema.sql`. Constraints that can't be
-bypassed beat discipline that can.
-
-Corollary worth remembering: when adding a new convention, add its check at the
-same time. If a convention can't be checked automatically, say so out loud
-rather than writing a rule that only looks enforced.
-
-#### Where the hook lives, and why it's slightly awkward
-
-Git normally looks in `.git/hooks/`, which is not tracked by version control —
-so a hook there would exist only on this laptop and vanish on a fresh clone.
-
-The fix: the hook lives in `.githooks/` (tracked, committed) and git is pointed
-at it with a one-time command:
-
-```
-git config core.hooksPath .githooks
-```
-
-Already run on this machine. Any fresh clone needs it once.
+Every question I ask goes here with its answer. This is the section that grows
+without limit, so it archives by calendar month and a pointer stays behind:
+
+- [July 2026](docs/brainstorm/2026-07.md) — why documentation comes before code,
+  how to tell MVP from later, SQLite vs Postgres, Expo vs bare React Native, why
+  historical shifts keep their own rate, SQL syntax from nothing, keeping docs
+  from going stale, and the first code review of the repo.
+
+New questions get appended to the current month's file, not to this one.
 
 ---
 
