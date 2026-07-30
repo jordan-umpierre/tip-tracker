@@ -24,12 +24,12 @@ Last updated: 2026-07-29
 4. Created `BRAINSTORM.md` — the file you're reading
 5. Defined the problem, the differentiators, and what's out of scope
 6. Split the feature set into MVP + three later layers
-7. **NEXT:** Decide backend vs on-device, then platform/stack. Record both with
-   tradeoffs in the Decision Log
-8. *(not started)* Rewrite `README.md` to actually describe the product
+7. Decided architecture: local-first, SQLite on device, sync added later (D1)
+8. **NEXT:** Decide React Native + Expo vs bare React Native. Record as D2
 9. *(not started)* Data model on paper — entities and their relationships
-10. *(not started)* Rough screen sketches, focused on the log-a-shift flow
-11. *(not started)* Scaffold the project, first real code
+10. *(not started)* Rewrite `README.md` to actually describe the product
+11. *(not started)* Rough screen sketches, focused on the log-a-shift flow
+12. *(not started)* Scaffold the project, first real code
 
 ---
 
@@ -179,7 +179,181 @@ Format for each entry:
 > **Why:** the tradeoff, in plain language
 > **Revisit when:** the condition that would change this call
 
-*(empty — decisions start next round)*
+### D1 — Local-first, with sync added later (2026-07-29)
+
+> **Decision:** SQLite on the device is the source of truth for MVP. No user
+> accounts, no backend, no login screen. A Node + Express + Postgres backend
+> with *optional* sign-in gets added around Layer 1/2. Users who sign in get
+> backup and multi-device sync. Users who don't keep working exactly as before.
+>
+> **Alternatives:**
+> - On-device only, forever, with manual export as the backup story
+> - Backend and accounts from day one
+>
+> **Why:** Logging a shift has to be instant and work with no signal — a
+> basement break room has no bars. That forces a device-side write no matter
+> what, so on-device storage is work we do in every version of this plan. A
+> day-one backend doesn't replace that work, it stacks server work on top of
+> it, plus auth we'd likely rewrite once we understand the product.
+>
+> Going the other way and staying local forever is wrong too, and the reason
+> isn't scale — it's data value. This app holds multi-year income and tax
+> records. Losing a phone shouldn't mean losing your tax history, and manual
+> export doesn't save anyone because nobody remembers to export.
+>
+> Local-first is the option that respects both facts.
+>
+> **Known cost:** the local schema has to be designed so it can sync later.
+> Sync conflict resolution is genuinely one of the harder problems in software.
+> It's tractable here because records are single-user and mostly append-only, so
+> two devices rarely touch the same row and last-write-wins is defensible. This
+> is the part to be careful about, not hand-wave.
+>
+> **Revisit when:** users ask for multi-device or web access, or the first
+> person loses their history. Either is the trigger to build the backend.
+
+**What this means for the stack:** SQLite on the device, Postgres on the server
+when the server exists. Both, in different places — not one instead of the
+other.
+
+### D2 — PROPOSED: Expo (not bare React Native)
+
+Not decided yet. Tradeoffs written out so the choice is mine to make.
+
+#### First: React is not being replaced
+
+Worth clearing up before the tradeoffs, because it's the same shape of
+confusion as SQLite vs Postgres — comparing two things that don't occupy the
+same slot.
+
+React is not a rendering target. It's a component model: JSX, props, state,
+hooks, composition, the reconciler that figures out what changed. That core is
+platform-agnostic on purpose.
+
+What varies is the **renderer** plugged into it:
+
+| Renderer | Renders to | Where |
+|---|---|---|
+| `react-dom` | HTML DOM elements | browser |
+| `react-native` | real native iOS/Android views | phone |
+
+Same React. Same hooks, same mental model, same `useState`. What changes is the
+vocabulary of primitives:
+
+- `<div>` becomes `<View>`
+- `<p>` / `<span>` becomes `<Text>`
+- CSS files become style objects (flexbox works, and it's the default)
+- `onClick` becomes `onPress`
+
+So React is fully in the stack. React Native isn't an alternative to React —
+it's React with a different renderer. Your React knowledge transfers almost
+completely. What doesn't transfer is CSS and the DOM.
+
+**And Expo is not an alternative to React Native either.** Expo is a framework
+and toolchain built on top of React Native. Every Expo app *is* a React Native
+app. So the real question is narrower than it sounds:
+
+> Do I let a toolchain generate and manage the native iOS/Android build
+> configuration for me, or do I own those files myself?
+
+That's it. That's the whole decision.
+
+#### How Expo actually works now
+
+The current model is **Continuous Native Generation (CNG)**. You don't keep
+`ios/` and `android/` folders in the repo. They're generated on demand from
+`app.json` plus "config plugins" by running `npx expo prebuild`. Native config
+becomes declarative and version-controlled as JSON instead of hand-edited Xcode
+project files.
+
+The old limitation people remember — "you can't use native modules on Expo" —
+is gone. Config plugins are how arbitrary native code gets wired in now.
+
+#### Expo — pros
+
+- **No Xcode or Gradle config to hand-edit.** Native SDK versions, iOS
+  deployment target, permissions strings are declared in `app.json`. This is
+  where solo mobile devs lose entire weeks.
+- **EAS Build** compiles iOS and Android in the cloud, so app-store builds don't
+  depend on local toolchain setup being correct.
+- **EAS Submit** uploads to App Store Connect and Google Play.
+- **`expo-sqlite` is first-party.** Lines up exactly with D1 — the storage layer
+  is a maintained module rather than a third-party gamble.
+- **Over-the-air updates** (`expo-updates`) ship JS-only fixes without an app
+  store review cycle. For a money app this matters a lot: a wrong number gets
+  fixed today instead of in three days after Apple approves.
+- **`expo-router`** gives file-based routing, which is the Next.js pattern.
+  Familiar territory.
+- Large set of maintained native modules (secure storage, haptics, notifications,
+  file system) that would otherwise mean auditing random npm packages.
+
+#### Expo — cons (the honest ones)
+
+- **An extra abstraction layer to debug.** When a cloud build fails, the problem
+  might be your code, the native platform, *or* Expo's tooling. Three suspects
+  instead of two.
+- **Upgrades happen on Expo's schedule, not yours.** React Native versions land
+  when an Expo SDK supports them, roughly quarterly. You can't jump to a new RN
+  release the day it drops.
+- **EAS is a paid service** past a limited free tier — queue times and build
+  minutes. Fine at this size, and local builds are still possible for free, but
+  it's a company you're now partly dependent on.
+- Slightly larger app binaries by default.
+- An unusual native dependency may need a config plugin written, which is real
+  work when it happens.
+
+#### Bare React Native — pros
+
+- Total control of the native projects. No layer between you and the platform.
+- Upgrade React Native whenever you want.
+- No dependency on a third-party build service or its pricing.
+
+#### Bare React Native — cons
+
+- **You own signing certificates, provisioning profiles, CocoaPods, and Gradle.**
+  This is not conceptually hard, it's just an enormous amount of fiddly detail
+  with bad error messages.
+- **RN version upgrades are genuinely painful** in bare projects, because
+  upgrading means merging changes into native files you've since modified.
+- **Parts of the Expo ecosystem stop working.** Confirmed in Expo's own docs:
+  `expo-build-properties`, for example, is explicitly incompatible with projects
+  that don't use `expo prebuild`. Going bare isn't only "more work," it also
+  costs access to tooling.
+- No over-the-air updates unless you add and operate that yourself.
+
+#### Recommendation and reasoning
+
+**Expo**, for reasons specific to this project rather than general preference:
+
+1. Solo developer, first mobile app, 3–10 users. The scarce resource is your
+   time, and the native build pipeline is the single most reliable way to burn
+   weeks without shipping anything a user can see.
+2. `expo-sqlite` matches D1 directly.
+3. OTA updates are disproportionately valuable for an app that shows people
+   money numbers.
+4. **There's a real escape hatch.** `npx expo prebuild` generates the native
+   projects, and you can commit them and manage them yourself from then on.
+   "We can leave if we need to" is actually true, which is what makes this a
+   low-risk bet rather than a lock-in.
+
+Point 4 is the one to be able to say in an interview. The strongest argument for
+Expo isn't that it's easier — it's that choosing it doesn't foreclose the
+alternative.
+
+**Revisit when:** a required native dependency has no config plugin, EAS pricing
+stops making sense, or binary size becomes a real constraint. None apply now.
+
+#### The decision one level up (already settled, worth noting)
+
+React Native vs Flutter vs native Swift + Kotlin was never close here. Flutter
+means learning Dart. Native means learning two languages and maintaining two
+codebases. React Native reuses React, which you already know. One codebase, two
+stores.
+
+The tradeoff being accepted: React Native apps can feel very slightly less
+native than hand-written Swift, especially in complex animations. For a
+form-and-charts app, that gap is not where quality will be won or lost — the
+UI/UX bar from the product definition is achievable here.
 
 ---
 
@@ -203,10 +377,12 @@ Format for each entry:
 ### Round 2: Architecture
 
 **Q1. Does MVP need a backend and user accounts, or is on-device storage
-enough?**
+enough? — ANSWERED, see D1 in the Decision Log.**
 
-This is the expensive decision. Both are defensible; they're defensible for
-different reasons.
+Kept below because the rejected options and their tradeoffs are the useful part.
+
+This was the expensive decision. All three options are defensible; they're
+defensible for different reasons.
 
 *Option A — on-device only.* Data lives in SQLite on the phone. No server, no
 accounts, no login screen.
@@ -256,10 +432,7 @@ Note that "production ready" does not mean "has a backend." It means real people
 can rely on it: doesn't lose data, doesn't crash, handles bad input, is
 supportable. Plenty of shipped production apps store everything on device.
 
-**Q2. React Native vs Expo?**
-
-Both are React Native. Expo is tooling on top of it. Expo is almost certainly
-right here, but it gets its own writeup before we commit.
+**Q2. Expo vs bare React Native? — see the full writeup below (D2, proposed).**
 
 **Q3. Where does the tax logic live?**
 
