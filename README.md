@@ -70,6 +70,7 @@ knowing before reading it:
 ```
 BRAINSTORM.md         product thinking, open questions, learning log
 DECISIONS.md          numbered decisions with their rejected alternatives
+BUILD_LOG.md          commit-by-commit history, detailed enough to recreate
 schema.sql            the data model
 docs/brainstorm/      archived Q&A log, one file per month
 scripts/              the checks below

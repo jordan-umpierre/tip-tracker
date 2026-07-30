@@ -151,6 +151,24 @@ if [ -f BRAINSTORM.md ]; then
   fi
 fi
 
+# --- 8. BUILD_LOG.md going stale --------------------------------------------
+# BUILD_LOG.md is a commit-by-commit recreation log (see its own header for
+# why it's a separate file from BRAINSTORM.md and DECISIONS.md). Same logic as
+# check 7: if real work is staged and this file's "Last updated" date isn't
+# today, whoever reads it next to recreate a step is reading a log that's
+# missing the most recent commits. A warning, not a failure, for the same
+# reason as check 7 -- not every commit is a full logging session.
+if [ -f BUILD_LOG.md ]; then
+  staged=$(git diff --cached --name-only 2>/dev/null || true)
+  other_changes=$(grep -vx 'BUILD_LOG.md' <<<"$staged" || true)
+  logged_date=$(grep -oE '^Last updated: [0-9]{4}-[0-9]{2}-[0-9]{2}' BUILD_LOG.md \
+                  | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}')
+  today=$(date +%F)
+  if [ -n "$other_changes" ] && [ -n "$logged_date" ] && [ "$logged_date" != "$today" ]; then
+    warn "BUILD_LOG.md says 'Last updated: $logged_date', not today ($today) -- add an entry for this session's commits if they belong in the log"
+  fi
+fi
+
 if [ "$fail" -eq 0 ]; then
   echo "docs OK"
 else
