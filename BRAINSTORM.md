@@ -141,9 +141,16 @@ Last updated: 2026-07-30
     data flow between a form and its parent. Verified with `tsc --noEmit`
     and a bundling `CI=1 expo start` (750 modules, no resolution errors)
     against a freshly started Metro instance
-21. **NEXT:** Verify the log-a-shift screen for real on a physical device —
-    create a job, log a shift, confirm it shows up in the list. Everything
-    so far only proves it bundles, not that it behaves correctly on device
+21. Confirmed the log-a-shift screen for real on a physical device: created
+    a job, logged several shifts, all showed up correctly in the list.
+    First time anything in this app has been exercised as an actual user
+    would, not just bundled or typechecked
+22. **NEXT:** Layer 0 isn't actually complete yet — its own scope in this
+    file calls for "edit and delete" shifts and gross totals, and neither
+    exists. `shifts.ts` has no `updateShift`/`deleteShift` (the tombstone
+    column is already there from D4, nothing writes to it yet). Start with
+    delete — smaller than edit, and `ShiftList` already has a row per shift
+    to attach an action to
 
 ### Settled stack
 

@@ -445,5 +445,13 @@ together in `App.tsx`. To recreate:
 Verified with `tsc --noEmit` and `CI=1 npx expo start` followed by fetching
 `http://localhost:8081/index.bundle?platform=android&dev=true` against a
 freshly started Metro instance (killed a leftover process squatting on the
-port first) — 750 modules, no resolution errors. Not yet verified on a
-physical device; that's the next step.
+port first) — 750 modules, no resolution errors.
+
+Confirmed for real afterward on a physical device: created a job, logged
+several shifts, all appeared correctly in the list. First time this app has
+been used the way an actual user would, not just bundled or typechecked.
+
+Layer 0 still isn't complete against `BRAINSTORM.md`'s own MVP scope, even
+though the core loop works — "edit and delete" shifts and gross totals are
+both still missing. `shifts.ts` has no `updateShift`/`deleteShift` yet; the
+`deleted_at` tombstone column has existed since D4 but nothing writes to it.
