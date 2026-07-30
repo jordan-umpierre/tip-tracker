@@ -158,10 +158,14 @@ Last updated: 2026-07-30
     wired, there was no working intermediate state to split there. Verified
     with `tsc --noEmit` and a bundling `CI=1 expo start` (801 modules, no
     resolution errors)
-23. **NEXT:** Verify delete on a physical device — logging is confirmed
-    working, delete isn't yet. After that, Layer 0 still needs `updateShift`
-    (edit) and gross totals before it's actually complete against this
-    file's own MVP scope
+23. Confirmed delete on a physical device: logged a shift, tapped Delete,
+    confirmation prompt showed, shift disappeared from the list after
+    confirming. Both create and delete now verified working for real, not
+    just bundled
+24. **NEXT:** Edit shifts (`updateShift` in `shifts.ts`, plus UI to trigger
+    it — likely tapping a row to open it pre-filled in something shaped
+    like `LogShiftForm`). Last piece before gross totals, and then Layer 0
+    is actually complete against this file's own MVP scope
 
 ### Settled stack
 

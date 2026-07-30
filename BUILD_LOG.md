@@ -493,5 +493,8 @@ change had no such working intermediate state, so splitting it would have
 meant a commit that doesn't typecheck.
 
 Verified with `tsc --noEmit` and `CI=1 npx expo start` against a freshly
-started Metro instance — 801 modules, no resolution errors. Not yet
-verified on a physical device.
+started Metro instance — 801 modules, no resolution errors.
+
+Confirmed for real afterward on a physical device: logged a shift, tapped
+Delete, confirmation prompt showed, shift disappeared from the list after
+confirming.
