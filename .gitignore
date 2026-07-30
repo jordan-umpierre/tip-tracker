@@ -4,6 +4,11 @@ CLAUDE.md
 # macOS
 .DS_Store
 
+# Local scratch database built from schema.sql for manual testing.
+# Not source, just a throwaway file you get by running:
+#   sqlite3 tip-tracker.db < schema.sql
+*.db
+
 # NOTE: running create-expo-app overwrites both this file and README.md with
 # its own versions. Afterward: re-add the CLAUDE.md line above, or CLAUDE.md
 # starts getting tracked without anyone noticing, and restore README.md from
