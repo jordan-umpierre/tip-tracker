@@ -125,9 +125,25 @@ Last updated: 2026-07-30
     arguments for now, returns every non-deleted shift most recent first,
     and leaves grouping to the caller — add a filtered variant once a screen
     actually needs one. Verified with `tsc --noEmit`
-20. **NEXT:** The log-a-shift screen — first real UI, calling `createJob` /
-    `listActiveJobs` / `createShift` / `listShifts`. This is the screen
-    `BRAINSTORM.md`'s own Pushback section says to obsess over
+20. Built the log-a-shift screen — first real UI in the app, and the first
+    time writing React/React Native by hand this project. `CreateJobForm`
+    built as a fully worked example (never done this before, so nudging
+    would've wasted time — a full annotated example was the right call,
+    same reasoning as the earlier `db.ts` moment). `LogShiftForm` and the
+    `App.tsx` wiring built the same way after that, on request, once the
+    same "never done this" gap applied to the rest of it too. `ShiftList`
+    added alongside `App.tsx` since MVP Layer 0 needs "see a list of past
+    shifts," not just log one. Concepts worth revisiting later: `useState`
+    initializers only run once at mount (`LogShiftForm`'s job-selection
+    default would go stale if the jobs list changed while it stayed
+    mounted — currently harmless, since `App.tsx` only renders it once jobs
+    already exist), and controlled inputs / callback props as the two-way
+    data flow between a form and its parent. Verified with `tsc --noEmit`
+    and a bundling `CI=1 expo start` (750 modules, no resolution errors)
+    against a freshly started Metro instance
+21. **NEXT:** Verify the log-a-shift screen for real on a physical device —
+    create a job, log a shift, confirm it shows up in the list. Everything
+    so far only proves it bundles, not that it behaves correctly on device
 
 ### Settled stack
 

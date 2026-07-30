@@ -374,3 +374,76 @@ To recreate:
    push filtering into SQL before a screen actually needs a narrower query.
 
 Verified with `tsc --noEmit`. Not yet wired into any screen.
+
+## `828dc0a` — feat: add CreateJobForm component (2026-07-30)
+
+First React Native UI written in this project. To recreate:
+
+1. `useState('')` for each field (`name`, `hourlyRate`) — a controlled
+   `TextInput`, where `value` comes from state and `onChangeText` writes
+   back to it, rather than letting the input hold its own text.
+2. On submit: `parseFloat` the rate (not `Number()` — `Number('')` is `0`,
+   which looks like a valid rate; `parseFloat('')` is `NaN`, easier to catch
+   as "nothing typed yet"), bail out on empty name or a negative/NaN rate,
+   convert dollars to cents with `Math.round(rate * 100)` — not a bare
+   multiply, `19.9 * 100` in JS is `1989.9999999999998`, not `1990`.
+3. Call `createJob(name, hourlyRateCents)`, clear the form, call the
+   `onJobCreated` callback prop so the parent knows a job now exists.
+4. Styled with `StyleSheet.create` — plain JS objects, no CSS, flexbox by
+   default on every `View`.
+
+Not wired into `App.tsx` yet at this point.
+
+## `45f7ead` — feat: add LogShiftForm component (2026-07-30)
+
+Same shape as `CreateJobForm`, more fields. To recreate:
+
+1. Six pieces of state: `selectedJobId`, `shiftDate` (defaults to
+   `new Date().toISOString().slice(0, 10)` — date-only, matching
+   `schema.sql`'s convention), `hours`, `tips`, `hourlyRate` (defaults to the
+   first job's rate), `note`.
+2. Job selection as a row of tappable `Pressable` "chips," one per job, not
+   a native `Picker` — avoids adding `@react-native-picker/picker` for a
+   handful of options. Selecting a job also resets `hourlyRate` to that
+   job's rate, still editable after — the "inherited but overridable" rate
+   behavior from `BRAINSTORM.md`'s MVP scope.
+3. On submit: same validation/rounding shape as `CreateJobForm`, plus
+   `Math.round(hoursValue * 60)` for minutes. Calls
+   `createShift(jobId, shiftDate, minutes, tipsCents, hourlyRateCents, note)`,
+   resets the per-shift fields but leaves the job selected, calls
+   `onShiftLogged`.
+
+Known gap, left in on purpose: `selectedJobId` and the default `hourlyRate`
+are seeded from the `jobs` prop inside `useState(...)` initializers, which
+only run once at mount — if the `jobs` array changed while this component
+stayed mounted, they wouldn't update. Currently harmless because `App.tsx`
+only renders this form once at least one job exists.
+
+## `659488f` — feat: wire up the log-a-shift screen (2026-07-30)
+
+Ties `CreateJobForm`, `LogShiftForm`, and a new `ShiftList` component
+together in `App.tsx`. To recreate:
+
+1. `App.tsx` holds `jobs` and `shifts` in state, plus a `loading` flag.
+   `refresh()` — wrapped in `useCallback` — awaits `getDb()` (makes sure
+   `schema.sql` has run), then `Promise.all([listActiveJobs(), listShifts()])`,
+   and sets both. Called once via `useEffect(() => { refresh(); }, [refresh])`
+   on mount, and passed down as the `onJobCreated`/`onShiftLogged` callback
+   to both forms — SQLite doesn't push updates to the app, so re-querying
+   after every write is how the UI notices anything changed.
+2. Renders `CreateJobForm` when `jobs.length === 0` (a shift's `job_id` is
+   `NOT NULL` with a foreign key, so logging one is impossible without a
+   job first), otherwise `LogShiftForm` plus `ShiftList`.
+3. `ShiftList`: a `FlatList` over `shifts` (only renders rows currently on
+   screen, not the whole array — matters once there are years of shift
+   history), looks up each shift's job name via a `Map` built from `jobs`
+   (shifts only store `job_id`), and shows an empty state for zero shifts.
+4. Removes the temporary "database ready" text from `App.tsx` — the real
+   screen supersedes that proof-of-wiring code from the `expo-sqlite`
+   commit.
+
+Verified with `tsc --noEmit` and `CI=1 npx expo start` followed by fetching
+`http://localhost:8081/index.bundle?platform=android&dev=true` against a
+freshly started Metro instance (killed a leftover process squatting on the
+port first) — 750 modules, no resolution errors. Not yet verified on a
+physical device; that's the next step.
