@@ -1,5 +1,5 @@
 -- Database schema for tip-tracker.
--- SQLite, running on the device (see D1 in BRAINSTORM.md).
+-- SQLite, running on the device (see D1 in DECISIONS.md).
 --
 -- This file is the plan, not yet wired into an app. Nothing runs it yet.
 --

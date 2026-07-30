@@ -58,6 +58,20 @@ if [ -f DECISIONS.md ]; then
   for n in $mentioned; do
     grep -qx "$n" <<<"$defined" || err "D$n is referenced but not defined in DECISIONS.md"
   done
+  # A reference can name a number that exists and still send the reader to the
+  # wrong file. schema.sql pointed at D1 in the brainstorm file for a while
+  # after the split that moved the decision log into DECISIONS.md, and the check
+  # above waved it through because it only ever asked whether a D1 existed
+  # somewhere. So this one reads the filename in the citation too.
+  #
+  # Note the comment above deliberately does not spell out the bad citation the
+  # way the docs would write it, or this check would flag its own example. Same
+  # dodge as the TODO check further down.
+  while IFS= read -r hit; do
+    err "$hit -- decisions live in DECISIONS.md"
+  done < <(grep -noE '\bD[0-9]+ in [A-Za-z0-9_./-]+\.md' -- "${srcs[@]}" 2>/dev/null \
+             | grep -v 'DECISIONS\.md$' || true)
+
   # A decision nobody points at isn't necessarily wrong, but it's worth knowing.
   for n in $defined; do
     count=$(grep -hoE "\bD$n\b" -- "${srcs[@]}" 2>/dev/null | grep -c . || true)
