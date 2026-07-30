@@ -41,7 +41,7 @@ sql() { sqlite3 "$db" "PRAGMA foreign_keys = ON; $1"; }
 
 # Writing the column lists once means a rename breaks in one place, not fifteen.
 job_cols="id, name, hourly_rate_cents, archived_at, created_at, updated_at"
-shift_cols="id, job_id, shift_date, minutes, tips_cents, hourly_rate_cents, note, created_at, updated_at"
+shift_cols="id, job_id, shift_date, minutes, tips_cents, hourly_rate_cents, note, deleted_at, created_at, updated_at"
 now="2026-07-30T09:00:00Z"
 
 passed=0
@@ -86,17 +86,23 @@ accepts "an archived job" \
   "INSERT INTO jobs ($job_cols) VALUES ('job-3', 'Old Cafe', 1500, '$now', '$now', '$now');"
 
 accepts "a normal shift" \
-  "INSERT INTO shifts ($shift_cols) VALUES ('shift-1', 'job-1', '2026-07-29', 450, 8000, 1200, 'busy', '$now', '$now');"
+  "INSERT INTO shifts ($shift_cols) VALUES ('shift-1', 'job-1', '2026-07-29', 450, 8000, 1200, 'busy', NULL, '$now', '$now');"
 
 # schema.sql says there is no UNIQUE on (job_id, shift_date) on purpose, because
 # a double is a normal week. This is that comment turned into something that
 # would actually break if someone added the constraint later.
 accepts "a second shift at the same job on the same day" \
-  "INSERT INTO shifts ($shift_cols) VALUES ('shift-2', 'job-1', '2026-07-29', 240, 3000, 1200, NULL, '$now', '$now');"
+  "INSERT INTO shifts ($shift_cols) VALUES ('shift-2', 'job-1', '2026-07-29', 240, 3000, 1200, NULL, NULL, '$now', '$now');"
 
 # Zero tips is a slow night, not bad data.
 accepts "a shift with zero tips" \
-  "INSERT INTO shifts ($shift_cols) VALUES ('shift-3', 'job-1', '2026-07-28', 300, 0, 1200, NULL, '$now', '$now');"
+  "INSERT INTO shifts ($shift_cols) VALUES ('shift-3', 'job-1', '2026-07-28', 300, 0, 1200, NULL, NULL, '$now', '$now');"
+
+# The tombstone from D4. A deleted shift keeps its row so a second device has
+# something to receive. Nothing in the schema blocks the write, which is exactly
+# what this pins down.
+accepts "a soft-deleted shift" \
+  "INSERT INTO shifts ($shift_cols) VALUES ('shift-4', 'job-1', '2026-07-27', 300, 2000, 1200, NULL, '$now', '$now', '$now');"
 
 # --- Things that must be refused ------------------------------------------
 
@@ -113,24 +119,24 @@ rejects "a second job reusing an existing id" \
   "INSERT INTO jobs ($job_cols) VALUES ('job-1', 'Duplicate', 1200, NULL, '$now', '$now');"
 
 rejects "a shift with no date" \
-  "INSERT INTO shifts ($shift_cols) VALUES ('shift-bad', 'job-1', NULL, 450, 8000, 1200, NULL, '$now', '$now');"
+  "INSERT INTO shifts ($shift_cols) VALUES ('shift-bad', 'job-1', NULL, 450, 8000, 1200, NULL, NULL, '$now', '$now');"
 
 # A shift of no length is not a shift. The CHECK here is > 0, unlike the money
 # columns, which is the distinction worth keeping straight.
 rejects "a shift lasting zero minutes" \
-  "INSERT INTO shifts ($shift_cols) VALUES ('shift-bad', 'job-1', '2026-07-29', 0, 8000, 1200, NULL, '$now', '$now');"
+  "INSERT INTO shifts ($shift_cols) VALUES ('shift-bad', 'job-1', '2026-07-29', 0, 8000, 1200, NULL, NULL, '$now', '$now');"
 
 rejects "a shift lasting negative minutes" \
-  "INSERT INTO shifts ($shift_cols) VALUES ('shift-bad', 'job-1', '2026-07-29', -60, 8000, 1200, NULL, '$now', '$now');"
+  "INSERT INTO shifts ($shift_cols) VALUES ('shift-bad', 'job-1', '2026-07-29', -60, 8000, 1200, NULL, NULL, '$now', '$now');"
 
 rejects "a shift with negative tips" \
-  "INSERT INTO shifts ($shift_cols) VALUES ('shift-bad', 'job-1', '2026-07-29', 450, -1, 1200, NULL, '$now', '$now');"
+  "INSERT INTO shifts ($shift_cols) VALUES ('shift-bad', 'job-1', '2026-07-29', 450, -1, 1200, NULL, NULL, '$now', '$now');"
 
 rejects "a shift with a negative hourly rate" \
-  "INSERT INTO shifts ($shift_cols) VALUES ('shift-bad', 'job-1', '2026-07-29', 450, 8000, -1, NULL, '$now', '$now');"
+  "INSERT INTO shifts ($shift_cols) VALUES ('shift-bad', 'job-1', '2026-07-29', 450, 8000, -1, NULL, NULL, '$now', '$now');"
 
 rejects "a shift pointing at a job that does not exist" \
-  "INSERT INTO shifts ($shift_cols) VALUES ('shift-bad', 'job-nope', '2026-07-29', 450, 8000, 1200, NULL, '$now', '$now');"
+  "INSERT INTO shifts ($shift_cols) VALUES ('shift-bad', 'job-nope', '2026-07-29', 450, 8000, 1200, NULL, NULL, '$now', '$now');"
 
 # The D3 backstop. Jobs are meant to be archived rather than deleted, and this
 # is what stops a bug in that code from taking someone's tax year with it.
@@ -145,7 +151,7 @@ rejects "deleting a job that still has shifts" \
 #
 # Runs last because it deliberately leaves an orphan row behind.
 if sqlite3 "$db" \
-  "INSERT INTO shifts ($shift_cols) VALUES ('shift-orphan', 'job-nope', '2026-07-29', 450, 8000, 1200, NULL, '$now', '$now');" \
+  "INSERT INTO shifts ($shift_cols) VALUES ('shift-orphan', 'job-nope', '2026-07-29', 450, 8000, 1200, NULL, NULL, '$now', '$now');" \
   >/dev/null 2>&1; then
   passed=$((passed + 1))
 else

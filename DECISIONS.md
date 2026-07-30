@@ -207,6 +207,7 @@ The tradeoff being accepted: React Native apps can feel very slightly less
 native than hand-written Swift, especially in complex animations. For a
 form-and-charts app, that gap is not where quality will be won or lost — the
 UI/UX bar from the product definition is achievable here.
+
 ### D3 — Soft delete for jobs, not cascade (2026-07-29)
 
 > **Decision:** Jobs are never hard-deleted. They get an `archived_at` column,
@@ -242,4 +243,45 @@ UI/UX bar from the product definition is achievable here.
 > **Revisit when:** users want to truly delete a job created by mistake. The
 > likely answer then is: allow hard delete only when the job has zero shifts.
 > Deliberately not in MVP — one code path is simpler, and nobody has asked.
+
+### D4 — Shifts get a tombstone too, from day one (2026-07-30)
+
+> **Decision:** `shifts` gets a `deleted_at` column. Deleting a shift sets the
+> timestamp and the row stays. Same mechanism as `jobs.archived_at` (D3), named
+> differently because the user's intent differs: archiving a job means "I don't
+> work there anymore", deleting a shift means "that was a mistake".
+>
+> **Alternatives:**
+> - Hard delete shifts in MVP, add the column in a migration once sync exists
+> - Never allow deleting a shift, only editing it
+>
+> **Why:** This came out of a review that spotted D3 and the schema disagreeing.
+> D3 argues a hard delete is invisible to a device that never saw the row, which
+> is why jobs get tombstones — and then shifts were hard-deleted anyway.
+>
+> The tiebreaker is which mistake can be undone. Adding the column and never
+> needing it costs one nullable column that can be dropped. Skipping it and
+> later needing it cannot be undone: users delete shifts for a year, sync
+> arrives, and there is no tombstone to send for a row that no longer exists,
+> so the shift reappears on the second device. In an app whose entire claim is
+> that your income history is accurate, a deleted shift coming back is a
+> correctness bug, not a cosmetic one — and it is discovered after real people
+> have real data.
+>
+> YAGNI pushes the other way and is usually right, but its actual target is
+> speculative *abstraction* you cannot remove later. A nullable column with a
+> written reason is not that.
+>
+> Worth knowing this is the ordinary answer rather than a clever one. Every
+> syncing local-first library — WatermelonDB, PouchDB, Realm, libSQL sync —
+> keeps deletion tombstones on every table that syncs.
+>
+> **Known cost:** two of them. Tombstones accumulate forever without a purge
+> policy, so eventually rows need dropping once every device has seen the
+> delete — a sync-era problem, not one for now. And the missing-filter footgun
+> D3 flagged for jobs now applies to a second table: every query listing shifts
+> needs `deleted_at IS NULL`. That is the argument for writing both list queries
+> in one place rather than repeating the filter at each call site.
+>
+> **Revisit when:** the purge policy is needed, which is when sync ships (D1).
 

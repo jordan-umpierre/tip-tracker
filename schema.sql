@@ -1,7 +1,9 @@
 -- Database schema for tip-tracker.
 -- SQLite, running on the device (see D1 in DECISIONS.md).
 --
--- This file is the plan, not yet wired into an app. Nothing runs it yet.
+-- Not yet wired into an app. The only thing that loads it today is
+-- scripts/test-schema.sh, which checks that every constraint below actually
+-- rejects the data it is supposed to reject.
 --
 -- One SQLite gotcha that bites people: foreign keys are OFF by default and
 -- have to be turned on per database connection with "PRAGMA foreign_keys = ON".
@@ -77,8 +79,23 @@ CREATE TABLE shifts (
   -- Same column name as jobs.hourly_rate_cents to make the copy obvious.
   hourly_rate_cents INTEGER NOT NULL CHECK (hourly_rate_cents >= 0),
 
-  -- The only nullable column in the table. Most shifts won't have a note.
+  -- Most shifts won't have a note, so this one is allowed to be empty.
   note TEXT,
+
+  -- Tombstone. Deleting a shift sets this timestamp instead of removing the
+  -- row (D4). Same mechanism as jobs.archived_at (D3), different name on
+  -- purpose: archiving a job means "I don't work there anymore", deleting a
+  -- shift means "that was a mistake". Storing the user's actual intent beats
+  -- reusing one word for both.
+  --
+  -- Why the row has to stay at all: once a second device exists, a row that
+  -- was truly deleted is invisible to any device that never saw it, so the
+  -- shift reappears on the other phone. There is nothing left to send saying
+  -- "this is gone". A tombstone is that something.
+  --
+  -- Same catch as jobs, now on a second table: every query listing shifts has
+  -- to filter "deleted_at IS NULL". Centralize it in one place.
+  deleted_at TEXT,
 
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
