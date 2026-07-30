@@ -123,6 +123,34 @@ for f in "${docs[@]}"; do
   [ "$n" -gt 500 ] && warn "$f is $n lines, past the ~500 split threshold"
 done
 
+# --- 6. Git hooks not actually wired up ------------------------------------
+# core.hooksPath has to be set for .githooks/pre-commit to run at all, and
+# nothing inside the hook can warn about its own absence -- if this is unset,
+# the hook simply never fires, silently. That sat unnoticed on this machine
+# for a while despite a note claiming it was already done. Checked here too so
+# a manual `./scripts/check-docs.sh` run (e.g. the first step of a cold-agent
+# session, see CLAUDE.md) still catches it even when the hook itself can't.
+hooks_path=$(git config --get core.hooksPath 2>/dev/null || true)
+[ "$hooks_path" != ".githooks" ] && warn "core.hooksPath is '$hooks_path', not .githooks -- pre-commit checks are not running. Fix: git config core.hooksPath .githooks"
+
+# --- 7. BRAINSTORM.md's status log going stale ------------------------------
+# The Order of Operations in BRAINSTORM.md is the single source of truth a
+# cold agent reads to know what happened last and what's next (see the Cold
+# agent handoff section in CLAUDE.md). If real work is staged for commit and
+# that log's "Last updated" date isn't today, the handoff for whoever reads it
+# next is stale. A warning, not a failure -- most commits in a session are
+# smaller than a full handoff and shouldn't be blocked on updating the log.
+if [ -f BRAINSTORM.md ]; then
+  staged=$(git diff --cached --name-only 2>/dev/null || true)
+  other_changes=$(grep -vx 'BRAINSTORM.md' <<<"$staged" || true)
+  logged_date=$(grep -oE '^Last updated: [0-9]{4}-[0-9]{2}-[0-9]{2}' BRAINSTORM.md \
+                  | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}')
+  today=$(date +%F)
+  if [ -n "$other_changes" ] && [ -n "$logged_date" ] && [ "$logged_date" != "$today" ]; then
+    warn "BRAINSTORM.md says 'Last updated: $logged_date', not today ($today) -- update the Order of Operations if this session's work belongs in the log"
+  fi
+fi
+
 if [ "$fail" -eq 0 ]; then
   echo "docs OK"
 else

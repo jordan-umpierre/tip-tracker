@@ -58,13 +58,22 @@ Last updated: 2026-07-30
     actually set on this machine despite being documented as done, and
     re-ran it. Split the July Q&A archive again, this time by purpose, once
     it itself passed the ~500 line threshold
-13. **NEXT:** Scaffold the Expo app (`npx create-expo-app`). Two traps: scaffold
+13. Built a cold-agent handoff system, since `CLAUDE.md`'s old "Start here"
+    section (status + next task, restated) had already drifted from this
+    file's Order of Operations once. Thinned `CLAUDE.md` down to a pointer at
+    this section instead of a second copy, added an explicit handoff protocol
+    (check `core.hooksPath` first, do the one `NEXT:` task, update this log
+    before ending the session), and taught `check-docs.sh` two new warnings:
+    `core.hooksPath` not actually set to `.githooks`, and this file's
+    `Last updated` date being stale while other work is being committed. Both
+    verified by triggering them on purpose before trusting them
+14. **NEXT:** Scaffold the Expo app (`npx create-expo-app`). Two traps: scaffold
     into *this* directory or the result is `tip-tracker/tip-tracker/`, and
     `create-expo-app` overwrites `README.md` and `.gitignore`. Both are real
     files now, so restore them afterward and check `git status`
-14. *(not started)* Wire `schema.sql` into `expo-sqlite`, with `PRAGMA
+15. *(not started)* Wire `schema.sql` into `expo-sqlite`, with `PRAGMA
     foreign_keys = ON` on the connection
-15. *(not started)* Rough screen sketches, focused on the log-a-shift flow
+16. *(not started)* Rough screen sketches, focused on the log-a-shift flow
 
 ### Settled stack
 
