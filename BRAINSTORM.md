@@ -26,10 +26,14 @@ Last updated: 2026-07-29
 6. Split the feature set into MVP + three later layers
 7. Decided architecture: local-first, SQLite on device, sync added later (D1)
 8. Decided platform: Expo (React Native, TypeScript) (D2)
-9. **NEXT:** Data model on paper — entities, fields, relationships. No code yet
-10. *(not started)* Rewrite `README.md` to actually describe the product
-11. *(not started)* Rough screen sketches, focused on the log-a-shift flow
-12. *(not started)* Scaffold the project, first real code
+9. Data model written as `schema.sql` — `jobs` and `shifts`, verified against
+   sqlite3 with tests confirming every constraint rejects bad data
+10. **NEXT:** Scaffold the Expo app (`npx create-expo-app`)
+11. *(not started)* Rewrite `README.md` — after scaffolding, since
+    `create-expo-app` writes its own README that would overwrite it
+12. *(not started)* Wire `schema.sql` into `expo-sqlite`, with `PRAGMA
+    foreign_keys = ON` on the connection
+13. *(not started)* Rough screen sketches, focused on the log-a-shift flow
 
 ### Settled stack
 
@@ -365,6 +369,42 @@ alternative.
 **Revisit when:** a required native dependency has no config plugin, EAS pricing
 stops making sense, or binary size becomes a real constraint. None apply now.
 
+### D3 — Soft delete for jobs, not cascade (2026-07-29)
+
+> **Decision:** Jobs are never hard-deleted. They get an `archived_at` column,
+> and "delete" in the UI sets it. The foreign key on `shifts.job_id` uses
+> `ON DELETE RESTRICT` as a backstop, so a bug in app code still can't destroy
+> shift history.
+>
+> **Alternatives:** `ON DELETE CASCADE` (delete the shifts with the job);
+> `ON DELETE RESTRICT` alone with no archive concept.
+>
+> **Why:** The test for cascade is whether the child row means anything on its
+> own. A cart line item is meaningless without its cart, so cascade is right
+> there. A shift is not meaningless without its job — October 2025's earnings
+> still matter after you quit. So cascade is wrong here.
+>
+> The scenario that decides it: a user quits their job and deletes it from the
+> app. That's the most likely thing any user will ever do, and under cascade it
+> silently destroys a tax year. Irreplaceable data, no undo.
+>
+> Plain `RESTRICT` collapses into this same answer, because blocking the delete
+> is only usable if there's a way to hide old jobs — which is archive. So archive
+> is the direct answer rather than a workaround.
+>
+> **Bonus:** this also answers Round 3 Q5. Soft delete is the standard fix for
+> sync deletes, since a tombstone row is something another device can actually
+> receive. Hard deletes are invisible to a device that never saw the row.
+>
+> **Known cost:** every query listing jobs now has to filter
+> `WHERE archived_at IS NULL`. Forgetting that filter once means archived jobs
+> reappear. This is a real recurring footgun — worth centralizing the job-list
+> query in one place rather than rewriting the filter at each call site.
+>
+> **Revisit when:** users want to truly delete a job created by mistake. The
+> likely answer then is: allow hard delete only when the job has zero shifts.
+> Deliberately not in MVP — one code path is simpler, and nobody has asked.
+
 #### The decision one level up (already settled, worth noting)
 
 React Native vs Flutter vs native Swift + Kotlin was never close here. Flutter
@@ -461,6 +501,44 @@ supportable. Plenty of shipped production apps store everything on device.
 If there's no backend, it runs on-device. That means tax rules ship inside app
 versions, and updating rates for a new tax year requires an app store release.
 Worth thinking about before Layer 2.
+
+### Round 3: Data model (current)
+
+Two entities look obvious: **Job** and **Shift**. The questions are about their
+fields, and a few of these are genuinely expensive to get wrong.
+
+**Q1. How is money stored?**
+
+Not as floating point. `0.1 + 0.2` is `0.30000000000000004` in JavaScript,
+because binary floats can't represent most decimal fractions exactly. Small
+errors compound across hundreds of shifts and a tax calculation.
+
+Store whole cents as integers. `$24.50` is `2450`. Format for display only.
+
+**Q2. What happens to shift history when a job's hourly rate changes?**
+
+The expensive one. Worth reasoning through before reading ahead.
+
+Scenario: 200 shifts logged against a job paying $8/hr. You get a raise to
+$10/hr and update the job. If a Shift only stores `job_id` and the rate is
+looked up from Job at display time, what happens to those 200 historical
+shifts?
+
+Whatever this app shows for last year has to still be true next year.
+
+**Q3. What kind of IDs?**
+
+D1 committed to sync-later. Auto-incrementing integers collide across devices —
+two phones both create row 5, and there's no way to reconcile them. What's the
+alternative, and what does it cost?
+
+**Q4. How is a shift's date stored?**
+
+A shift on October 5th is October 5th. If it's stored as a UTC timestamp, a user
+in a negative-offset timezone logging a late shift can see it land on the wrong
+day. Date-only, or timestamp?
+
+**Q5. What happens on delete? — ANSWERED, see D3 in the Decision Log.**
 
 ### Housekeeping to sort out before submission
 
@@ -603,6 +681,75 @@ Not two things running side by side.
 Pick Expo. You are still using React. You are still using React Native. You are
 simply not hand-writing Xcode and Gradle configuration — and if that ever
 becomes necessary, prebuild hands those files over.
+
+### 2026-07-29 — Q2 answered: historical shifts keep their original rate
+
+My answer: the past 200 shifts should not change when the wage changes. Correct.
+
+The reason, stated so I can defend it: a Shift is a **record of something that
+happened.** It is not a live calculation. If a shift's pay is derived by looking
+up the job's current rate, then every raise silently rewrites history, and last
+year's earnings — the thing this app exists to report accurately — become wrong.
+
+So the rate has to be **copied onto the shift row** when the shift is created.
+Denormalization, deliberately. The general rule underneath it:
+
+> Anything that describes a past event gets stored with that event. Anything
+> that describes the current state of the world gets looked up.
+
+The Job's rate is current state — it's the default for the *next* shift. The
+rate on a Shift row is history and never changes.
+
+This same reasoning will come back in Layer 2, since tax rates also change year
+to year.
+
+### 2026-07-29 — "I don't know SQL syntax at all, and I don't know what files or directories to make. It's overwhelming."
+
+The overwhelm has a cause: trying to hold the whole app in your head at once.
+That isn't possible for anyone. The fix is shrinking the unit of work until it's
+boring.
+
+Three things that make this smaller than it feels:
+
+**1. You don't design the directory structure.** `npx create-expo-app` generates
+it. Not a decision to agonize over — the tool has a reasonable opinion. And
+we're not at that step yet.
+
+**2. SQLite has five data types.** `TEXT`, `INTEGER`, `REAL`, `BLOB`, `NULL`.
+That's the whole type system. Compare to memorizing all of CSS.
+
+**3. The next file is one file.** `schema.sql`. Not a project.
+
+#### SQL syntax, the 5% that covers this schema
+
+Creating a table is a list of columns. Each column is three things: a name, a
+type, and optional constraints.
+
+```sql
+CREATE TABLE table_name (
+  column_name TYPE CONSTRAINTS,
+  another_column TYPE CONSTRAINTS
+);
+```
+
+Types used here:
+
+- `TEXT` — strings. Also dates, since SQLite has no date type. ISO 8601
+  (`2026-07-29`) is used because it sorts correctly as plain text.
+- `INTEGER` — whole numbers. All money and all durations, to avoid floats.
+- `REAL` — floating point. Deliberately avoided in this schema.
+
+Constraints used here:
+
+- `PRIMARY KEY` — this column uniquely identifies the row.
+- `NOT NULL` — the database rejects a row missing this value. Validation that
+  lives in the database can't be forgotten by application code.
+- `FOREIGN KEY` — this column must point at a real row in another table. Stops
+  a shift from referencing a job that doesn't exist.
+
+Naming convention for this project: `snake_case` for tables and columns, plural
+table names (`jobs`, `shifts`), and units in the column name
+(`hourly_rate_cents`, not `hourly_rate`) so nobody has to guess.
 
 ---
 
