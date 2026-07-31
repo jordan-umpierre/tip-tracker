@@ -85,3 +85,24 @@ would download and execute an unpinned package outside the sandbox. It was not
 added as a project dependency or bypassed. Verification used the tracked
 checks instead: docs, 19 schema checks, all three pure-library test files,
 `tsc --noEmit`, and `git diff --check`.
+
+## `46f5576` — docs: choose native bars for Layer 1 Trends (2026-07-31)
+
+Added D9 after comparing numbers-only, a general chart dependency, and a
+bounded native visualization.
+
+Exact text values remain the accessible source of truth. The fixed
+seven-weekday comparison may supplement them with horizontal bars made from
+ordinary React Native `View`s. Month and year summaries start as numeric rows
+or cards. A chart package would add its own rendering, responsive-layout,
+compatibility, and accessibility surface for requirements Layer 1 does not
+have.
+
+The deliberate ceiling is part of the decision: one fixed comparison
+component, not a home-grown chart framework. A real chart dependency becomes
+justified by many chronological points, multiple series, touch inspection,
+zooming, or panning.
+
+`roadmap.md` now points at the semantic work exposed by the comparison—job
+scope, weighted formulas, weekday metric, sample context, and calendar-period
+outputs. No package or runtime code changed.
