@@ -162,10 +162,22 @@ Last updated: 2026-07-30
     confirmation prompt showed, shift disappeared from the list after
     confirming. Both create and delete now verified working for real, not
     just bundled
-24. **NEXT:** Edit shifts (`updateShift` in `shifts.ts`, plus UI to trigger
-    it — likely tapping a row to open it pre-filled in something shaped
-    like `LogShiftForm`). Last piece before gross totals, and then Layer 0
-    is actually complete against this file's own MVP scope
+24. Added edit: `updateShift` in `shifts.ts` (mirrors `createShift`, as an
+    `UPDATE`). `LogShiftForm` reused rather than duplicated — takes an
+    optional `editingShift` prop, pre-fills from it, calls `updateShift`
+    instead of `createShift` on submit, gets a Cancel button while editing.
+    Tapping a shift row (kept as a sibling `Pressable` to the Delete
+    button, not a parent of it) opens it for editing. Resolved the gap
+    flagged when `LogShiftForm` was first built: `useState` initializers
+    only run once at mount, so switching from editing shift A to shift B
+    without submitting wouldn't update the fields — fixed with a `key` on
+    `LogShiftForm` tied to `editingShift?.id ?? 'new'`, React's standard
+    fix for this (force a remount) rather than syncing state with a
+    `useEffect`. Verified with `tsc --noEmit` and a bundling
+    `CI=1 expo start` (801 modules, no resolution errors)
+25. **NEXT:** Verify edit on a physical device. After that, gross totals
+    are the last piece before Layer 0 is actually complete against this
+    file's own MVP scope
 
 ### Settled stack
 

@@ -74,9 +74,12 @@ BUILD_LOG.md          commit-by-commit history, detailed enough to recreate
 schema.sql            the data model
 db.ts                 opens the SQLite connection, runs schema.sql
 jobs.ts               data-access functions for the jobs table
+shifts.ts             data-access functions for the shifts table
 App.tsx               app entry point
+components/           the log-a-shift screen's UI
 metro.config.js       bundler config (lets schema.sql ship as an asset)
 docs/brainstorm/      archived Q&A log, one file per month
+docs/build-log/       archived commit-by-commit history, one file per month
 scripts/              the checks below
 .githooks/            pre-commit hook that runs them
 ```
