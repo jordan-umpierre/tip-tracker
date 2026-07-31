@@ -281,3 +281,46 @@ tax profile, paycheck estimates, year-end estimates, mileage, and expenses are
 already written scope. React Navigation's extra control also has no current
 requirement. Expo Router is therefore the smallest navigation foundation that
 does not knowingly need replacement. See D7.
+
+### 2026-07-31 — "When does Postgres come into this? What happens when someone wants to sync to another phone?"
+
+SQLite is not temporary memory. It is a persistent database file stored on the
+device. Closing the app or restarting the phone does not erase it. The current
+limitation is location: that file exists on one device, so losing the device
+loses the only copy.
+
+Postgres does not replace SQLite in the mobile app. Once optional sync exists,
+the two databases have different jobs:
+
+- Each phone or tablet keeps SQLite so logging, reading, and editing work
+  immediately and offline.
+- A server keeps Postgres as the durable account-level copy shared by devices.
+- The app talks to an authenticated HTTP API, never directly to Postgres.
+- On reconnect, each device pushes local changes and pulls changes it has not
+  seen.
+
+That is why the schema already uses UUIDs, `created_at`, `updated_at`, and
+deletion tombstones. Two offline devices can create rows without colliding;
+timestamps provide a first conflict rule; tombstones let one device tell
+another that a row was deleted. Those fields preserve the sync path without
+building the server before it has users.
+
+Vertical and horizontal scaling are different again. Vertical scaling means a
+bigger server; horizontal scaling means more server instances. This project has
+no server yet, so neither applies. Choosing TypeScript rather than SQL for a few
+local Trends calculations is a code-ownership decision, not server scaling.
+
+The professional approach is not to build every future layer early. It is to
+make today's decisions reversible and define the trigger for the next system:
+
+1. Keep Layer 1 local and use the shifts already on the device.
+2. Do not add Postgres merely to calculate Trends.
+3. Before broad public launch—or when backup/multi-device becomes a promised
+   feature—add optional accounts and a small sync API backed by Postgres.
+4. Start with incremental push/pull and last-write-wins, not real-time sockets,
+   queues, microservices, or a CRDT.
+
+For this app, cloud backup should arrive before strangers are expected to trust
+it with years of income history. Whether that becomes a named Layer 1.5 or part
+of Layer 2 is still a product-scope decision; D1 already establishes the
+architecture and its revisit trigger.
