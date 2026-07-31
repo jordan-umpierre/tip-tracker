@@ -1,0 +1,157 @@
+// Layer 1 calculations. Like totals.ts, this module only turns Shift values
+// into other values: no SQLite, React, formatting, or device clock.
+import type { Shift } from '../data/shifts';
+import { calculateShiftGrossCents } from './totals.ts';
+
+export const WEEKDAYS = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+] as const;
+
+export type HeadlineTrend = {
+  tipsPerHourCents: number | null;
+  shiftCount: number;
+  minutes: number;
+};
+
+export type WeekdayTrend = {
+  weekday: (typeof WEEKDAYS)[number];
+  grossPerHourCents: number | null;
+  shiftCount: number;
+  minutes: number;
+};
+
+type TrendTotals = {
+  shiftCount: number;
+  minutes: number;
+  tipsCents: number;
+  grossCents: number;
+};
+
+export type CalendarTrend = TrendTotals & {
+  // "2026-07" for a month or "2026" for a year. ISO order is also
+  // chronological order, which lets the results sort without date parsing.
+  period: string;
+};
+
+export type Trends = {
+  headline: HeadlineTrend;
+  weekdays: WeekdayTrend[];
+  months: CalendarTrend[];
+  years: CalendarTrend[];
+};
+
+function emptyTotals(): TrendTotals {
+  return { shiftCount: 0, minutes: 0, tipsCents: 0, grossCents: 0 };
+}
+
+function addShift(totals: TrendTotals, shift: Shift, grossCents: number): void {
+  // These objects are local working values created for this calculation.
+  // Updating them in place avoids creating four new objects for every shift;
+  // callers still receive a brand-new result on every call.
+  totals.shiftCount += 1;
+  totals.minutes += shift.minutes;
+  totals.tipsCents += shift.tips_cents;
+  totals.grossCents += grossCents;
+}
+
+function totalsForPeriod(periods: Map<string, TrendTotals>, period: string): TrendTotals {
+  const existing = periods.get(period);
+  if (existing) {
+    return existing;
+  }
+
+  const totals = emptyTotals();
+  periods.set(period, totals);
+  return totals;
+}
+
+function centsPerHour(cents: number, minutes: number): number | null {
+  // Null means "no evidence." Zero is reserved for real shifts that earned
+  // zero tips or gross, so the UI can tell those two cases apart.
+  return minutes === 0 ? null : Math.round((cents * 60) / minutes);
+}
+
+function calendarParts(shiftDate: string): {
+  weekdayIndex: number;
+  monthPeriod: string;
+  yearPeriod: string;
+} {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(shiftDate);
+  if (!match) {
+    throw new Error(`Invalid shift date: ${shiftDate}`);
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+
+  // Date-only values have no timezone. Constructing and reading in UTC keeps
+  // the weekday stable everywhere; mixing a UTC parse with local getters is
+  // the bug that moved late-night shifts to another calendar day in Layer 0.
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    throw new Error(`Invalid shift date: ${shiftDate}`);
+  }
+
+  return {
+    weekdayIndex: date.getUTCDay(),
+    monthPeriod: shiftDate.slice(0, 7),
+    yearPeriod: shiftDate.slice(0, 4),
+  };
+}
+
+export function calculateTrends(shifts: Shift[], jobId: string | null = null): Trends {
+  const allTotals = emptyTotals();
+  const weekdayTotals = WEEKDAYS.map(() => emptyTotals());
+  const monthTotals = new Map<string, TrendTotals>();
+  const yearTotals = new Map<string, TrendTotals>();
+
+  for (const shift of shifts) {
+    // Null is the explicit "All jobs" scope. A job id applies to every output
+    // below because the shift is skipped before any bucket is updated.
+    if (jobId !== null && shift.job_id !== jobId) {
+      continue;
+    }
+
+    const grossCents = calculateShiftGrossCents(shift);
+    const { weekdayIndex, monthPeriod, yearPeriod } = calendarParts(shift.shift_date);
+
+    addShift(allTotals, shift, grossCents);
+    addShift(weekdayTotals[weekdayIndex], shift, grossCents);
+    addShift(totalsForPeriod(monthTotals, monthPeriod), shift, grossCents);
+    addShift(totalsForPeriod(yearTotals, yearPeriod), shift, grossCents);
+  }
+
+  return {
+    headline: {
+      tipsPerHourCents: centsPerHour(allTotals.tipsCents, allTotals.minutes),
+      shiftCount: allTotals.shiftCount,
+      minutes: allTotals.minutes,
+    },
+    weekdays: WEEKDAYS.map((weekday, index) => ({
+      weekday,
+      grossPerHourCents: centsPerHour(
+        weekdayTotals[index].grossCents,
+        weekdayTotals[index].minutes
+      ),
+      shiftCount: weekdayTotals[index].shiftCount,
+      minutes: weekdayTotals[index].minutes,
+    })),
+    months: [...monthTotals.entries()]
+      .sort(([left], [right]) => right.localeCompare(left))
+      .map(([period, totals]) => ({ period, ...totals })),
+    years: [...yearTotals.entries()]
+      .sort(([left], [right]) => right.localeCompare(left))
+      .map(([period, totals]) => ({ period, ...totals })),
+  };
+}
