@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Job } from '../data/jobs';
 import { createShift, Shift, updateShift } from '../data/shifts';
 import { localDateString } from '../lib/dates';
+import { hoursInputValue, moneyInputValue } from '../lib/format';
 
 type Props = {
   // Fetched once by App.tsx (which already needs the list to decide whether
@@ -37,13 +38,18 @@ export default function LogShiftForm({ jobs, editingShift, onShiftSaved, onCance
 
   const [selectedJobId, setSelectedJobId] = useState(editingShift?.job_id ?? jobs[0]?.id ?? '');
   const [shiftDate, setShiftDate] = useState(editingShift?.shift_date ?? todayIsoDate());
-  const [hours, setHours] = useState(editingShift ? String(editingShift.minutes / 60) : '');
-  const [tips, setTips] = useState(editingShift ? String(editingShift.tips_cents / 100) : '');
+  // These three used to be a raw division, which is how the edit form ended up
+  // showing 7.583333333333333 for a 455-minute shift. The helpers pick a
+  // precision that converts back to the identical stored integer, per D6 --
+  // the tempting fix of matching the list's "7.6h" would have saved 456
+  // minutes and quietly rewritten the shift.
+  const [hours, setHours] = useState(editingShift ? hoursInputValue(editingShift.minutes) : '');
+  const [tips, setTips] = useState(editingShift ? moneyInputValue(editingShift.tips_cents) : '');
   const [hourlyRate, setHourlyRate] = useState(() => {
     if (editingShift) {
-      return String(editingShift.hourly_rate_cents / 100);
+      return moneyInputValue(editingShift.hourly_rate_cents);
     }
-    return jobs[0] ? String(jobs[0].hourly_rate_cents / 100) : '';
+    return jobs[0] ? moneyInputValue(jobs[0].hourly_rate_cents) : '';
   });
   const [note, setNote] = useState(editingShift?.note ?? '');
 
@@ -51,11 +57,11 @@ export default function LogShiftForm({ jobs, editingShift, onShiftSaved, onCance
     setSelectedJobId(job.id);
     // Default the rate field to the newly selected job's rate -- still
     // editable afterward. This only sets the starting point, the same
-    // "inherited but overridable" behavior BRAINSTORM.md's MVP scope calls
-    // for (raises happen, so do special events at a different rate). Same
-    // behavior in edit mode: switching a shift to a different job resets
+    // "inherited but overridable" behavior docs/product.md's Layer 0 scope
+    // calls for (raises happen, so do special events at a different rate).
+    // Same behavior in edit mode: switching a shift to a different job resets
     // the rate suggestion, since the old job's rate isn't relevant anymore.
-    setHourlyRate(String(job.hourly_rate_cents / 100));
+    setHourlyRate(moneyInputValue(job.hourly_rate_cents));
   }
 
   async function handleSubmit() {
