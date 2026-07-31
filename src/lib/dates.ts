@@ -24,3 +24,39 @@ export function localDateString(date: Date): string {
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
+
+// Parses the exact date-only format stored in SQLite. Returning null gives
+// form code a normal validation branch while letting calculations reject a
+// persisted value that violates the same rule.
+export function parseCalendarDate(value: string): {
+  year: number;
+  month: number;
+  day: number;
+  weekdayIndex: number;
+} | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+
+  // The stored value has no timezone. Constructing and reading in UTC keeps
+  // the weekday identical on every device. Reading this with local getters
+  // would mix two timezone conventions and repeat Layer 0's date bug.
+  const date = new Date(Date.UTC(year, month - 1, day));
+
+  // Date normalizes impossible inputs instead of rejecting them: February 30
+  // becomes a day in March. Comparing every part catches that normalization.
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return { year, month, day, weekdayIndex: date.getUTCDay() };
+}

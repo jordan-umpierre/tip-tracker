@@ -1,6 +1,7 @@
 // Layer 1 calculations. Like totals.ts, this module only turns Shift values
 // into other values: no SQLite, React, formatting, or device clock.
 import type { Shift } from '../data/shifts';
+import { parseCalendarDate } from './dates.ts';
 import { calculateShiftGrossCents } from './totals.ts';
 
 export const WEEKDAYS = [
@@ -77,39 +78,6 @@ function centsPerHour(cents: number, minutes: number): number | null {
   return minutes === 0 ? null : Math.round((cents * 60) / minutes);
 }
 
-function calendarParts(shiftDate: string): {
-  weekdayIndex: number;
-  monthPeriod: string;
-  yearPeriod: string;
-} {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(shiftDate);
-  if (!match) {
-    throw new Error(`Invalid shift date: ${shiftDate}`);
-  }
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-
-  // Date-only values have no timezone. Constructing and reading in UTC keeps
-  // the weekday stable everywhere; mixing a UTC parse with local getters is
-  // the bug that moved late-night shifts to another calendar day in Layer 0.
-  const date = new Date(Date.UTC(year, month - 1, day));
-  if (
-    date.getUTCFullYear() !== year ||
-    date.getUTCMonth() !== month - 1 ||
-    date.getUTCDate() !== day
-  ) {
-    throw new Error(`Invalid shift date: ${shiftDate}`);
-  }
-
-  return {
-    weekdayIndex: date.getUTCDay(),
-    monthPeriod: shiftDate.slice(0, 7),
-    yearPeriod: shiftDate.slice(0, 4),
-  };
-}
-
 export function calculateTrends(shifts: Shift[], jobId: string | null = null): Trends {
   const allTotals = emptyTotals();
   const weekdayTotals = WEEKDAYS.map(() => emptyTotals());
@@ -124,10 +92,17 @@ export function calculateTrends(shifts: Shift[], jobId: string | null = null): T
     }
 
     const grossCents = calculateShiftGrossCents(shift);
-    const { weekdayIndex, monthPeriod, yearPeriod } = calendarParts(shift.shift_date);
+    const date = parseCalendarDate(shift.shift_date);
+    if (!date) {
+      // New writes are stopped at the form boundary. Throwing here also makes
+      // older corrupt rows visible instead of silently filing them elsewhere.
+      throw new Error(`Invalid shift date: ${shift.shift_date}`);
+    }
+    const monthPeriod = shift.shift_date.slice(0, 7);
+    const yearPeriod = shift.shift_date.slice(0, 4);
 
     addShift(allTotals, shift, grossCents);
-    addShift(weekdayTotals[weekdayIndex], shift, grossCents);
+    addShift(weekdayTotals[date.weekdayIndex], shift, grossCents);
     addShift(totalsForPeriod(monthTotals, monthPeriod), shift, grossCents);
     addShift(totalsForPeriod(yearTotals, yearPeriod), shift, grossCents);
   }

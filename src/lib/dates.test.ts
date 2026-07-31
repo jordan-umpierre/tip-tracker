@@ -9,7 +9,7 @@
 // pass only on the machine that wrote them. That matters here more than usual,
 // since the bug being guarded against is specifically a timezone bug.
 import assert from 'node:assert/strict';
-import { localDateString } from './dates.ts';
+import { localDateString, parseCalendarDate } from './dates.ts';
 
 // The regression. 23:31 local on 2026-07-30 is already 2026-07-31 in UTC for
 // anywhere in the Americas, and the old toISOString().slice(0, 10) returned
@@ -35,4 +35,22 @@ assert.equal(localDateString(new Date(2026, 11, 25)), '2026-12-25');
 // Leap day, because February is where date code goes wrong.
 assert.equal(localDateString(new Date(2028, 1, 29)), '2028-02-29');
 
-console.log('dates OK (5 checks)');
+// Stored date parsing is strict rather than Date's normalizing behavior.
+assert.deepEqual(parseCalendarDate('2026-07-30'), {
+  year: 2026,
+  month: 7,
+  day: 30,
+  weekdayIndex: 4, // Thursday
+});
+assert.equal(parseCalendarDate('07/30/2026'), null);
+assert.equal(parseCalendarDate('2026-7-30'), null);
+assert.equal(parseCalendarDate('2026-02-30'), null);
+assert.equal(parseCalendarDate('2027-02-29'), null);
+assert.deepEqual(parseCalendarDate('2028-02-29'), {
+  year: 2028,
+  month: 2,
+  day: 29,
+  weekdayIndex: 2, // Tuesday
+});
+
+console.log('dates OK (11 checks)');

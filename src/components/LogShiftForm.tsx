@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Job } from '../data/jobs';
 import { createShift, Shift, updateShift } from '../data/shifts';
-import { localDateString } from '../lib/dates';
+import { localDateString, parseCalendarDate } from '../lib/dates';
 import { hoursInputValue, moneyInputValue } from '../lib/format';
 
 type Props = {
@@ -65,19 +65,36 @@ export default function LogShiftForm({ jobs, editingShift, onShiftSaved, onCance
   }
 
   async function handleSubmit() {
-    const hoursValue = parseFloat(hours);
-    const tipsValue = parseFloat(tips);
-    const rateValue = parseFloat(hourlyRate);
+    if (selectedJobId === '') {
+      Alert.alert('Choose a job', 'A shift must belong to a job.');
+      return;
+    }
+
+    if (!parseCalendarDate(shiftDate)) {
+      Alert.alert('Check the date', 'Enter a real calendar date as YYYY-MM-DD.');
+      return;
+    }
+
+    // Number(), paired with the empty-string checks, rejects pasted text such
+    // as "7.5 hours". parseFloat() would silently accept that as 7.5.
+    const hoursValue = Number(hours);
+    const tipsValue = Number(tips);
+    const rateValue = Number(hourlyRate);
 
     if (
-      selectedJobId === '' ||
-      Number.isNaN(hoursValue) ||
-      hoursValue <= 0 ||
-      Number.isNaN(tipsValue) ||
+      hours.trim() === '' ||
+      !Number.isFinite(hoursValue) ||
+      tips.trim() === '' ||
+      !Number.isFinite(tipsValue) ||
       tipsValue < 0 ||
-      Number.isNaN(rateValue) ||
+      hourlyRate.trim() === '' ||
+      !Number.isFinite(rateValue) ||
       rateValue < 0
     ) {
+      Alert.alert(
+        'Check shift details',
+        'Enter hours greater than zero. Tips and hourly rate cannot be negative.'
+      );
       return;
     }
 
@@ -87,6 +104,13 @@ export default function LogShiftForm({ jobs, editingShift, onShiftSaved, onCance
     const tipsCents = Math.round(tipsValue * 100);
     const hourlyRateCents = Math.round(rateValue * 100);
     const noteValue = note.trim() === '' ? null : note.trim();
+
+    // A tiny positive decimal can still round to zero stored minutes. Catch it
+    // here instead of letting SQLite's CHECK constraint surface as an error.
+    if (minutes <= 0) {
+      Alert.alert('Check hours worked', 'Hours worked must round to at least one minute.');
+      return;
+    }
 
     if (editingShift) {
       await updateShift(editingShift.id, selectedJobId, shiftDate, minutes, tipsCents, hourlyRateCents, noteValue);
