@@ -106,3 +106,23 @@ zooming, or panning.
 `roadmap.md` now points at the semantic work exposed by the comparison—job
 scope, weighted formulas, weekday metric, sample context, and calendar-period
 outputs. No package or runtime code changed.
+
+## `ccbf5ab` — docs: define Layer 1 Trends semantics (2026-07-31)
+
+Added D10 before writing the aggregation module. The screen defaults to all
+jobs, with one optional job filter applying to every result. Tips per hour is
+the headline; gross per hour is the weekday comparison.
+
+Both rates divide aggregate cents by aggregate minutes, so time weights the
+answer. Gross first follows D5's per-shift wage rounding. Every rate carries
+shift count and total time, while empty groups remain `null` rather than
+claiming a measured `$0.00/hr`.
+
+Month and year summaries use calendar periods and expose gross, tips, time,
+and shift count. The current partial period remains visible as a to-date
+result. Rolling windows, remembered filters, dual weekday metrics, and
+confidence scoring were left out until real use justifies them.
+
+Updated the Layer 1 learning note from an open question to a settled D10
+reference. `roadmap.md` now starts implementation with one pure Trends module
+and one dependency-free test file before Expo Router or UI work.
