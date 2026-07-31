@@ -324,3 +324,18 @@ For this app, cloud backup should arrive before strangers are expected to trust
 it with years of income history. Whether that becomes a named Layer 1.5 or part
 of Layer 2 is still a product-scope decision; D1 already establishes the
 architecture and its revisit trigger.
+
+### 2026-07-31 — "Confirm pure TypeScript aggregation as D8 if and only if a real software engineer would make that call"
+
+Confirmed after tracing the current flow rather than treating TypeScript as the
+default. `listShifts()` already returns every active shift, `App.tsx` already
+holds that array, and `totals.ts` already proves the pure-calculation boundary
+works. A SQLite aggregate would add another query without eliminating today's
+complete read.
+
+The professional test is not "would SQL scale farther?" It would. The test is
+"does paying that complexity now produce a current benefit, and is today's
+choice reversible?" At a few thousand local rows, a linear TypeScript pass is
+negligible, directly testable, and easy to move later. The decision includes
+the conditions that reverse it: pagination, measured slowness, or a server
+that needs summaries without transferring raw rows. See D8.

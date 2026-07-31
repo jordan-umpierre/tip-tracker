@@ -9,19 +9,15 @@ Last updated: 2026-07-31
 
 ## NEXT
 
-**Decide where Trends aggregation happens.** Navigation is settled: Expo
-Router enters with the second screen (D7). Do not install or restructure for
-it yet; finish Layer 1's remaining scope decisions first so the route migration
-has a known destination.
+**Decide whether the first Trends screen is numbers only or includes a chart.**
+Navigation is settled as Expo Router (D7), and Trends aggregation stays in pure
+TypeScript until the app stops loading every shift or measurement says that is
+too slow (D8).
 
-`listShifts()` already returns every shift and `lib/totals.ts` reduces over the
-array in TypeScript. Grouping by weekday or month could stay in pure
-TypeScript, or move into SQLite with `GROUP BY`. At a few thousand rows the
-performance difference is not real yet, so decide on ownership, testability,
-and clarity rather than theoretical speed.
-
-After that, decide whether the first Trends screen is numbers only or includes
-a chart. Do not start building until both answers are written down.
+A chart would be the first non-Expo UI dependency in the project. Compare that
+cost against an accessible list of weekday, month, and year values—or a small
+bar visualization made from React Native `View`s—before installing anything.
+Do not start building until the display scope has a written answer.
 
 One smaller thing already logged under Open Questions below and worth folding
 into this pass: whether each shift row should show its own gross.
@@ -65,6 +61,13 @@ D5. The totals row claims a number the list underneath can't currently be used
 to verify, because rows show hours, tips, and rate but not their own gross.
 D5's correctness argument doesn't depend on this, but the feature would make
 the total checkable at a glance. Deliberately not built as part of Layer 0.
+
+**Exactly when does cloud backup and sync ship?** D1 settles the architecture:
+optional accounts, an API, and Postgres while every device keeps SQLite.
+The remaining product decision is placement. Current direction is after
+Trends and before strangers are asked to trust the app with years of income
+history; decide whether that becomes Layer 1.5 or part of Layer 2 after the
+Trends scope is complete.
 
 ---
 

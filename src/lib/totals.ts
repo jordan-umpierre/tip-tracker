@@ -35,8 +35,8 @@ export function calculateTotals(shifts: Shift[]): ShiftTotals {
       // Gross for one shift is its tips plus the wage it earned, and the
       // wage almost never divides evenly into whole cents -- 455 minutes at
       // $15.50/hr is 11754.166... cents. D5 is why the rounding happens here,
-      // per shift, instead of once on the total: the rows in ShiftList sit
-      // directly under this number, so they have to add up to it.
+      // per shift, instead of once after several shifts have been grouped:
+      // every total then uses the same definition of one shift's gross.
       //
       // Multiply first, divide last. Both orders usually agree, but staying
       // on integers through the multiplication is the habit that keeps money

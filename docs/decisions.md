@@ -410,3 +410,44 @@ UI/UX bar from the product definition is achievable here.
 > **Revisit when:** navigation needs custom state restoration or URL parsing
 > that Expo Router cannot express cleanly, or a required navigation feature
 > forces work against the router instead of with it.
+
+### D8 — Calculate Layer 1 Trends in pure TypeScript (2026-07-31)
+
+> **Decision:** Group shifts by weekday, month, and year and calculate
+> tips-per-hour in a pure module under `src/lib/`. The functions take `Shift[]`
+> and return integer-minute / integer-cent result objects. They do not query
+> SQLite or format display strings.
+>
+> **Alternatives:**
+> - Add SQLite aggregate queries using `GROUP BY`
+> - Split the work: group in SQLite and finish calculations in TypeScript
+>
+> **Why:** `listShifts()` already reads every non-deleted shift because the Log
+> screen displays that complete history, and `App.tsx` already keeps the array
+> in memory. Layer 1 can derive its summaries from the same data without a
+> second query path. At the documented scale—a few thousand rows at most—one
+> linear pass is not a meaningful performance cost.
+>
+> This follows the boundary established by `totals.ts`: SQLite owns persisted
+> facts; `src/lib/` owns derived arithmetic. Keeping Trends pure makes money and
+> date grouping runnable under Node with hand-built `Shift` values, without a
+> device, database setup, or duplicated fixtures.
+>
+> SQL aggregation would be the right answer if the app no longer loaded the
+> underlying rows. It is not inherently more professional to push arithmetic
+> into a database; doing so now would add queries and SQLite-specific date logic
+> without reducing the existing read.
+>
+> **Known cost:** calculation is O(n) and requires the complete shift array in
+> memory. Calendar grouping must not use `new Date("YYYY-MM-DD")`, which treats
+> a date-only string as UTC and could repeat the date bug fixed in Layer 0.
+> The pure tests must pin weekday and month boundaries.
+>
+> This decision does not constrain sync. A future device can still calculate
+> Trends from its local SQLite copy while offline, and a server can add its own
+> Postgres aggregates for web or large-history use without changing the mobile
+> data model.
+>
+> **Revisit when:** shifts are paginated or no longer all loaded, a measured
+> Trends calculation becomes slow, or a server endpoint needs to return
+> summaries without sending the underlying rows.
