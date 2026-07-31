@@ -223,3 +223,36 @@ last-write-wins is a defensible policy. Worth knowing it's the hard part.
 Note that "production ready" does not mean "has a backend." It means real
 people can rely on it: doesn't lose data, doesn't crash, handles bad input, is
 supportable. Plenty of shipped production apps store everything on device.
+
+### 2026-07-31 — "The company I want to work for uses React. Would they look down on me for using Expo?"
+
+No. Expo does not replace React. This app still uses React's component model,
+props, state, hooks, composition, one-way data flow, and TypeScript. React
+Native supplies a native renderer in place of the browser DOM, and Expo supplies
+the framework and build tooling around React Native.
+
+The parts that transfer directly to a React web job:
+
+- Breaking UI into components with clear responsibilities
+- Managing state and passing data down and events up
+- Understanding controlled inputs, render cycles, and hook behavior
+- Keeping calculation logic outside components so it can be tested
+- Working in TypeScript and defending architectural tradeoffs
+
+The parts that do not transfer directly:
+
+- React Native uses `View`, `Text`, and `Pressable`, not HTML elements
+- Styles are JavaScript objects rather than normal browser CSS
+- There is no DOM or ordinary browser API surface
+- Web-specific accessibility, responsive CSS, and server rendering are
+  separate skills
+
+The weak interview answer would be "I used Expo because it was easier." The
+defensible answer is D2: this was a solo, cross-platform mobile app; Expo
+removed native build configuration while preserving an escape hatch through
+`expo prebuild`. Choosing the framework appropriate to the product is evidence
+of engineering judgment, not evidence of avoiding React.
+
+A React web team may still want evidence of browser React somewhere in the
+portfolio. That is a portfolio-coverage question, not a reason to use a worse
+mobile architecture in this app.
