@@ -1,6 +1,24 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "strict": true
+    "strict": true,
+
+    // totals.test.ts runs on Node (see the header comment in that file), and
+    // Node's built-in TypeScript support needs the real file extension in an
+    // import -- "./totals.ts", not "./totals". TypeScript rejects that by
+    // default; this allows it. Safe here because expo/tsconfig.base already
+    // sets noEmit, so tsc only ever checks this project, never compiles it.
+    "allowImportingTsExtensions": true,
+
+    // Without this, tsc can't resolve "node:assert/strict" in the test.
+    // Naming the list explicitly also stops unrelated @types packages that
+    // arrive as transitive dependencies from being pulled into every file.
+    //
+    // The tradeoff: app files can now see Node's globals too, so tsc would
+    // not catch a stray Buffer or process.env in code that ships to a phone.
+    // Splitting tests into a second tsconfig would fix that at the cost of a
+    // second config and a second tsc run. Not worth it at this size -- worth
+    // revisiting if app code ever accidentally depends on a Node global.
+    "types": ["node", "react"]
   }
 }

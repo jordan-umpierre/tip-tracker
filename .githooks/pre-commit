@@ -9,9 +9,16 @@
 #
 # To commit anyway when a check is wrong rather than the docs: git commit --no-verify
 
-# Both run even if the first one fails, so a commit that broke two things
-# reports both instead of making you fix one and get stopped again by the other.
+# All of them run even if an earlier one fails, so a commit that broke two
+# things reports both instead of making you fix one and get stopped again by
+# the other.
+#
+# totals.test.ts has no wrapper script because it doesn't need one -- Node
+# runs TypeScript directly. The --disable-warning flag silences Node's
+# complaint that package.json has no "type": "module"; adding that field would
+# break metro.config.js, which is CommonJS, so the warning gets muted instead.
 status=0
 ./scripts/check-docs.sh  || status=1
 ./scripts/test-schema.sh || status=1
+node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON totals.test.ts || status=1
 exit "$status"
