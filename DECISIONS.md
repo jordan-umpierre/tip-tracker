@@ -285,3 +285,50 @@ UI/UX bar from the product definition is achievable here.
 >
 > **Revisit when:** the purge policy is needed, which is when sync ships (D1).
 
+
+### D5 — Round wages per shift, not once per total (2026-07-30)
+
+> **Decision:** A shift's wage is `Math.round(minutes * hourly_rate_cents / 60)`
+> — rounded to whole cents for that one shift. Totals sum those already-rounded
+> numbers. The multiplication happens before the division so the arithmetic
+> stays on integers as long as possible.
+>
+> **Alternatives:**
+> - Sum the unrounded wages and round once at the end
+> - Store a `wage_cents` column on `shifts`, computed at write time
+> - Keep fractional cents in a decimal library and round only for display
+>
+> **Why:** Minutes divided by 60 is usually not a whole number of cents. A
+> 7h35m shift at $15.50/hr earns 11754.166… cents. Something has to round, and
+> the only question is where.
+>
+> Rounding per shift is the one a user can verify. The totals row sits directly
+> above a list of individual shifts, so anyone who adds the rows up by hand must
+> get the number in the summary. Rounding once at the end breaks that: the total
+> can land a cent or two off the sum of what the rows display, and "your app's
+> math is wrong" is the report that follows. Two 30-minute shifts at $15.01/hr
+> are the smallest case — 751 + 751 = 1502 per shift, versus 1501 rounded once.
+>
+> It also generalizes, which the alternative does not. `hourly_rate_cents` is
+> stored per shift on purpose, so a raise can't rewrite last year (see the data
+> conventions in `CLAUDE.md`). Once two shifts have different rates you cannot
+> sum hours and multiply once anyway — there is no single rate to multiply by.
+> Per-shift rounding is the only rule that works for both cases.
+>
+> A stored `wage_cents` column was rejected because it's derived data: it can
+> disagree with the columns it came from after an edit, and there's no
+> performance problem to justify the risk at a few thousand rows. A decimal
+> library was rejected as a dependency for something integer cents already
+> solve.
+>
+> **Known cost:** this is not exactly what a paystub shows. A real employer
+> sums hours across a pay period at one rate and rounds once, which can differ
+> by a cent from summing per-shift. That gap is smaller than the thing this app
+> is actually for — cash tips nobody withholds against — and it is the correct
+> tradeoff for a screen whose rows must add up. Worth revisiting when paycheck
+> estimates arrive, since matching a real stub is the whole point there.
+>
+> **Revisit when:** paycheck estimation ships (Layer 2). That feature's job is
+> to predict a specific employer's number, so it may need pay-period rounding
+> alongside this. This rule stays correct for "what did I earn," which is what
+> the totals row answers.
