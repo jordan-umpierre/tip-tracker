@@ -12,6 +12,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
+  const [editingShift, setEditingShift] = useState<Shift | null>(null);
 
   // Re-reads jobs and shifts from SQLite. Called once on mount, and again
   // after every create -- SQLite doesn't push updates to the app on its
@@ -46,8 +47,29 @@ export default function App() {
         <CreateJobForm onJobCreated={refresh} />
       ) : (
         <>
-          <LogShiftForm jobs={jobs} onShiftLogged={refresh} />
-          <ShiftList shifts={shifts} jobs={jobs} onShiftDeleted={refresh} />
+          {/* key forces React to treat "editing shift A" and "editing shift
+              B" (or "not editing") as different component instances rather
+              than the same one with a prop that silently changed underneath
+              it. That's what makes LogShiftForm's useState initializers --
+              which only run once, at mount -- correctly re-read from
+              whichever shift is now being edited, without needing a
+              useEffect to sync state across renders. */}
+          <LogShiftForm
+            key={editingShift?.id ?? 'new'}
+            jobs={jobs}
+            editingShift={editingShift}
+            onShiftSaved={() => {
+              setEditingShift(null);
+              refresh();
+            }}
+            onCancelEdit={() => setEditingShift(null)}
+          />
+          <ShiftList
+            shifts={shifts}
+            jobs={jobs}
+            onShiftDeleted={refresh}
+            onShiftPress={setEditingShift}
+          />
         </>
       )}
       <StatusBar style="auto" />

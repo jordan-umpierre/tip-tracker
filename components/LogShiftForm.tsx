@@ -1,14 +1,26 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Job } from '../jobs';
-import { createShift } from '../shifts';
+import { createShift, Shift, updateShift } from '../shifts';
 
 type Props = {
   // Fetched once by App.tsx (which already needs the list to decide whether
   // to show this form at all) and passed down, rather than fetched again
   // here -- no reason to hit the database twice for the same data.
   jobs: Job[];
-  onShiftLogged: () => void;
+
+  // When present, this form edits that shift instead of creating a new
+  // one: fields pre-fill from it, and submitting calls updateShift instead
+  // of createShift. App.tsx is responsible for giving this component a
+  // fresh `key` whenever editingShift changes (see App.tsx for why) -- this
+  // component doesn't need to know that's happening, it just reads
+  // editingShift once at mount like any other prop-seeded state.
+  editingShift?: Shift | null;
+
+  onShiftSaved: () => void;
+
+  // Only meaningful in edit mode -- lets the user back out without saving.
+  onCancelEdit?: () => void;
 };
 
 function todayIsoDate(): string {
@@ -19,22 +31,29 @@ function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-export default function LogShiftForm({ jobs, onShiftLogged }: Props) {
-  const [selectedJobId, setSelectedJobId] = useState(jobs[0]?.id ?? '');
-  const [shiftDate, setShiftDate] = useState(todayIsoDate());
-  const [hours, setHours] = useState('');
-  const [tips, setTips] = useState('');
-  const [hourlyRate, setHourlyRate] = useState(
-    jobs[0] ? String(jobs[0].hourly_rate_cents / 100) : ''
-  );
-  const [note, setNote] = useState('');
+export default function LogShiftForm({ jobs, editingShift, onShiftSaved, onCancelEdit }: Props) {
+  const isEditing = editingShift != null;
+
+  const [selectedJobId, setSelectedJobId] = useState(editingShift?.job_id ?? jobs[0]?.id ?? '');
+  const [shiftDate, setShiftDate] = useState(editingShift?.shift_date ?? todayIsoDate());
+  const [hours, setHours] = useState(editingShift ? String(editingShift.minutes / 60) : '');
+  const [tips, setTips] = useState(editingShift ? String(editingShift.tips_cents / 100) : '');
+  const [hourlyRate, setHourlyRate] = useState(() => {
+    if (editingShift) {
+      return String(editingShift.hourly_rate_cents / 100);
+    }
+    return jobs[0] ? String(jobs[0].hourly_rate_cents / 100) : '';
+  });
+  const [note, setNote] = useState(editingShift?.note ?? '');
 
   function handleSelectJob(job: Job) {
     setSelectedJobId(job.id);
     // Default the rate field to the newly selected job's rate -- still
     // editable afterward. This only sets the starting point, the same
     // "inherited but overridable" behavior BRAINSTORM.md's MVP scope calls
-    // for (raises happen, so do special events at a different rate).
+    // for (raises happen, so do special events at a different rate). Same
+    // behavior in edit mode: switching a shift to a different job resets
+    // the rate suggestion, since the old job's rate isn't relevant anymore.
     setHourlyRate(String(job.hourly_rate_cents / 100));
   }
 
@@ -55,33 +74,35 @@ export default function LogShiftForm({ jobs, onShiftLogged }: Props) {
       return;
     }
 
-    // Same unit conversions as CreateJobForm: Math.round rather than a bare
+    // Same unit conversions either way: Math.round rather than a bare
     // multiply, to avoid floating point landing one cent off.
     const minutes = Math.round(hoursValue * 60);
     const tipsCents = Math.round(tipsValue * 100);
     const hourlyRateCents = Math.round(rateValue * 100);
+    const noteValue = note.trim() === '' ? null : note.trim();
 
-    await createShift(
-      selectedJobId,
-      shiftDate,
-      minutes,
-      tipsCents,
-      hourlyRateCents,
-      note.trim() === '' ? null : note.trim()
-    );
+    if (editingShift) {
+      await updateShift(editingShift.id, selectedJobId, shiftDate, minutes, tipsCents, hourlyRateCents, noteValue);
+    } else {
+      await createShift(selectedJobId, shiftDate, minutes, tipsCents, hourlyRateCents, noteValue);
 
-    // Reset the per-shift fields, but leave the job selected -- logging
-    // several shifts at the same job in a row is the common case, not the
-    // exception.
-    setHours('');
-    setTips('');
-    setNote('');
-    onShiftLogged();
+      // Reset the per-shift fields, but leave the job selected -- logging
+      // several shifts at the same job in a row is the common case, not
+      // the exception. Only done for create: after an edit, this component
+      // is about to be torn down anyway (App.tsx clears editingShift and
+      // remounts back to "new shift" mode), so resetting fields here would
+      // just be wasted work.
+      setHours('');
+      setTips('');
+      setNote('');
+    }
+
+    onShiftSaved();
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Log a shift</Text>
+      <Text style={styles.title}>{isEditing ? 'Edit shift' : 'Log a shift'}</Text>
 
       <Text style={styles.label}>Job</Text>
       {/* A row of tappable chips instead of a native Picker -- no extra
@@ -145,8 +166,14 @@ export default function LogShiftForm({ jobs, onShiftLogged }: Props) {
       <TextInput style={styles.input} value={note} onChangeText={setNote} placeholder="e.g. slow night" />
 
       <Pressable style={styles.button} onPress={handleSubmit}>
-        <Text style={styles.buttonText}>Log shift</Text>
+        <Text style={styles.buttonText}>{isEditing ? 'Save changes' : 'Log shift'}</Text>
       </Pressable>
+
+      {isEditing && onCancelEdit ? (
+        <Pressable style={styles.cancelButton} onPress={onCancelEdit}>
+          <Text style={styles.cancelButtonText}>Cancel</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -200,6 +227,14 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#fff',
+    fontWeight: '600',
+  },
+  cancelButton: {
+    padding: 12,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: '#666',
     fontWeight: '600',
   },
 });

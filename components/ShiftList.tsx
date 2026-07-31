@@ -6,9 +6,10 @@ type Props = {
   shifts: Shift[];
   jobs: Job[];
   onShiftDeleted: () => void;
+  onShiftPress: (shift: Shift) => void;
 };
 
-export default function ShiftList({ shifts, jobs, onShiftDeleted }: Props) {
+export default function ShiftList({ shifts, jobs, onShiftDeleted, onShiftPress }: Props) {
   // Shifts only store job_id, not the job's name. Build the lookup once per
   // render instead of scanning the jobs array for every row.
   const jobNameById = new Map(jobs.map((job) => [job.id, job.name]));
@@ -50,7 +51,12 @@ export default function ShiftList({ shifts, jobs, onShiftDeleted }: Props) {
       keyExtractor={(shift) => shift.id}
       renderItem={({ item }) => (
         <View style={styles.row}>
-          <View style={styles.rowText}>
+          {/* Tapping the text column opens this shift for editing. Kept as
+              its own Pressable rather than wrapping the whole row, so it
+              stays a sibling of the Delete button below instead of a
+              parent of it -- no ambiguity about which handler a tap on
+              Delete fires. */}
+          <Pressable style={styles.rowText} onPress={() => onShiftPress(item)}>
             <Text style={styles.rowTitle}>
               {jobNameById.get(item.job_id) ?? 'Unknown job'} — {item.shift_date}
             </Text>
@@ -59,7 +65,7 @@ export default function ShiftList({ shifts, jobs, onShiftDeleted }: Props) {
               {(item.hourly_rate_cents / 100).toFixed(2)}/hr
             </Text>
             {item.note ? <Text style={styles.rowNote}>{item.note}</Text> : null}
-          </View>
+          </Pressable>
           <Pressable onPress={() => handleDeletePress(item)} hitSlop={8}>
             <Text style={styles.deleteText}>Delete</Text>
           </Pressable>
