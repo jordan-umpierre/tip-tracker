@@ -31,9 +31,8 @@ export async function createShift(
   // looks up from the job. schema.sql is explicit about why: this column is
   // a copy of the job's rate at the moment the shift happened, not a live
   // lookup -- a raise later must not rewrite what last year actually paid.
-  // Whatever calls createShift (the log-a-shift screen, eventually) decides
-  // the value, defaulting it to the job's current rate but letting the user
-  // override it for a special shift.
+  // LogShiftForm decides the value: it defaults to the job's current rate,
+  // but the user can override it for a special shift.
   //
   // deleted_at is explicitly NULL: a brand new shift is never deleted.
   await db.runAsync(

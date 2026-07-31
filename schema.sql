@@ -1,14 +1,19 @@
 -- Database schema for tip-tracker.
 -- SQLite, running on the device (see D1 in DECISIONS.md).
 --
--- Not yet wired into an app. The only thing that loads it today is
--- scripts/test-schema.sh, which checks that every constraint below actually
--- rejects the data it is supposed to reject.
+-- Wired into the app via db.ts, which bundles this file as an asset (see
+-- metro.config.js) and runs it against expo-sqlite on first launch, guarded
+-- by PRAGMA user_version so it doesn't re-run on every launch. Also loaded
+-- independently by scripts/test-schema.sh, which checks that every
+-- constraint below actually rejects the data it is supposed to reject --
+-- that script is what proves this file is correct in isolation, db.ts is
+-- what proves it actually runs on a real device.
 --
 -- One SQLite gotcha that bites people: foreign keys are OFF by default and
 -- have to be turned on per database connection with "PRAGMA foreign_keys = ON".
--- That belongs in the app code that opens the connection, not here. Without it
--- the FOREIGN KEY below is decoration and silently enforces nothing.
+-- That belongs in the app code that opens the connection, not here -- see
+-- db.ts. Without it the FOREIGN KEY below is decoration and silently
+-- enforces nothing.
 
 -- A job is a place you work, at a rate.
 -- Someone can have several: a main serving job, a weekend bartending gig.

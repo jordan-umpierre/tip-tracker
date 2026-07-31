@@ -15,8 +15,9 @@ export default function App() {
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
 
   // Re-reads jobs and shifts from SQLite. Called once on mount, and again
-  // after every create -- SQLite doesn't push updates to the app on its
-  // own, so re-querying is how the UI finds out a write actually happened.
+  // after every create, edit, or delete -- SQLite doesn't push updates to
+  // the app on its own, so re-querying is how the UI finds out a write
+  // actually happened.
   const refresh = useCallback(async () => {
     await getDb(); // makes sure schema.sql has run before anything queries it
     const [activeJobs, allShifts] = await Promise.all([listActiveJobs(), listShifts()]);
