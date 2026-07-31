@@ -332,3 +332,44 @@ UI/UX bar from the product definition is achievable here.
 > to predict a specific employer's number, so it may need pay-period rounding
 > alongside this. This rule stays correct for "what did I earn," which is what
 > the totals row answers.
+
+### D6 — The edit form shows hours at a precision that round-trips (2026-07-30)
+
+> **Decision:** When `LogShiftForm` pre-fills the hours field for an existing
+> shift, it renders `minutes / 60` to **two** decimal places, not raw and not
+> at the one-decimal precision `ShiftList` displays. Money fields pre-fill at
+> two decimals for the same reason.
+>
+> **Alternatives:**
+> - Leave it raw — the status quo, which showed `7.583333333333333`
+> - Match the list's one-decimal display, so both read `7.6`
+> - Replace the decimal-hours input with separate hours and minutes fields
+> - Store whatever the user typed alongside the canonical minutes
+>
+> **Why:** Minutes are the stored truth and decimal hours are a lossy view of
+> them, so the only safe display precision is one that converts back to the
+> same number of minutes. Saving runs `Math.round(hours * 60)`, which makes
+> this checkable rather than a matter of taste.
+>
+> Two decimals round-trips for every minute from 1 to 1440. One decimal does
+> not, and the failure is not cosmetic: a 455-minute shift shown as `7.6` saves
+> as 456 minutes, so merely opening a shift and pressing save would rewrite it.
+> A one-minute shift shown as `0.0` saves as zero and violates a `CHECK`
+> constraint. Matching the list would have been the obvious change and it
+> quietly corrupts data on every edit.
+>
+> Separate hours and minutes fields are the genuinely correct fix, because they
+> remove the lossy conversion instead of choosing a safe precision within it.
+> Not done now: it changes the shape of the primary input on the one screen
+> this project has committed to obsessing over, which deserves its own pass
+> rather than being smuggled into a bug fix.
+>
+> **Known cost:** the same shift now reads `7.58` in the edit field and `7.6`
+> in the list. Two renderings of one value is a real inconsistency. It is the
+> lesser problem — a display that disagrees with itself is visible and
+> annoying, whereas silently rewriting stored minutes is invisible and
+> permanent.
+>
+> **Revisit when:** the hours input becomes hours-and-minutes. That removes the
+> conversion this decision is working around, and both this rule and the
+> mismatch it causes disappear with it.
