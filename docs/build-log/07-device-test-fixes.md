@@ -140,7 +140,7 @@ To recreate, on the `FlatList` in `ShiftList`:
 Both only work because the previous commit made the screen a single scroller.
 Ordering the two commits the other way round would have shipped a no-op.
 
-## Device re-test — all four confirmed (2026-07-30)
+## Device re-test — all four confirmed (2026-07-31)
 
 Not a commit, but the event that closes this phase, and the reason the phase
 exists: every fix above was verified on the same physical iPhone that surfaced

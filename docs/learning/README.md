@@ -8,6 +8,13 @@ New questions get appended to whichever file below matches the topic. Dates go
 in the entry heading, never in the filename: the question "which file has the
 Expo answer?" should be answerable without remembering when it was asked.
 
+Entries name files as they were named on the day the question was asked, so
+older ones mention `DECISIONS.md`, `BRAINSTORM.md`, and a `schema.sql` at the
+repo root. Those were rewritten on 2026-07-30 and the answers were not, because
+editing them would make the record describe a repo that never existed. The
+mapping from old name to new is in
+[../build-log/06-restructure.md](../build-log/06-restructure.md).
+
 | File | Covers |
 |---|---|
 | [architecture.md](architecture.md) | SQLite vs Postgres, Expo vs bare React Native, why there's no backend in MVP, why UI shouldn't wait on one, when UI code deserves its own component files |
@@ -35,7 +42,7 @@ just having working code for.
   library uses it) is a ladder: `if (currentVersion < 1) { ... }`,
   `if (currentVersion < 2) { ... }`, so a database can upgrade incrementally no
   matter which version it started at. Matters for real the first time a column
-  gets added to `schema.sql` after the app has shipped
+  gets added to `src/data/schema.sql` after the app has shipped
 - `expo-sqlite`'s read/write API split — `runAsync`/`execAsync` for writes,
   `getAllAsync`/`getFirstAsync` for reads. Mixed these up writing the first
   draft of `listActiveJobs`, which stayed a copy-pasted `INSERT` under a new

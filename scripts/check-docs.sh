@@ -112,9 +112,10 @@ for f in "${docs[@]}"; do
     path="${target%%#*}"
     [ -z "$path" ] && continue
     # Resolve the path against the directory of the file the link was written
-    # in, not the repo root. A link inside docs/brainstorm/ that points at
-    # ../../schema.sql is correct, and checking it from the root would call it
-    # broken. For a top-level file dirname gives ".", so nothing changes there.
+    # in, not the repo root. A link inside docs/learning/ that points at
+    # ../../src/data/schema.sql is correct, and checking it from the root would
+    # call it broken. For a top-level file dirname gives ".", so nothing
+    # changes there.
     [ -e "$(dirname "$f")/$path" ] || err "$f links to '$path', which doesn't exist"
   done < <(grep -oE '\]\([^)]+\)' "$f" | sed 's/^](//; s/)$//')
 done

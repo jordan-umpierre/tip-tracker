@@ -3,7 +3,7 @@
 Where this project is, what's next, and everything done so far in order.
 This is the file to open first, every session.
 
-Last updated: 2026-07-30
+Last updated: 2026-07-31
 
 ---
 
@@ -266,3 +266,15 @@ the total checkable at a glance. Deliberately not built as part of Layer 0.
     every feature in its scope is built, tested, and verified on real
     hardware. The four defects it took a device to find are the argument for
     keeping that habit through Layer 1
+32. End-of-session audit. Logged the three questions from this session that had
+    been answered in conversation but never written down — the doc-structure
+    and root-layout complaint, how to weigh two options when neither is
+    obvious, and how usability defects sort against features. All three are in
+    [learning/docs-and-process.md](learning/docs-and-process.md). Fixed the
+    last stale reference in `check-docs.sh`, whose comment still used a
+    directory the restructure deleted, and added a note to
+    [learning/README.md](learning/README.md) explaining that Q&A entries name
+    files as they were named on the day they were asked, pointing at the rename
+    table in the build log rather than rewriting history. Note that this
+    session ran past midnight: entries dated 2026-07-30 and 2026-07-31 are the
+    same sitting

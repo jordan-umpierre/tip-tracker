@@ -19,7 +19,7 @@ the decision number (`see D1`) instead of restating the reasoning.
 Every real commit gets an entry, in the same session it's made, per `CLAUDE.md`'s
 cold-agent handoff steps.
 
-Last updated: 2026-07-30
+Last updated: 2026-07-31
 
 ---
 
