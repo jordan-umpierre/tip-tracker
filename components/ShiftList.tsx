@@ -1,4 +1,5 @@
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { formatCents, formatHours } from '../format';
 import { Job } from '../jobs';
 import { deleteShift, Shift } from '../shifts';
 
@@ -61,8 +62,8 @@ export default function ShiftList({ shifts, jobs, onShiftDeleted, onShiftPress }
               {jobNameById.get(item.job_id) ?? 'Unknown job'} — {item.shift_date}
             </Text>
             <Text style={styles.rowDetail}>
-              {(item.minutes / 60).toFixed(1)}h · ${(item.tips_cents / 100).toFixed(2)} tips · $
-              {(item.hourly_rate_cents / 100).toFixed(2)}/hr
+              {formatHours(item.minutes)} · {formatCents(item.tips_cents)} tips ·{' '}
+              {formatCents(item.hourly_rate_cents)}/hr
             </Text>
             {item.note ? <Text style={styles.rowNote}>{item.note}</Text> : null}
           </Pressable>
