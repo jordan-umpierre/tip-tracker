@@ -64,3 +64,5 @@ name — the number adds sequence without costing you the description.
    real iPhone, and the four defects that only a real screen could surface:
    the UTC date bug, the repeating-decimal edit field, the cramped layout, and
    the trapped keyboard.
+8. [08-layer-1-planning.md](08-layer-1-planning.md) — the handoff audit and
+   architecture decisions required before building the Trends screen.
