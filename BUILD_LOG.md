@@ -29,7 +29,8 @@ file, not here.
   and its tests, the cold-agent handoff system, the Expo scaffold, wiring
   `schema.sql` into `expo-sqlite`, the jobs and shifts data-access layers,
   the full log-a-shift screen (create, list, delete, edit — all verified on
-  a physical device), and the archive splits and stale-comment fixes that
-  followed once the docs themselves needed the same discipline as the code.
+  a physical device), the archive splits and stale-comment fixes that
+  followed once the docs themselves needed the same discipline as the code,
+  and the gross totals row that completes MVP Layer 0.
 
 Last updated: 2026-07-30

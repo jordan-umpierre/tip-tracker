@@ -98,13 +98,46 @@ once this section does.
     also confirmed working. Create, list, edit, and delete are all now
     verified working for real, not just bundled — the full CRUD loop for
     shifts is done and proven on device
-26. **NEXT:** Gross totals — the last piece of Layer 0's own MVP scope in
-    this file. Likely a small summary above or below `ShiftList` (total
-    hours, total tips, total gross pay), computed from the `shifts` array
-    `App.tsx` already holds in state — no new data-access function should
-    be needed, this is arithmetic over data already being fetched. Once
-    this lands, Layer 0 is actually complete and Layer 1 (Trends) becomes
-    the next real scope decision
+26. Verified the whole toolchain on a new machine (moved from a Windows
+    desktop to a MacBook): hooks path, `expo-doctor` 20/20, `tsc`, both
+    check scripts, Metro bundling for iOS and Android, and push
+    credentials. Everything passed with no fixes needed. Worth knowing
+    what's *not* installed rather than rediscovering it later: no full
+    Xcode (Command Line Tools only, so no iOS simulator — `npm run ios`
+    won't work), no Android SDK, no watchman. Expo Go on a physical device
+    is unaffected and is how this project gets tested anyway. Node is
+    v26.5.0, newer than Expo SDK 57 was tested against — it bundles clean,
+    but it's the first thing to suspect if Metro ever throws something
+    nonsensical
+27. Gross totals, which completes MVP Layer 0. Three commits plus the
+    decision that drove them. `totals.ts` is the first pure-calculation
+    module in the project — no SQLite, no async, no React — which is what
+    lets `totals.test.ts` run the money math on Node with no device and no
+    database. That test uses no framework at all: Node runs TypeScript
+    directly and `node:assert/strict` is standard library, so it costs zero
+    dependencies, and it's wired into the pre-commit hook and then broken
+    on purpose to prove it fails. D5 is the real decision — wages round per
+    shift, not once per total, so the rows in `ShiftList` add up to the
+    number above them. `format.ts` came out of the same work once the third
+    place formatting cents appeared. Concepts worth revisiting: `reduce` as
+    a `for` loop with the bookkeeping removed (its starting value is what
+    makes an empty array return zeros instead of crashing), and `import
+    type` as a real runtime distinction rather than a style choice — it's
+    what keeps `totals.ts` loadable outside the app. Verified with
+    `tsc --noEmit` and a bundling `expo start` (803 modules, no resolution
+    errors)
+28. **NEXT:** Confirm the totals row on a physical device, same as steps
+    21, 23, and 25 did for create/delete/edit. Two specific things to look
+    at, because bundling doesn't prove either: (a) `format.ts` uses
+    `Intl.NumberFormat`, which relies on the JS engine shipping Intl —
+    expected to be fine on Hermes at React Native 0.86, but if money renders
+    blank or throws, that's the cause, and `(cents / 100).toFixed(2)` is the
+    fallback; (b) the numbers themselves — log two or three shifts, add the
+    row values up by hand, and check they match the summary, which is
+    exactly the property D5 exists to guarantee. Once that's confirmed,
+    Layer 0 is done and Layer 1 (Trends) becomes the next real scope
+    decision — worth a fresh look at the layer definitions in this file
+    before building, not just picking the next bullet
 
 ### Settled stack
 

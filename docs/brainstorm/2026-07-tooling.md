@@ -195,3 +195,48 @@ else in the codebase yet:
 `LogShiftForm` came right after as "the same pattern, more fields," proving
 the worked-example approach actually transferred rather than needing to be
 re-taught from scratch.
+
+### 2026-07-30 — "i'd like to see some real examples as i've never really handwritten any of this before"
+
+Said about `Array.prototype.reduce`, while building the gross totals row. The
+first response had been a nudge — the concept, a skeleton with the body left
+blank, and "post what you write." Wrong call, and the same wrong call the
+`CreateJobForm` entry above already documents: nudging assumes the syntax is
+known and the thinking is the gap. Here neither was.
+
+What actually worked was building up from something already known. `reduce`
+is a `for` loop with the bookkeeping deleted, so the explanation started as
+the loop anyone would write without knowing `reduce` exists, then mapped the
+pieces across one at a time:
+
+- `let total = 0` above the loop becomes the **starting value**, the second
+  argument, the one that's easy to read as optional decoration and isn't.
+- `for (const n of nums)` disappears — `reduce` does the walking.
+- `total = total + n` becomes the arrow function.
+
+The part that actually trips people: **whatever the function returns becomes
+the running value for the next item.** Nothing is being assigned to a
+variable. Tracing three items by hand on paper is what makes it click, and it
+was worth writing that trace out explicitly rather than describing it:
+
+```
+start:    runningTotal = 0
+sees 5:   returns 0 + 5   = 5
+sees 10:  returns 5 + 10  = 15
+sees 20:  returns 15 + 20 = 35
+```
+
+Two things fell out of that starting value that are worth keeping. An empty
+array returns the starting value unchanged, which is why `calculateTotals([])`
+needs no special case for "no shifts logged yet" — the zeros are already the
+right answer. And when the accumulator is an object rather than a number,
+every field has to exist in that starting object with a zero in it; miss one
+and the first pass does `undefined + 5`, which is `NaN`, which then poisons
+every pass after it without throwing.
+
+Also asked in the same breath: what a real engineer would do about the
+decisions left open, and to hold every choice to "could I defend this in an
+interview." That's what pushed three things that could have been skipped —
+`totals.ts` as a pure module rather than more functions in `shifts.ts`, a real
+test for the money math, and pulling `format.ts` out at the third copy rather
+than the fifth. See D5 for the rounding decision itself.
