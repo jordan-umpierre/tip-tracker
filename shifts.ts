@@ -77,6 +77,39 @@ export async function listShifts(): Promise<Shift[]> {
   );
 }
 
+export async function updateShift(
+  id: string,
+  jobId: string,
+  shiftDate: string,
+  minutes: number,
+  tipsCents: number,
+  hourlyRateCents: number,
+  note: string | null
+): Promise<void> {
+  const db = await getDb();
+  const now = new Date().toISOString();
+
+  // Same columns as createShift's INSERT, minus id/deleted_at/created_at --
+  // this changes what a shift says, not when it was made or whether it's
+  // gone. created_at stays untouched on purpose: it records when the row
+  // was first made, not last edited. updated_at moves to now, same as
+  // deleteShift -- both are writes, and updated_at exists to track "when
+  // did this row last change" for eventual sync conflict resolution.
+  await db.runAsync(
+    `UPDATE shifts
+     SET job_id = ?, shift_date = ?, minutes = ?, tips_cents = ?, hourly_rate_cents = ?, note = ?, updated_at = ?
+     WHERE id = ?;`,
+    jobId,
+    shiftDate,
+    minutes,
+    tipsCents,
+    hourlyRateCents,
+    note,
+    now,
+    id
+  );
+}
+
 export async function deleteShift(id: string): Promise<void> {
   const db = await getDb();
   const now = new Date().toISOString();
