@@ -63,7 +63,7 @@ Earlier entries in this log quote module counts from cold-cache runs; they
 happened to be right, but the metric is fragile and shouldn't be compared
 across runs.
 
-## `<pending>` — refactor: reorganize docs by question, not by date (2026-07-30)
+## `d23f157` — docs: reorganize docs by question, not by date (2026-07-30)
 
 The trigger was a fair complaint: there were a lot of doc files, all with
 valuable content, and no structure that made any of them findable.
