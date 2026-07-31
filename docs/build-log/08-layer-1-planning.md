@@ -126,3 +126,38 @@ confidence scoring were left out until real use justifies them.
 Updated the Layer 1 learning note from an open question to a settled D10
 reference. `roadmap.md` now starts implementation with one pure Trends module
 and one dependency-free test file before Expo Router or UI work.
+
+## `043a0ad` — refactor: share per-shift gross calculation (2026-07-31)
+
+Moved D5's one-shift gross formula into
+`calculateShiftGrossCents(shift)`, then made `calculateTotals()` call it.
+Trends needs the same value, and one shared function prevents summary totals
+and weekday rates from choosing different rounding boundaries.
+
+Added a direct helper assertion without changing existing total behavior.
+Verified all tracked checks and TypeScript before committing.
+
+## `605533a` — feat: add Trends aggregation (2026-07-31)
+
+Added `src/lib/trends.ts`, a pure one-pass calculation over the in-memory
+shift array. An optional job id scopes every result before any bucket is
+updated. The result contains the weighted tips-per-hour headline, seven
+weekday gross-per-hour groups, and newest-first calendar month and year
+summaries.
+
+The implementation uses local accumulators and built-in `Map`/`Date`
+functionality. It adds no query, dependency, formatter, memoization layer, or
+chart model. Date-only strings are constructed and read in UTC solely to
+obtain a timezone-stable weekday; malformed or impossible dates fail visibly
+instead of being normalized into the wrong group.
+
+Added 18 dependency-free checks covering empty data, measured zero, weighted
+versus unweighted rates, all-jobs versus one-job scope, D5 per-shift rounding,
+weekday assignment, newest-first month/year boundaries, and invalid dates.
+
+The first direct Node run caught an extensionless runtime import that
+TypeScript accepts but Node's ESM resolver does not. Changed the source import
+to `./totals.ts`, reran the full hook and `tsc --noEmit`, then committed.
+
+The exact Expo SDK 57 reference was rechecked before code changes, as required
+by the repository instructions. This slice itself uses no Expo API.

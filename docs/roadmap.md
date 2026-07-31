@@ -9,21 +9,18 @@ Last updated: 2026-07-31
 
 ## NEXT
 
-**Implement and test the pure Trends calculations from D8–D10.** Do this before
-navigation or UI so a screen cannot hide incorrect arithmetic.
+**Close the shift-date trust boundary before wiring Trends into a screen.**
+The new pure calculation correctly rejects malformed or impossible dates, but
+`LogShiftForm` currently allows those strings to reach SQLite.
 
-1. Add one pure module under `src/lib/` that accepts shifts and an optional job
-   scope, then returns the D10 headline, seven weekday groups, calendar months,
-   and calendar years.
-2. Reuse D5's per-shift gross definition. Keep cents and minutes as integers;
-   use `null` for a rate with no shifts.
-3. Add one dependency-free test file beside it. The fixtures must catch an
-   unweighted average, cross-job leakage, per-total wage rounding, empty
-   weekdays, and month/year boundaries.
-4. Run the tracked checks and TypeScript before wiring any component.
+1. Put one strict `YYYY-MM-DD` calendar parser in `src/lib/dates.ts`.
+2. Reuse it in Trends and in the form's submit boundary.
+3. Give invalid form input a visible message instead of silently returning.
+4. Test malformed text, impossible dates, and leap day.
 
-After the calculation commit, migrate the entry flow to Expo Router under D7,
-then build the Trends screen with D9's exact values and native weekday bars.
+After that fix, settle the two remaining Router implementation details before
+migration: bottom tabs versus a stack, and route-owned SQLite reads versus a
+shared React context. Expo Router itself is already chosen in D7.
 
 ---
 
@@ -277,3 +274,9 @@ Trends scope is complete.
     time-weighted rates, gross per hour by weekday, visible sample context,
     calendar month/year totals, and no-data values that stay distinct from
     zero. `NEXT` now starts with tested arithmetic rather than UI
+34. Built the Layer 1 arithmetic before its screen. Extracted D5's per-shift
+    gross calculation for reuse, then added one pure Trends pass with all-jobs
+    or one-job scope, weighted headline and weekday rates, calendar month/year
+    totals, strict date grouping, and 18 dependency-free checks. The work
+    exposed an older input-boundary gap: the form can still save a malformed
+    date, so `NEXT` closes that before routing or UI
