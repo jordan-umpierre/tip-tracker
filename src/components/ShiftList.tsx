@@ -1,3 +1,4 @@
+import { ReactElement } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatCents, formatHours } from '../lib/format';
 import { Job } from '../data/jobs';
@@ -8,9 +9,20 @@ type Props = {
   jobs: Job[];
   onShiftDeleted: () => void;
   onShiftPress: (shift: Shift) => void;
+
+  // Rendered above the rows, inside the same scroll view. The screen's form
+  // and totals go here rather than sitting above this component, so the whole
+  // screen scrolls as one surface instead of squeezing the list into whatever
+  // vertical space the form leaves behind.
+  //
+  // A FlatList cannot be nested inside a ScrollView -- two scrollers fighting
+  // over the same gesture, and the inner one loses the virtualization that is
+  // the entire reason to use a FlatList. Handing the header to the list is the
+  // standard way out of that.
+  header?: ReactElement;
 };
 
-export default function ShiftList({ shifts, jobs, onShiftDeleted, onShiftPress }: Props) {
+export default function ShiftList({ shifts, jobs, onShiftDeleted, onShiftPress, header }: Props) {
   // Shifts only store job_id, not the job's name. Build the lookup once per
   // render instead of scanning the jobs array for every row.
   const jobNameById = new Map(jobs.map((job) => [job.id, job.name]));
@@ -34,22 +46,26 @@ export default function ShiftList({ shifts, jobs, onShiftDeleted, onShiftPress }
     ]);
   }
 
-  if (shifts.length === 0) {
-    return (
-      <View style={styles.empty}>
-        <Text style={styles.emptyText}>No shifts logged yet.</Text>
-      </View>
-    );
-  }
-
   // FlatList instead of mapping shifts.map(...) inside a View: it only
   // renders the rows currently on screen rather than every row in the
   // array, which matters once there are hundreds or thousands of shifts.
+  //
+  // The empty state is ListEmptyComponent rather than an early return. An
+  // early return here used to be fine, but now that the form arrives as
+  // `header`, returning before rendering the list would take the entire form
+  // off screen for anyone who hasn't logged a shift yet -- which is everyone,
+  // the first time they open the app.
   return (
     <FlatList
       style={styles.list}
       data={shifts}
       keyExtractor={(shift) => shift.id}
+      ListHeaderComponent={header}
+      ListEmptyComponent={
+        <View style={styles.empty}>
+          <Text style={styles.emptyText}>No shifts logged yet.</Text>
+        </View>
+      }
       renderItem={({ item }) => (
         <View style={styles.row}>
           {/* Tapping the text column opens this shift for editing. Kept as

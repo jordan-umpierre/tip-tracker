@@ -48,36 +48,48 @@ export default function App() {
         // until at least one job exists.
         <CreateJobForm onJobCreated={refresh} />
       ) : (
-        <>
-          {/* key forces React to treat "editing shift A" and "editing shift
-              B" (or "not editing") as different component instances rather
-              than the same one with a prop that silently changed underneath
-              it. That's what makes LogShiftForm's useState initializers --
-              which only run once, at mount -- correctly re-read from
-              whichever shift is now being edited, without needing a
-              useEffect to sync state across renders. */}
-          <LogShiftForm
-            key={editingShift?.id ?? 'new'}
-            jobs={jobs}
-            editingShift={editingShift}
-            onShiftSaved={() => {
-              setEditingShift(null);
-              refresh();
-            }}
-            onCancelEdit={() => setEditingShift(null)}
-          />
-          {/* Summary above the detail it summarizes, and reading the same
-              shifts array ShiftList does -- so the rows below always add up
-              to these numbers rather than being fetched separately and
-              drifting out of sync. */}
-          <ShiftTotals shifts={shifts} />
-          <ShiftList
-            shifts={shifts}
-            jobs={jobs}
-            onShiftDeleted={refresh}
-            onShiftPress={setEditingShift}
-          />
-        </>
+        // The form and totals are handed to ShiftList as its header rather
+        // than stacked above it. That makes the whole screen one scrolling
+        // surface: the form scrolls out of the way when you want to read the
+        // list, instead of permanently occupying most of the screen and
+        // leaving the rows crammed into the bottom strip.
+        //
+        // This is an element, not a function returning one. Passing
+        // `() => <LogShiftForm .../>` would create a brand new component type
+        // on every render, so React would unmount and remount the form each
+        // time -- losing focus and dismissing the keyboard on every keystroke.
+        <ShiftList
+          shifts={shifts}
+          jobs={jobs}
+          onShiftDeleted={refresh}
+          onShiftPress={setEditingShift}
+          header={
+            <>
+              {/* key forces React to treat "editing shift A" and "editing
+                  shift B" (or "not editing") as different component instances
+                  rather than the same one with a prop that silently changed
+                  underneath it. That's what makes LogShiftForm's useState
+                  initializers -- which only run once, at mount -- correctly
+                  re-read from whichever shift is now being edited, without
+                  needing a useEffect to sync state across renders. */}
+              <LogShiftForm
+                key={editingShift?.id ?? 'new'}
+                jobs={jobs}
+                editingShift={editingShift}
+                onShiftSaved={() => {
+                  setEditingShift(null);
+                  refresh();
+                }}
+                onCancelEdit={() => setEditingShift(null)}
+              />
+              {/* Summary above the detail it summarizes, and reading the same
+                  shifts array ShiftList does -- so the rows below always add
+                  up to these numbers rather than being fetched separately and
+                  drifting out of sync. */}
+              <ShiftTotals shifts={shifts} />
+            </>
+          }
+        />
       )}
       <StatusBar style="auto" />
     </View>
