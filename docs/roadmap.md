@@ -9,30 +9,29 @@ Last updated: 2026-07-30
 
 ## NEXT
 
-Fix the four defects found during the 2026-07-30 device test, in this order.
-The first is a correctness bug; the rest are usability. Layer 1 waits until
-these are done — a screen this awkward to use is not a finished Layer 0.
+Re-test the four fixes on a physical device. All four are committed and pass
+`tsc`, the test suites, and a clean bundle — but every one of them was found by
+looking at a real screen, so none of them counts as done until a real screen
+confirms it.
 
-1. **Shifts log against the UTC day, not the local one.** `todayIsoDate()` in
-   `LogShiftForm` calls `toISOString()`, which converts to UTC before slicing
-   the date out. At 23:31 Central on 2026-07-30 the form defaulted to
-   `2026-07-31`. Any shift logged after 7pm Central gets tomorrow's date. This
-   is the exact failure the date-only convention exists to prevent, and the
-   comment above that function wrongly claims it prevents it. Build the string
-   from `getFullYear()`/`getMonth()`/`getDate()` instead.
-2. **The edit form shows hours as a repeating decimal.** Opening shift C for
-   editing displays `7.583333333333333`, because it renders `minutes / 60`
-   raw. Careful here: the obvious fix of matching the list's `7.6h` would save
-   456 minutes instead of 455 and silently rewrite the shift on every edit.
-   See D6.
-3. **The shift list is cramped.** The form takes the whole screen and the list
-   is squeezed into what's left, with no way to scroll the form out of the way.
-4. **The keyboard can't be dismissed.** The number fields use `decimal-pad`,
-   which has no return key, and the form isn't inside a scrollable, so tapping
-   outside does nothing. The only escape is tapping the date field and hitting
-   return.
+1. **The date defaults to today, locally.** Open the app after 7pm and check
+   the date field shows today's date, not tomorrow's. This was the correctness
+   bug; it is the one to check first.
+2. **Editing a shift shows sane numbers.** Tap shift C. Hours should read
+   `7.58`, not `7.583333333333333`, and rate should read `15.50`. Then press
+   Save without changing anything and confirm the list still reads `7.6h` and
+   the totals still read `$175.31` — that is the round-trip D6 protects, and a
+   changed number here means the fix is wrong.
+3. **The screen scrolls as one.** The form should scroll up out of the way,
+   letting the list use the full screen.
+4. **The keyboard can be dismissed.** Tap into Hours, then tap empty space —
+   keyboard closes. Then tap into Hours and press Log shift directly: it should
+   fire on the first tap, not need a second.
 
-After those: Layer 1 (Trends) is the next real scope decision — worth
+Also worth confirming, since the empty state changed: delete every shift and
+check the form is still on screen above "No shifts logged yet."
+
+After that, Layer 1 (Trends) is the next real scope decision — worth
 re-reading the layer definitions in [product.md](product.md) before building,
 not just picking the next bullet.
 
@@ -239,3 +238,18 @@ the total checkable at a glance. Deliberately not built as part of Layer 0.
     or unit testing was going to catch, because it only shows up when a real
     person looks at a real screen late at night. Worth remembering as an
     argument for on-device testing every step, which this project already does
+30. Fixed all four, one commit each. The date bug moved its arithmetic into
+    `lib/dates.ts` so it could be tested at all — the function now takes a
+    `Date` instead of reading the clock, and the tests build every `Date` with
+    the local-time constructor so they hold in any timezone. The edit-form
+    numbers got D6 and a test that walks all 1440 durations in a day checking
+    each one converts back to the same stored minutes; the tempting fix of
+    matching the list's `7.6h` fails that test on the first iteration by
+    turning a one-minute shift into zero. The layout and keyboard fixes are
+    one change in two commits: handing the form to `ShiftList` as its header
+    makes the screen a single scroller, and only then do
+    `keyboardShouldPersistTaps` and `keyboardDismissMode` have anything to act
+    on. Concepts worth revisiting: `toISOString()` is always UTC and is almost
+    never what a calendar-day question wants, and `ListHeaderComponent` must
+    be handed an element rather than a function, or React remounts the header
+    on every render and the keyboard closes on every keystroke

@@ -43,3 +43,7 @@ name — the number adds sequence without costing you the description.
    shared formatters. Completes MVP Layer 0.
 6. [06-restructure.md](06-restructure.md) — moving application code into
    `src/` and reorganizing the docs by the question each one answers.
+7. [07-device-test-fixes.md](07-device-test-fixes.md) — confirming totals on a
+   real iPhone, and the four defects that only a real screen could surface:
+   the UTC date bug, the repeating-decimal edit field, the cramped layout, and
+   the trapped keyboard.
