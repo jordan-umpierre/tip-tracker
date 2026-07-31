@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import CreateJobForm from './components/CreateJobForm';
 import LogShiftForm from './components/LogShiftForm';
 import ShiftList from './components/ShiftList';
+import ShiftTotals from './components/ShiftTotals';
 import { getDb } from './db';
 import { Job, listActiveJobs } from './jobs';
 import { listShifts, Shift } from './shifts';
@@ -65,6 +66,11 @@ export default function App() {
             }}
             onCancelEdit={() => setEditingShift(null)}
           />
+          {/* Summary above the detail it summarizes, and reading the same
+              shifts array ShiftList does -- so the rows below always add up
+              to these numbers rather than being fetched separately and
+              drifting out of sync. */}
+          <ShiftTotals shifts={shifts} />
           <ShiftList
             shifts={shifts}
             jobs={jobs}
