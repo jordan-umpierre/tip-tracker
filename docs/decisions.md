@@ -373,3 +373,40 @@ UI/UX bar from the product definition is achievable here.
 > **Revisit when:** the hours input becomes hours-and-minutes. That removes the
 > conversion this decision is working around, and both this rule and the
 > mismatch it causes disappear with it.
+
+### D7 — Add Expo Router when Layer 1 introduces the second screen (2026-07-31)
+
+> **Decision:** Use Expo Router for application navigation. Route files live
+> in `app/` and stay thin; components, SQLite access, and pure calculations
+> remain under `src/`. Introduce it now, when Trends creates the first real
+> navigation boundary, rather than before the app has multiple screens.
+>
+> **Alternatives:**
+> - Keep one entry component and switch between Log and Trends with
+>   `useState`
+> - Configure React Navigation directly
+>
+> **Why:** A state toggle is the smallest answer for exactly two views, but
+> Layers 2 and 3 already name several more screens: tax profile, paycheck and
+> year-end estimates, mileage, and expenses. Those are written product scope,
+> not hypothetical scale, so the toggle would be knowingly temporary.
+>
+> React Navigation directly is fully valid in an Expo app and offers more
+> precise control over navigation state, URL parsing, and navigator structure.
+> This app has no requirement for that extra control. Expo Router uses React
+> Navigation underneath while adding the file-based route structure, typed
+> routes, and automatic linking Expo recommends for SDK 57 projects. Choosing
+> the lower-level API would add configuration without a current consumer.
+>
+> Waiting until the second screen keeps the decision proportional: routing
+> would have been premature in Layer 0, but avoiding it now would create code
+> the existing roadmap already tells us to replace.
+>
+> **Known cost:** the current `index.ts` → `App.tsx` entry flow must migrate to
+> an `app/` route tree, and the state `App.tsx` owns needs a deliberate home
+> shared by the Log and Trends routes. File locations also become part of route
+> behavior, so moving a route is not merely filing.
+>
+> **Revisit when:** navigation needs custom state restoration or URL parsing
+> that Expo Router cannot express cleanly, or a required navigation feature
+> forces work against the router instead of with it.

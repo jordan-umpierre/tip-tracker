@@ -9,33 +9,19 @@ Last updated: 2026-07-31
 
 ## NEXT
 
-**Decide Layer 1's scope before writing any of it.** Layer 0 is complete and
-confirmed on device, so this is the first genuinely open scope question since
-the layers were drawn up. Re-read Layer 1 in [product.md](product.md) first —
-earnings by day of week, by month and year, and tips per hour as the headline
-number.
+**Decide where Trends aggregation happens.** Navigation is settled: Expo
+Router enters with the second screen (D7). Do not install or restructure for
+it yet; finish Layer 1's remaining scope decisions first so the route migration
+has a known destination.
 
-Three decisions fall out of it, and none should be made by defaulting:
+`listShifts()` already returns every shift and `lib/totals.ts` reduces over the
+array in TypeScript. Grouping by weekday or month could stay in pure
+TypeScript, or move into SQLite with `GROUP BY`. At a few thousand rows the
+performance difference is not real yet, so decide on ownership, testability,
+and clarity rather than theoretical speed.
 
-1. **Where does a second screen live?** The app is one screen today. Trends
-   needs somewhere to be, which forces a navigation choice: `expo-router`
-   (file-based, first-party, the direction Expo pushes), React Navigation
-   directly, or no router at all — a toggle between two views held in `App.tsx`
-   state. The last one costs nothing and is genuinely enough for two screens,
-   but it stops scaling the moment there's a third. This is a `docs/decisions.md`
-   entry either way.
-2. **Where does the aggregation happen?** `listShifts()` already returns every
-   shift and `lib/totals.ts` reduces over the array in JS. Grouping by weekday
-   or month could stay in JS the same way, or move into SQL with `GROUP BY`.
-   JS keeps `lib/` testable with no database, which has already paid for
-   itself; SQL scales better and is the more conventional answer. At a few
-   thousand rows the performance argument is not real yet, so decide on
-   testability and clarity rather than speed.
-3. **Numbers or charts?** A chart means a new dependency, and it is the first
-   one this project would add that isn't first-party Expo. "Tips per hour, by
-   weekday, as a list of numbers" may be the honest MVP of a trends screen.
-
-Do not start building until those three have answers written down.
+After that, decide whether the first Trends screen is numbers only or includes
+a chart. Do not start building until both answers are written down.
 
 One smaller thing already logged under Open Questions below and worth folding
 into this pass: whether each shift row should show its own gross.

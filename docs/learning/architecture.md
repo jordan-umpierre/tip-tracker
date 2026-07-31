@@ -256,3 +256,28 @@ of engineering judgment, not evidence of avoiding React.
 A React web team may still want evidence of browser React somewhere in the
 portfolio. That is a portfolio-coverage question, not a reason to use a worse
 mobile architecture in this app.
+
+### 2026-07-31 — "Choose Expo Router as opposed to what?"
+
+The three choices were not three equivalent libraries:
+
+1. **No navigation library.** `App.tsx` could hold
+   `'log' | 'trends'` in state and conditionally render one component. It is
+   the smallest answer and reasonable for a disposable two-view prototype.
+   It has no navigation history, native back behavior, deep links, or clean
+   path to the additional screens already named in Layers 2 and 3.
+2. **React Navigation directly.** The navigation tree is declared explicitly
+   in TypeScript. It gives precise control over state, nested navigators, and
+   link parsing, but also requires more manual route, type, linking, and
+   dependency configuration. It remains fully supported in Expo.
+3. **Expo Router.** A framework over React Navigation that derives routes from
+   files and adds Expo-integrated typed routes and linking. Its cost is a
+   one-time entry-point migration and learning the `app/` / `_layout.tsx`
+   conventions.
+
+The deciding fact was the roadmap, not Expo's recommendation. If Trends were
+the final screen, the state toggle would have won on simplicity. It is not:
+tax profile, paycheck estimates, year-end estimates, mileage, and expenses are
+already written scope. React Navigation's extra control also has no current
+requirement. Expo Router is therefore the smallest navigation foundation that
+does not knowingly need replacement. See D7.
