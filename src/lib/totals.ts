@@ -19,6 +19,15 @@ export type ShiftTotals = {
   grossCents: number;
 };
 
+// One shift is the smallest earnings record. Keeping its gross calculation
+// here gives totals and Trends one definition to share instead of copying
+// money math into each feature.
+export function calculateShiftGrossCents(shift: Shift): number {
+  // D5 rounds wages for each shift before anything groups those shifts. Tips
+  // are already whole cents, so they can be added after that one rounding.
+  return shift.tips_cents + Math.round((shift.minutes * shift.hourly_rate_cents) / 60);
+}
+
 export function calculateTotals(shifts: Shift[]): ShiftTotals {
   // reduce walks the array once and carries a running value along -- the
   // same job as a for loop with a `let totals` above it, minus the
@@ -41,10 +50,7 @@ export function calculateTotals(shifts: Shift[]): ShiftTotals {
       // Multiply first, divide last. Both orders usually agree, but staying
       // on integers through the multiplication is the habit that keeps money
       // math from drifting.
-      grossCents:
-        totals.grossCents +
-        shift.tips_cents +
-        Math.round((shift.minutes * shift.hourly_rate_cents) / 60),
+      grossCents: totals.grossCents + calculateShiftGrossCents(shift),
     }),
     // The starting value, and the reason an empty shifts array needs no
     // special case above -- it returns exactly this, which is the right

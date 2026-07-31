@@ -10,7 +10,7 @@
 // nothing runs stops being true without anyone noticing.
 import assert from 'node:assert/strict';
 import type { Shift } from '../data/shifts.ts';
-import { calculateTotals } from './totals.ts';
+import { calculateShiftGrossCents, calculateTotals } from './totals.ts';
 
 // calculateTotals only reads three of a Shift's fields, but the type requires
 // all of them, so this fills in the rest with throwaway values. Building the
@@ -46,6 +46,10 @@ assert.deepEqual(calculateTotals([shift(450, 2000, 1550)]), {
 // 11754.1666... cents, which is not a number of cents that exists.
 assert.deepEqual(calculateTotals([shift(455, 0, 1550)]).grossCents, 11754);
 
+// Trends needs this same one-shift value. Testing the exported helper directly
+// makes a copied or differently rounded implementation unnecessary.
+assert.equal(calculateShiftGrossCents(shift(455, 2000, 1550)), 13754);
+
 // D5, stated as a test. Two 30-minute shifts at $15.01/hr each earn exactly
 // 750.5 cents. Rounding per shift gives 751 + 751 = 1502. Rounding the sum
 // instead would give 1501 -- a cent less than the sum of the two shifts. If
@@ -72,4 +76,4 @@ assert.deepEqual(calculateTotals(mixed), {
 const totals = calculateTotals(mixed);
 assert.ok(totals.grossCents >= totals.tipsCents);
 
-console.log('totals OK (6 checks)');
+console.log('totals OK (7 checks)');
