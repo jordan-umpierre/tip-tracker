@@ -24,10 +24,12 @@ guessing, unlike a numbered sequel file. New entries go in the current month's
 file, not here.
 
 - [July 2026](docs/build-log/2026-07.md) — every commit from the initial
-  commit through adding edit mode to the log-a-shift screen: product docs,
-  the decision log split, doc staleness checks and their own bugs, the
-  schema and its tests, the cold-agent handoff system, the Expo scaffold,
-  wiring `schema.sql` into `expo-sqlite`, the jobs and shifts data-access
-  layers, and the full log-a-shift screen (create, list, delete, edit).
+  commit through an end-of-session staleness audit: product docs, the
+  decision log split, doc staleness checks and their own bugs, the schema
+  and its tests, the cold-agent handoff system, the Expo scaffold, wiring
+  `schema.sql` into `expo-sqlite`, the jobs and shifts data-access layers,
+  the full log-a-shift screen (create, list, delete, edit — all verified on
+  a physical device), and the archive splits and stale-comment fixes that
+  followed once the docs themselves needed the same discipline as the code.
 
 Last updated: 2026-07-30
