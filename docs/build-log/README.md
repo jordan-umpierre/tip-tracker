@@ -16,8 +16,25 @@ That's a different job from the other docs, so it stays separate:
 Where a commit made a real technical decision, these files name it and point at
 the decision number (`see D1`) instead of restating the reasoning.
 
-Every real commit gets an entry, in the same session it's made, per `CLAUDE.md`'s
-cold-agent handoff steps.
+## What gets an entry
+
+Commits that change the app, the schema, the checks, or a decision — in the
+same session they're made.
+
+Commits that only write *these files* don't get their own entry, and never
+have. A doc commit whose whole content is "record what the last commit did"
+would have to describe itself, and its hash can't exist until after it's
+written. The normal shape is a code commit followed by the doc commit that logs
+it; the second one is bookkeeping for the first, not a separate event.
+
+This is written down because the rule used to read "every real commit gets an
+entry," which was never true — roughly fifteen doc commits across this repo's
+history quietly didn't have one. A rule nobody follows is worse than a narrower
+rule that's honest, since the first kind rots without anyone noticing.
+
+Not automated on purpose: deciding whether a commit is "real work" or
+bookkeeping needs a judgment a script can't make, and a check that guessed
+would either nag constantly or pass while missing things.
 
 Last updated: 2026-07-31
 
