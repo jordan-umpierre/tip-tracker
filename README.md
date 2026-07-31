@@ -12,9 +12,10 @@ Built for both W2 and 1099 workers. iOS and Android.
 
 ## Status
 
-**The core loop works, confirmed on a physical device.** Create a job, log a
-shift, see it in the list, edit it, delete it. Gross totals are built and
-awaiting on-device confirmation, which is the last thing Layer 0 needs.
+**MVP Layer 0 is complete and confirmed on a physical device.** Create a job,
+log a shift, see it in the list, edit it, delete it, and see gross totals over
+everything logged. Every feature in Layer 0's scope is built, covered by a
+check, and verified on real hardware rather than only bundled.
 
 Done:
 
@@ -38,7 +39,8 @@ Done:
 
 Next:
 
-- Confirm the totals row on a physical device, then Layer 0 is done. See
+- Decide Layer 1 (Trends) scope — where a second screen lives, whether
+  aggregation happens in SQL or JS, and whether it needs charts at all. See
   [docs/roadmap.md](docs/roadmap.md)
 
 ## Stack

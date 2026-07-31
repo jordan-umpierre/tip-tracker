@@ -139,3 +139,22 @@ To recreate, on the `FlatList` in `ShiftList`:
 
 Both only work because the previous commit made the screen a single scroller.
 Ordering the two commits the other way round would have shipped a no-op.
+
+## Device re-test — all four confirmed (2026-07-30)
+
+Not a commit, but the event that closes this phase, and the reason the phase
+exists: every fix above was verified on the same physical iPhone that surfaced
+the defects.
+
+Checked, in order:
+
+1. Date field defaults to the local calendar day rather than tomorrow's.
+2. Editing a shift shows `7.58` hours and `15.50` rate.
+3. Saving that shift untouched left the list at `7.6h` and the totals at
+   `$175.31` — the D6 round-trip holding in the app, not only in the test.
+4. The screen scrolls as one surface, form included.
+5. The keyboard dismisses on a tap into empty space and on a drag, and Log
+   shift fires on the first tap with the keyboard open.
+
+That closes MVP Layer 0. Every feature in its scope is built, covered by a
+check, and verified on real hardware.

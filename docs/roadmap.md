@@ -9,31 +9,36 @@ Last updated: 2026-07-30
 
 ## NEXT
 
-Re-test the four fixes on a physical device. All four are committed and pass
-`tsc`, the test suites, and a clean bundle — but every one of them was found by
-looking at a real screen, so none of them counts as done until a real screen
-confirms it.
+**Decide Layer 1's scope before writing any of it.** Layer 0 is complete and
+confirmed on device, so this is the first genuinely open scope question since
+the layers were drawn up. Re-read Layer 1 in [product.md](product.md) first —
+earnings by day of week, by month and year, and tips per hour as the headline
+number.
 
-1. **The date defaults to today, locally.** Open the app after 7pm and check
-   the date field shows today's date, not tomorrow's. This was the correctness
-   bug; it is the one to check first.
-2. **Editing a shift shows sane numbers.** Tap shift C. Hours should read
-   `7.58`, not `7.583333333333333`, and rate should read `15.50`. Then press
-   Save without changing anything and confirm the list still reads `7.6h` and
-   the totals still read `$175.31` — that is the round-trip D6 protects, and a
-   changed number here means the fix is wrong.
-3. **The screen scrolls as one.** The form should scroll up out of the way,
-   letting the list use the full screen.
-4. **The keyboard can be dismissed.** Tap into Hours, then tap empty space —
-   keyboard closes. Then tap into Hours and press Log shift directly: it should
-   fire on the first tap, not need a second.
+Three decisions fall out of it, and none should be made by defaulting:
 
-Also worth confirming, since the empty state changed: delete every shift and
-check the form is still on screen above "No shifts logged yet."
+1. **Where does a second screen live?** The app is one screen today. Trends
+   needs somewhere to be, which forces a navigation choice: `expo-router`
+   (file-based, first-party, the direction Expo pushes), React Navigation
+   directly, or no router at all — a toggle between two views held in `App.tsx`
+   state. The last one costs nothing and is genuinely enough for two screens,
+   but it stops scaling the moment there's a third. This is a `docs/decisions.md`
+   entry either way.
+2. **Where does the aggregation happen?** `listShifts()` already returns every
+   shift and `lib/totals.ts` reduces over the array in JS. Grouping by weekday
+   or month could stay in JS the same way, or move into SQL with `GROUP BY`.
+   JS keeps `lib/` testable with no database, which has already paid for
+   itself; SQL scales better and is the more conventional answer. At a few
+   thousand rows the performance argument is not real yet, so decide on
+   testability and clarity rather than speed.
+3. **Numbers or charts?** A chart means a new dependency, and it is the first
+   one this project would add that isn't first-party Expo. "Tips per hour, by
+   weekday, as a list of numbers" may be the honest MVP of a trends screen.
 
-After that, Layer 1 (Trends) is the next real scope decision — worth
-re-reading the layer definitions in [product.md](product.md) before building,
-not just picking the next bullet.
+Do not start building until those three have answers written down.
+
+One smaller thing already logged under Open Questions below and worth folding
+into this pass: whether each shift row should show its own gross.
 
 ---
 
@@ -253,3 +258,11 @@ the total checkable at a glance. Deliberately not built as part of Layer 0.
     never what a calendar-day question wants, and `ListHeaderComponent` must
     be handed an element rather than a function, or React remounts the header
     on every render and the keyboard closes on every keystroke
+31. Confirmed all four fixes on a physical device: the date defaults to the
+    local day, the edit form shows `7.58` and `15.50`, saving an untouched
+    shift leaves the list and totals unchanged (the D6 round-trip holding in
+    practice, not just in a test), the screen scrolls as one surface, and the
+    keyboard dismisses on a tap away and on a drag. **Layer 0 is done** —
+    every feature in its scope is built, tested, and verified on real
+    hardware. The four defects it took a device to find are the argument for
+    keeping that habit through Layer 1
