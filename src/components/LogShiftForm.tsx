@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Job } from '../data/jobs';
 import { createShift, Shift, updateShift } from '../data/shifts';
+import { localDateString } from '../lib/dates';
 
 type Props = {
   // Fetched once by App.tsx (which already needs the list to decide whether
@@ -24,11 +25,11 @@ type Props = {
 };
 
 function todayIsoDate(): string {
-  // Matches schema.sql's date-only convention: no time, no timezone.
-  // Slicing toISOString() down to 10 characters keeps "YYYY-MM-DD" and
-  // drops the time portion, which is what stops a late shift from
-  // displaying on the wrong day depending on timezone.
-  return new Date().toISOString().slice(0, 10);
+  // Reads the clock here, does the calendar arithmetic in lib/dates.ts --
+  // which is what makes that half testable. See the comment there for why
+  // toISOString() is the wrong tool: it answers "what day is it in UTC", and
+  // the only day that matters is the one the user is standing in.
+  return localDateString(new Date());
 }
 
 export default function LogShiftForm({ jobs, editingShift, onShiftSaved, onCancelEdit }: Props) {

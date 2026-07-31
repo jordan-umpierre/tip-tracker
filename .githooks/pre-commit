@@ -13,12 +13,14 @@
 # things reports both instead of making you fix one and get stopped again by
 # the other.
 #
-# totals.test.ts has no wrapper script because it doesn't need one -- Node
+# The lib/ tests have no wrapper script because they do not need one -- Node
 # runs TypeScript directly. The --disable-warning flag silences Node's
 # complaint that package.json has no "type": "module"; adding that field would
 # break metro.config.js, which is CommonJS, so the warning gets muted instead.
 status=0
 ./scripts/check-docs.sh  || status=1
 ./scripts/test-schema.sh || status=1
-node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON src/lib/totals.test.ts || status=1
+for t in src/lib/*.test.ts; do
+  node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON "$t" || status=1
+done
 exit "$status"
