@@ -58,3 +58,30 @@ import restriction applies to application code already using Expo Router.
 No package or application code changed. `roadmap.md` now points at the next
 decision—pure TypeScript versus SQLite aggregation—before the router migration
 begins.
+
+## `d2b603c` — docs: choose pure TypeScript for Layer 1 aggregation (2026-07-31)
+
+Added D8 after tracing the actual read path:
+
+1. `listShifts()` already selects every non-deleted shift.
+2. `App.tsx` already keeps that complete array in memory for the Log screen.
+3. `totals.ts` already establishes and tests the boundary where SQLite owns
+   stored facts and `src/lib/` owns derived arithmetic.
+
+At the expected few-thousand-row ceiling, a linear TypeScript pass is not a
+meaningful cost. Adding SQLite `GROUP BY` queries would create a second data
+path without eliminating the existing full read. The decision is deliberately
+reversible: move aggregation toward SQLite when shifts are paginated, a
+measurement finds a bottleneck, or an API needs summaries without transferring
+raw rows.
+
+Corrected one stale `totals.ts` comment found during the trace. It still said
+gross values were visible in each `ShiftList` row; they are not. No runtime
+behavior changed.
+
+Attempted the repository's Fallow completion workflow before editing, but
+Fallow is not installed and running `npx --yes fallow` was blocked because it
+would download and execute an unpinned package outside the sandbox. It was not
+added as a project dependency or bypassed. Verification used the tracked
+checks instead: docs, 19 schema checks, all three pure-library test files,
+`tsc --noEmit`, and `git diff --check`.
