@@ -1,10 +1,11 @@
-# Q&A log — July 2026 — product scope & data model
+# Learning — product scope & data model
 
-Part of the July 2026 Q&A archive, split by purpose once the single-file
-archive passed ~500 lines. See `2026-07.md` for the split index.
+Part of the [learning log](README.md) — every question asked on this project,
+with its answer, dated. New entries append here.
 
-Companion docs: `../../BRAINSTORM.md` for product thinking and open questions,
-`../../DECISIONS.md` for the numbered decisions.
+Companion docs: [../roadmap.md](../roadmap.md) for what is next,
+[../product.md](../product.md) for product scope,
+[../decisions.md](../decisions.md) for the numbered decisions.
 
 ### 2026-07-29 — "What's the next logical step or commit an engineer would do?"
 
@@ -112,3 +113,47 @@ problem has an industry-standard shape and mine is different, I should know why.
 The two costs, so they are not a surprise later: tombstones grow forever without
 a purge policy, which becomes a real task when sync ships; and the missing-filter
 footgun now applies to a second table. Both are written into D4.
+
+### 2026-07-29 — The data model questions, asked and answered in order
+
+Two entities looked obvious from the start: **Job** and **Shift**. Every
+question below is now implemented, not just decided — kept in question form
+because the reasoning is the useful part.
+
+**How is money stored? — integer cents.**
+
+Not as floating point. `0.1 + 0.2` is `0.30000000000000004` in JavaScript,
+because binary floats can't represent most decimal fractions exactly. Small
+errors compound across hundreds of shifts and a tax calculation.
+
+Store whole cents as integers. `$24.50` is `2450`. Format for display only.
+Every money column in `schema.sql` (`hourly_rate_cents`, `tips_cents`) follows
+this. See also D5, which is about where the rounding happens once cents stop
+dividing evenly.
+
+**What happens to shift history when a job's hourly rate changes?**
+
+The expensive one. Scenario: 200 shifts logged against a job paying $8/hr. You
+get a raise to $10/hr and update the job. If a Shift only stores `job_id` and
+the rate is looked up from Job at display time, what happens to those 200
+historical shifts?
+
+Whatever this app shows for last year has to still be true next year. So
+`shifts.hourly_rate_cents` copies the job's rate at the moment the shift was
+created, and is never a live lookup. `createShift`/`updateShift` take it as a
+required argument for exactly this reason.
+
+**What kind of IDs? — text UUIDs, via `expo-crypto`.**
+
+D1 committed to sync-later. Auto-incrementing integers collide across devices —
+two phones both create row 5, and there's no way to reconcile them. Text UUIDs,
+generated on-device with `Crypto.randomUUID()`, are unique everywhere without
+needing a central authority to hand them out.
+
+**How is a shift's date stored? — date-only ISO 8601.**
+
+A shift on October 5th is October 5th. If it's stored as a UTC timestamp, a
+user in a negative-offset timezone logging a late shift can see it land on the
+wrong day. `shift_date` is `"YYYY-MM-DD"`, no time, no timezone.
+
+**What happens on delete? — see D3 (jobs) and D4 (shifts).**

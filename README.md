@@ -13,8 +13,8 @@ Built for both W2 and 1099 workers. iOS and Android.
 ## Status
 
 **The core loop works, confirmed on a physical device.** Create a job, log a
-shift, see it in the list, edit it, delete it. Layer 0 isn't complete yet —
-see Next.
+shift, see it in the list, edit it, delete it. Gross totals are built and
+awaiting on-device confirmation, which is the last thing Layer 0 needs.
 
 Done:
 
@@ -32,11 +32,14 @@ Done:
   shift (rate inherited from the job but overridable), see the list, edit a
   shift, delete one with confirmation — all confirmed working on a physical
   device, not just bundled
+- Gross totals ([`src/lib/totals.ts`](src/lib/totals.ts)): hours, tips and
+  gross pay over every logged shift, with the money rounding rule pinned by a
+  test that runs on Node with no device
 
 Next:
 
-- Gross totals — the last piece of Layer 0's own MVP scope, see
-  `BRAINSTORM.md`'s Order of Operations
+- Confirm the totals row on a physical device, then Layer 0 is done. See
+  [docs/roadmap.md](docs/roadmap.md)
 
 ## Stack
 
@@ -44,12 +47,12 @@ Next:
 |---|---|---|
 | Language | TypeScript | |
 | UI | React Native | One codebase, reuses React |
-| Tooling | Expo | [D2](DECISIONS.md) — `expo prebuild` is a real escape hatch |
-| Storage | SQLite via `expo-sqlite` | [D1](DECISIONS.md) — logging a shift has to work with no signal |
-| Backend | None in MVP | [D1](DECISIONS.md) — Node, Express and Postgres arrive with optional sign-in |
+| Tooling | Expo | [D2](docs/decisions.md) — `expo prebuild` is a real escape hatch |
+| Storage | SQLite via `expo-sqlite` | [D1](docs/decisions.md) — logging a shift has to work with no signal |
+| Backend | None in MVP | [D1](docs/decisions.md) — Node, Express and Postgres arrive with optional sign-in |
 
 Every one of these is written up with its rejected alternatives in
-[DECISIONS.md](DECISIONS.md). The alternatives stay in the file permanently; a
+[docs/decisions.md](docs/decisions.md). The alternatives stay in the file permanently; a
 decision with no visible alternatives is an assumption.
 
 ## Data model
@@ -73,29 +76,31 @@ knowing before reading it:
 ## Repo layout
 
 ```
-BRAINSTORM.md         product thinking, open questions, learning log
-DECISIONS.md          numbered decisions with their rejected alternatives
-BUILD_LOG.md          commit-by-commit history, detailed enough to recreate
-schema.sql            the data model
-db.ts                 opens the SQLite connection, runs schema.sql
-jobs.ts               data-access functions for the jobs table
-shifts.ts             data-access functions for the shifts table
-App.tsx               app entry point
-components/           the log-a-shift screen's UI
-metro.config.js       bundler config (lets schema.sql ship as an asset)
-docs/brainstorm/      archived Q&A log, one file per month
-docs/build-log/       archived commit-by-commit history, one file per month
+index.ts              entry point, registers the root component
+src/
+  App.tsx             wiring: fetches state, hands it to components
+  components/         the log-a-shift screen's UI
+  data/               SQLite: db.ts, schema.sql, and one file per table
+  lib/                pure calculation and formatting -- no I/O, so testable
+                      on Node with no device and no database
+docs/                 see docs/README.md for which file answers what
 scripts/              the checks below
 .githooks/            pre-commit hook that runs them
+metro.config.js       bundler config (lets schema.sql ship as an asset)
 ```
+
+The three folders under `src/` are the architecture boundary, not filing:
+`components/` renders, `data/` persists, `lib/` computes. The split is what
+lets the money math be tested without rendering anything or opening a database.
 
 ## Checks
 
-Two scripts, both run by the pre-commit hook:
+Three, all run by the pre-commit hook:
 
 ```sh
-./scripts/check-docs.sh    # duplicate headings, dead references, broken links
-./scripts/test-schema.sh   # every constraint in schema.sql rejects bad data
+./scripts/check-docs.sh                # duplicate headings, dead references, broken links
+./scripts/test-schema.sh               # every constraint in schema.sql rejects bad data
+node src/lib/totals.test.ts            # the money arithmetic, incl. the D5 rounding rule
 ```
 
 A fresh clone needs this once, because git does not look in `.githooks/` on its
@@ -112,10 +117,10 @@ being true.
 
 ## Scope
 
-MVP is logging shifts, viewing them, editing them, and deleting them — gross
-totals only, still to build. Trends, net-income projection and 1099 support
-are later layers, planned in [BRAINSTORM.md](BRAINSTORM.md) and deliberately
-not built ahead of time.
+MVP is logging shifts, viewing them, editing them, deleting them, and gross
+totals. Trends, net-income projection and 1099 support are later layers,
+planned in [docs/product.md](docs/product.md) and deliberately not built ahead
+of time.
 
 Tax projections are the highest-risk part of this product, because real people
 make real financial decisions on them. They will ship as estimates and never as

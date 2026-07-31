@@ -38,6 +38,20 @@ while IFS= read -r f; do docs+=("$f"); done < <(git ls-files '*.md')
 srcs=()
 while IFS= read -r f; do srcs+=("$f"); done < <(git ls-files '*.md' '*.sql' 'scripts/*')
 
+# --- 0. The docs this script hardcodes by name ------------------------------
+# Several checks below only work if a specific file is where they expect it.
+# They used to be wrapped in "if [ -f DECISIONS.md ]", which meant renaming
+# that file made the check silently stop running while this script still
+# printed "docs OK". A check that skips itself when its input vanishes is worse
+# than no check at all, because it reports success. So: name them here, and
+# fail loudly if one moves. Whoever moves it updates this list on purpose.
+DECISIONS=docs/decisions.md
+ROADMAP=docs/roadmap.md
+BUILDLOG=docs/build-log/README.md
+for f in "$DECISIONS" "$ROADMAP" "$BUILDLOG"; do
+  [ -f "$f" ] || err "$f is missing -- checks below depend on it. If it moved, update the paths at the top of this script."
+done
+
 # --- 1. Duplicate headings ------------------------------------------------
 # The exact bug from 2026-07-29. Two identical headings means one of them is
 # almost certainly a leftover nobody noticed.
@@ -49,14 +63,14 @@ done
 # --- 2. Decision references that go nowhere -------------------------------
 # Docs say things like "archived rather than deleted (D3)". If DECISIONS.md
 # doesn't actually have a D3, that reference is a dead end for a reader.
-if [ -f DECISIONS.md ]; then
+if [ -f "$DECISIONS" ]; then
   # Decision numbers that actually exist, e.g. "### D3 - Soft delete..."
-  defined=$(grep -o '^### D[0-9]\+' DECISIONS.md | grep -o '[0-9]\+' | sort -u)
+  defined=$(grep -o '^### D[0-9]\+' "$DECISIONS" | grep -o '[0-9]\+' | sort -u)
   # Every D<n> mentioned anywhere, in docs or in code comments.
   mentioned=$(grep -hoE '\bD[0-9]+\b' -- "${srcs[@]}" 2>/dev/null \
                 | grep -oE '[0-9]+' | sort -u)
   for n in $mentioned; do
-    grep -qx "$n" <<<"$defined" || err "D$n is referenced but not defined in DECISIONS.md"
+    grep -qx "$n" <<<"$defined" || err "D$n is referenced but not defined in $DECISIONS"
   done
   # A reference can name a number that exists and still send the reader to the
   # wrong file. schema.sql pointed at D1 in the brainstorm file for a while
@@ -68,9 +82,9 @@ if [ -f DECISIONS.md ]; then
   # way the docs would write it, or this check would flag its own example. Same
   # dodge as the TODO check further down.
   while IFS= read -r hit; do
-    err "$hit -- decisions live in DECISIONS.md"
+    err "$hit -- decisions live in $DECISIONS"
   done < <(grep -noE '\bD[0-9]+ in [A-Za-z0-9_./-]+\.md' -- "${srcs[@]}" 2>/dev/null \
-             | grep -v 'DECISIONS\.md$' || true)
+             | grep -v 'decisions\.md$' || true)
 
   # A decision nobody points at isn't necessarily wrong, but it's worth knowing.
   for n in $defined; do
@@ -116,11 +130,19 @@ done
 todos=$(grep -nE 'TODO[(:]|FIXME[(:]' -- "${srcs[@]}" 2>/dev/null || true)
 [ -n "$todos" ] && warn "open TODO/FIXME markers:$(printf '\n        %s' "$todos")"
 
-# --- 5. Docs that outgrew the split threshold -----------------------------
-# The rule in CLAUDE.md is ~500 lines, split by purpose. This is the nag.
+# --- 5. Docs long enough to be worth a second look ------------------------
+# Deliberately not a split threshold. The old rule was a hard ~500 lines, and
+# treating that as an instruction produced splits by arbitrary boundary (by
+# calendar month) rather than by meaning -- which is how the docs ended up with
+# filenames you had to already know the answer to find.
+#
+# Length was only ever a proxy for the real question: does this file still
+# answer exactly one question? A long reference file you jump around in is
+# fine. A medium one covering two unrelated topics is not. So this prints the
+# prompt and lets a person answer it.
 for f in "${docs[@]}"; do
   n=$(wc -l < "$f" | tr -d ' ')   # macOS wc pads with spaces
-  [ "$n" -gt 500 ] && warn "$f is $n lines, past the ~500 split threshold"
+  [ "$n" -gt 250 ] && warn "$f is $n lines -- does it still answer one question? Split by question if not, leave it if so."
 done
 
 # --- 6. Git hooks not actually wired up ------------------------------------
@@ -133,41 +155,33 @@ done
 hooks_path=$(git config --get core.hooksPath 2>/dev/null || true)
 [ "$hooks_path" != ".githooks" ] && warn "core.hooksPath is '$hooks_path', not .githooks -- pre-commit checks are not running. Fix: git config core.hooksPath .githooks"
 
-# --- 7. BRAINSTORM.md's status log going stale ------------------------------
-# The Order of Operations in BRAINSTORM.md is the single source of truth a
-# cold agent reads to know what happened last and what's next (see the Cold
-# agent handoff section in CLAUDE.md). If real work is staged for commit and
-# that log's "Last updated" date isn't today, the handoff for whoever reads it
-# next is stale. A warning, not a failure -- most commits in a session are
-# smaller than a full handoff and shouldn't be blocked on updating the log.
-if [ -f BRAINSTORM.md ]; then
+# --- 7 & 8. Status logs going stale -----------------------------------------
+# Two files carry a "Last updated" date that a later reader relies on:
+#
+#   docs/roadmap.md          -- what happened last and what's next. The single
+#                               source of truth a cold agent reads (see the
+#                               Cold agent handoff section in CLAUDE.md).
+#   docs/build-log/README.md -- the index over the commit-by-commit log.
+#
+# If real work is staged for commit and either date isn't today, whoever reads
+# it next is reading something stale. A warning, not a failure: most commits in
+# a session are smaller than a full handoff and shouldn't be blocked on it.
+check_stale_date() {
+  local file="$1" nudge="$2" staged other_changes logged_date today
+  [ -f "$file" ] || return 0
   staged=$(git diff --cached --name-only 2>/dev/null || true)
-  other_changes=$(grep -vx 'BRAINSTORM.md' <<<"$staged" || true)
-  logged_date=$(grep -oE '^Last updated: [0-9]{4}-[0-9]{2}-[0-9]{2}' BRAINSTORM.md \
+  # Changes to anything other than the log file itself. Updating only the log
+  # is not "real work" that the log could be behind on.
+  other_changes=$(grep -vx "$file" <<<"$staged" || true)
+  logged_date=$(grep -oE '^Last updated: [0-9]{4}-[0-9]{2}-[0-9]{2}' "$file" \
                   | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}')
   today=$(date +%F)
   if [ -n "$other_changes" ] && [ -n "$logged_date" ] && [ "$logged_date" != "$today" ]; then
-    warn "BRAINSTORM.md says 'Last updated: $logged_date', not today ($today) -- update the Order of Operations if this session's work belongs in the log"
+    warn "$file says 'Last updated: $logged_date', not today ($today) -- $nudge"
   fi
-fi
-
-# --- 8. BUILD_LOG.md going stale --------------------------------------------
-# BUILD_LOG.md is a commit-by-commit recreation log (see its own header for
-# why it's a separate file from BRAINSTORM.md and DECISIONS.md). Same logic as
-# check 7: if real work is staged and this file's "Last updated" date isn't
-# today, whoever reads it next to recreate a step is reading a log that's
-# missing the most recent commits. A warning, not a failure, for the same
-# reason as check 7 -- not every commit is a full logging session.
-if [ -f BUILD_LOG.md ]; then
-  staged=$(git diff --cached --name-only 2>/dev/null || true)
-  other_changes=$(grep -vx 'BUILD_LOG.md' <<<"$staged" || true)
-  logged_date=$(grep -oE '^Last updated: [0-9]{4}-[0-9]{2}-[0-9]{2}' BUILD_LOG.md \
-                  | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}')
-  today=$(date +%F)
-  if [ -n "$other_changes" ] && [ -n "$logged_date" ] && [ "$logged_date" != "$today" ]; then
-    warn "BUILD_LOG.md says 'Last updated: $logged_date', not today ($today) -- add an entry for this session's commits if they belong in the log"
-  fi
-fi
+}
+check_stale_date "$ROADMAP"  "update the history and the NEXT section if this session's work belongs in the log"
+check_stale_date "$BUILDLOG" "add an entry for this session's commits if they belong in the log"
 
 if [ "$fail" -eq 0 ]; then
   echo "docs OK"

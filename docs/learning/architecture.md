@@ -1,10 +1,11 @@
-# Q&A log — July 2026 — architecture & stack
+# Learning — architecture & stack
 
-Part of the July 2026 Q&A archive, split by purpose once the single-file
-archive passed ~500 lines. See `2026-07.md` for the split index.
+Part of the [learning log](README.md) — every question asked on this project,
+with its answer, dated. New entries append here.
 
-Companion docs: `../../BRAINSTORM.md` for product thinking and open questions,
-`../../DECISIONS.md` for the numbered decisions.
+Companion docs: [../roadmap.md](../roadmap.md) for what is next,
+[../product.md](../product.md) for product scope,
+[../decisions.md](../decisions.md) for the numbered decisions.
 
 ### 2026-07-29 — "Why use SQLite when my tech stack clearly states PostgreSQL?"
 
@@ -169,3 +170,56 @@ option 2 — `components/CreateJobForm.tsx` and `components/LogShiftForm.tsx`,
 joined the same folder once it turned out to need real code (job-name
 lookups, an empty state, a delete confirmation) rather than being a
 one-liner inside `App.tsx`.
+
+### 2026-07-29 — "Does MVP need a backend and user accounts, or is on-device storage enough?"
+
+Answered as D1, but the rejected options are the useful part and they were
+worth writing out before choosing. All three are defensible; they're defensible
+for different reasons.
+
+*Option A — on-device only.* Data lives in SQLite on the phone. No server, no
+accounts, no login screen.
+
+- Pros: no hosting cost, nothing to operate, no auth to build, no password
+  resets, no user data to breach or be legally responsible for. Ships far
+  sooner. Works with no signal, which matters when you're logging a shift in a
+  basement break room.
+- Cons: phone lost or upgraded means data lost, unless we add export/backup. No
+  second device. Adding accounts later requires a migration and a story for
+  merging local data into a new account.
+
+*Option B — Express + Postgres backend with accounts from day one.*
+
+- Pros: data survives the phone. Multi-device. The scaling path is already
+  there. Better interview talking point on the backend side.
+- Cons: at 3–10 users this is mostly cost and maintenance for benefit nobody is
+  asking for yet. Auth is genuinely fiddly and is a place to introduce security
+  bugs. Now legally responsible for storing strangers' income data. Every
+  feature costs more to build because it touches two codebases.
+
+*Option C — local-first, sync added later.* SQLite on device is the source of
+truth. A backend and optional sign-in get added at Layer 1/2. Users who sign in
+get backup and multi-device; users who don't keep working exactly as before.
+
+**Chose Option C.** The reasoning, and this is the part worth being able to say
+out loud:
+
+- The log-a-shift flow has to be instant and work with no signal. A basement
+  break room has no bars. That means writing to the device first, always. So
+  we're building on-device storage *no matter which option we pick* — Option B
+  doesn't remove that work, it adds server work on top of it.
+- Auth built before the product is understood is auth that gets rewritten.
+- But this app's data is multi-year income and tax records. That's too precious
+  to leave on a single device with only a manual export as backup. Most people
+  will never remember to export. So "never build a backend" is the wrong answer
+  *for this specific app* — not because of scale, because of data value.
+
+The real cost of Option C: the local schema has to be designed so it can sync
+later. Sync is genuinely one of the harder problems in software because of
+conflict resolution. It's tractable here — shift records are single-user and
+mostly append-only, so two devices rarely touch the same record, and
+last-write-wins is a defensible policy. Worth knowing it's the hard part.
+
+Note that "production ready" does not mean "has a backend." It means real
+people can rely on it: doesn't lose data, doesn't crash, handles bad input, is
+supportable. Plenty of shipped production apps store everything on device.

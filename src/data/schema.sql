@@ -1,5 +1,5 @@
 -- Database schema for tip-tracker.
--- SQLite, running on the device (see D1 in DECISIONS.md).
+-- SQLite, running on the device (see D1 in docs/decisions.md).
 --
 -- Wired into the app via db.ts, which bundles this file as an asset (see
 -- metro.config.js) and runs it against expo-sqlite on first launch, guarded

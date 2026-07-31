@@ -7,9 +7,9 @@ Rejected alternatives stay in this file permanently. "Here's what I didn't do
 and why" is worth more than the decision alone, and a decision with no visible
 alternatives isn't a decision, it's an assumption.
 
-Companion docs: `BRAINSTORM.md` for the learning log and open questions,
-`schema.sql` for the data model.
-
+Companion docs: [roadmap.md](roadmap.md) for what is next,
+[learning/](learning/) for the question-and-answer log, and
+`src/data/schema.sql` for the data model.
 
 Format for each entry:
 

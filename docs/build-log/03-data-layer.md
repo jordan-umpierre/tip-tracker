@@ -1,11 +1,11 @@
-# Build log — July 2026 — data-access layer
+# Build log — data-access layer
 
-Part of the July 2026 build-log archive, split by phase once the single-file
-archive passed ~500 lines. See `2026-07.md` for the split index.
+Part of the [build log](README.md). Numbered by phase because this is the
+one place chronology is the content.
 
-Companion docs: `../../BUILD_LOG.md` for the index and why this file exists at
-all, `../../DECISIONS.md` for the numbered decisions, `../../BRAINSTORM.md`
-for product thinking and the Order of Operations.
+Companion docs: [../decisions.md](../decisions.md) for the numbered decisions,
+[../roadmap.md](../roadmap.md) for what is next, [../product.md](../product.md)
+for product scope.
 
 Covers: `jobs.ts` and `shifts.ts` — the plain functions wrapping SQL that a
 screen actually calls, since this project has no server backend to put that

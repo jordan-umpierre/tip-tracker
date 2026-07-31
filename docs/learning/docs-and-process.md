@@ -1,10 +1,11 @@
-# Q&A log — July 2026 — docs hygiene, process, review
+# Learning — docs hygiene, process, review
 
-Part of the July 2026 Q&A archive, split by purpose once the single-file
-archive passed ~500 lines. See `2026-07.md` for the split index.
+Part of the [learning log](README.md) — every question asked on this project,
+with its answer, dated. New entries append here.
 
-Companion docs: `../../BRAINSTORM.md` for product thinking and open questions,
-`../../DECISIONS.md` for the numbered decisions.
+Companion docs: [../roadmap.md](../roadmap.md) for what is next,
+[../product.md](../product.md) for product scope,
+[../decisions.md](../decisions.md) for the numbered decisions.
 
 ### 2026-07-29 — "How do we prevent anything becoming stale in the docs?"
 
