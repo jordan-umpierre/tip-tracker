@@ -142,3 +142,30 @@ functions, then the screen that calls them — rather than all data-access
 functions first or all screens first. Faster to find out if the schema is
 awkward to query against, since that shows up after one slice instead of
 after five screens are already built on it.
+
+### 2026-07-30 — "What would a real software engineer do in this instance? New component files, or something else?"
+
+Asked when the log-a-shift screen was about to need two genuinely different
+forms (create a job, log a shift) in one file. Three options exist, not two:
+
+1. Everything in `App.tsx` — simplest to navigate while there's nothing to
+   jump between, but grows fast once a screen has multiple forms plus a list.
+2. A few component files, no folder ceremony, no navigation library —
+   `App.tsx` left as a thin orchestrator deciding which one to show.
+3. A full `screens/`/`components/` structure with a navigation library
+   (`expo-router` or `react-navigation`) — explicitly rejected as premature:
+   one screen with two states isn't a routing problem, and installing a
+   router to solve a problem that doesn't exist yet is the kind of
+   dependency a senior reviewer would flag in the PR that added it.
+
+The real choice was 1 vs. 2, and it came down to whether "create a job" and
+"log a shift" are one concern or two. They're different forms, different
+fields, different submit handlers, and the data itself already draws the
+boundary (empty-jobs state vs. has-jobs state) — that's a real seam, not an
+arbitrary one, which is the test that matters: splitting along a boundary
+the data already draws is different from splitting "just in case." Landed on
+option 2 — `components/CreateJobForm.tsx` and `components/LogShiftForm.tsx`,
+`App.tsx` holding the jobs state and picking which to render. `ShiftList.tsx`
+joined the same folder once it turned out to need real code (job-name
+lookups, an empty state, a delete confirmation) rather than being a
+one-liner inside `App.tsx`.

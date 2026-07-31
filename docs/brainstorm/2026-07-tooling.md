@@ -165,3 +165,33 @@ Developer Program account — worth checking spam, and worth double-checking
 it's the same Apple ID as the one signed into TestFlight on the phone, since
 a mismatched Apple ID is the most common reason an invite silently fails to
 redeem.
+
+### 2026-07-30 — "I genuinely have never handwritten any of this so I'm going to need a lot of guidance."
+
+Said at the start of `CreateJobForm.tsx` — the first hand-written React or
+React Native code in this project. Same shape as the earlier "I don't know
+SQL syntax at all" moment: the fix is one fully worked, heavily annotated
+example, then writing the next instance off that pattern, not nudging
+someone toward syntax they've never seen.
+
+The concepts that example had to cover, since none of them existed anywhere
+else in the codebase yet:
+
+- **`useState`** — how a component remembers a value across re-renders and
+  triggers a re-render when it changes, versus a plain variable that would
+  reset on every render.
+- **Controlled inputs** — a `TextInput`'s `value` comes *from* state,
+  `onChangeText` writes *back to* state. The round trip through state is
+  the entire mechanism; the input itself doesn't remember what was typed.
+- **Props with a callback** — the only direction a child component can tell
+  a parent "something happened." Data flows down as props, events flow up
+  as calling a function the parent passed down.
+- **`View`/`Text`/`TextInput`/`Pressable`** — React Native's own primitives,
+  not HTML. Each renders a real native view on the device, not a DOM
+  element.
+- **`StyleSheet.create`** — React Native's CSS equivalent: plain JS objects,
+  flexbox by default on every `View`, no class names or stylesheet files.
+
+`LogShiftForm` came right after as "the same pattern, more fields," proving
+the worked-example approach actually transferred rather than needing to be
+re-taught from scratch.

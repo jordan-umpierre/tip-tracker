@@ -12,8 +12,9 @@ Built for both W2 and 1099 workers. iOS and Android.
 
 ## Status
 
-**Data layer, no screens yet.** The app runs — confirmed on a physical
-device — and can talk to its own database, but there's nothing to look at.
+**The core loop works, confirmed on a physical device.** Create a job, log a
+shift, see it in the list, edit it, delete it. Layer 0 isn't complete yet —
+see Next.
 
 Done:
 
@@ -25,13 +26,17 @@ Done:
 - Expo app scaffolded, confirmed running on a physical device
 - `schema.sql` wired into `expo-sqlite` ([`db.ts`](db.ts)), including the
   `PRAGMA foreign_keys = ON` gotcha SQLite requires per connection
-- Jobs data-access functions ([`jobs.ts`](jobs.ts)): create and list
+- Data-access layer ([`jobs.ts`](jobs.ts), [`shifts.ts`](shifts.ts)): create,
+  list, update, and soft-delete
+- The log-a-shift screen ([`components/`](components/)): create a job, log a
+  shift (rate inherited from the job but overridable), see the list, edit a
+  shift, delete one with confirmation — all confirmed working on a physical
+  device, not just bundled
 
 Next:
 
-- Shifts data-access functions
-- The log-a-shift flow — the one screen this project obsesses over on UI
-  quality, per `BRAINSTORM.md`
+- Gross totals — the last piece of Layer 0's own MVP scope, see
+  `BRAINSTORM.md`'s Order of Operations
 
 ## Stack
 
@@ -107,9 +112,10 @@ being true.
 
 ## Scope
 
-MVP is logging shifts and viewing them. Trends, net-income projection and 1099
-support are later layers, planned in [BRAINSTORM.md](BRAINSTORM.md) and
-deliberately not built ahead of time.
+MVP is logging shifts, viewing them, editing them, and deleting them — gross
+totals only, still to build. Trends, net-income projection and 1099 support
+are later layers, planned in [BRAINSTORM.md](BRAINSTORM.md) and deliberately
+not built ahead of time.
 
 Tax projections are the highest-risk part of this product, because real people
 make real financial decisions on them. They will ship as estimates and never as

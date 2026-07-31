@@ -16,6 +16,9 @@ Start to finish. Nothing gets decided in chat and forgotten.
 **Companion docs:**
 - `DECISIONS.md` — the numbered decision log (D1, D2, …). Split out of this file
   once it got long, because decisions are the part worth finding fast.
+- `BUILD_LOG.md` — commit-by-commit history, detailed enough to recreate the
+  repo from scratch. Different job from this file: chronological and
+  command-level, not Q&A or what's next.
 - `schema.sql` — the data model.
 
 Splitting rule: docs get split by purpose, never into `BRAINSTORM_2.md`. A
@@ -33,98 +36,13 @@ Last updated: 2026-07-30
 
 ## Order of Operations
 
-1. Created directory `tip-tracker`
-2. Created `README.md`
-3. `git init`, first commit, pushed to GitHub
-4. Created `BRAINSTORM.md` — the file you're reading
-5. Defined the problem, the differentiators, and what's out of scope
-6. Split the feature set into MVP + three later layers
-7. Decided architecture: local-first, SQLite on device, sync added later (D1)
-8. Decided platform: Expo (React Native, TypeScript) (D2)
-9. Data model written as `schema.sql` — `jobs` and `shifts`, checked by hand
-   against sqlite3
-10. Split `DECISIONS.md` out of this file once it passed 750 lines, and added
-    `scripts/check-docs.sh` plus a git pre-commit hook to stop docs rotting
-11. First code review of the repo. `check-docs.sh` turned out to print FAIL and
-    exit 0, so nothing it found had ever blocked a commit; `schema.sql` still
-    cited D1 in the wrong file; and the claim that constraints were tested had
-    no tests behind it. Fixed all three, added `scripts/test-schema.sh`, gave
-    shifts a tombstone (D4), rewrote `README.md`, archived this file's Q&A log
-12. Installed `sqlite3` and DB Browser for SQLite (both via `winget`), since
-    `test-schema.sh` had been silently skipping on this machine the whole time
-    (`WARN sqlite3 not installed`). Verified the suite actually catches a
-    broken constraint by loosening a `CHECK` and watching it fail, not just
-    trusting the 19-checks-passed output. Found `core.hooksPath` wasn't
-    actually set on this machine despite being documented as done, and
-    re-ran it. Split the July Q&A archive again, this time by purpose, once
-    it itself passed the ~500 line threshold
-13. Built a cold-agent handoff system, since `CLAUDE.md`'s old "Start here"
-    section (status + next task, restated) had already drifted from this
-    file's Order of Operations once. Thinned `CLAUDE.md` down to a pointer at
-    this section instead of a second copy, added an explicit handoff protocol
-    (check `core.hooksPath` first, do the one `NEXT:` task, update this log
-    before ending the session), and taught `check-docs.sh` two new warnings:
-    `core.hooksPath` not actually set to `.githooks`, and this file's
-    `Last updated` date being stale while other work is being committed. Both
-    verified by triggering them on purpose before trusting them
-14. Scaffolded the Expo app. `create-expo-app` refuses a non-empty directory,
-    so it ran into a throwaway subdirectory and the result got moved up by
-    hand instead. That meant `app.json`'s `name`/`slug` and `package.json`'s
-    `name` came out as the throwaway directory's name — caught by
-    `expo-doctor`, fixed to `tip-tracker`. Kept the project's real
-    `CLAUDE.md` over Expo's generated stub, and merged Expo's `.gitignore`
-    rules into the existing file rather than overwriting it, per the trap
-    this file already had a note about. Verified with `tsc --noEmit`,
-    `expo-doctor` (20/20), and an actual `CI=1 expo start` bundling and
-    serving before committing
-15. Added `BUILD_LOG.md`: a commit-by-commit log detailed enough to recreate
-    the repo from scratch, separate from `DECISIONS.md` (why) and this file
-    (Q&A / what's next). Backfilled all 18 commits so far. Gave it the same
-    staleness check `check-docs.sh` already runs against this file's
-    `Last updated` date, verified by breaking it on purpose first
-16. Wired `schema.sql` into `expo-sqlite` (`db.ts`). Opens the connection,
-    turns on `PRAGMA foreign_keys = ON`, then runs `schema.sql` — shipped as
-    a bundled asset via `metro.config.js` rather than duplicated as a JS
-    string, so `db.ts` and `test-schema.sh` always run the same source of
-    truth. Guarded against re-running the `CREATE TABLE` statements on every
-    launch with `PRAGMA user_version`, since `schema.sql` deliberately has no
-    `IF NOT EXISTS`. `App.tsx` temporarily renders the open/fail status to
-    prove it end to end; that gets replaced once there's a real screen.
-    Confirmed working for real on a physical iPhone — "database ready"
-    rendered, meaning the schema actually loaded and ran on device. Getting
-    there needed a detour: the App Store's Expo Go build was still on SDK 54
-    while this project is on SDK 57 (Apple's review lag on Expo Go itself, a
-    real and current gap, not a local issue). Fixed with `npx eas-cli@latest
-    go`, which builds a custom Expo Go matched to our SDK and ships it via a
-    personal TestFlight team — needs an Apple Developer Program membership,
-    and the App Store Connect API key it generates needs the **Admin** role,
-    not App Manager, since only Admin can manage the certificates EAS needs
-    to sign the build
-17. Revisited "screen sketches next" before starting it: this app has no
-    server backend at all in MVP (D1), so "build the backend first" doesn't
-    apply the normal way. What a screen actually needs first is a small
-    data-access layer — plain functions wrapping SQL — since `db.ts` alone
-    can open a connection and run `schema.sql` but can't insert or list
-    anything yet. Reordered to: data-access functions per table, then the
-    screen that calls them, one vertical slice at a time, rather than all
-    screens first or (nonexistent) "all backend" first
-18. Wrote `jobs.ts`: `createJob` and `listActiveJobs`, the first of that
-    data-access layer, using `expo-crypto`'s `Crypto.randomUUID()` for ids.
-    First pass at `listActiveJobs` copied `createJob` almost verbatim instead
-    of adapting it — still an `INSERT`, still generating a new id and
-    timestamp, wrong params, wrong return type. Rewritten to actually read:
-    `db.getAllAsync<Job>(...)` instead of `db.runAsync(...)`, filtering
-    `archived_at IS NULL` per D3. Verified with `tsc --noEmit`; not wired into
-    a screen yet, so nothing to run on device for this one
-19. Wrote `shifts.ts`: `createShift` and `listShifts`, same pattern as
-    `jobs.ts`. `hourlyRateCents` is a required argument rather than looked up
-    from the job inside the function — `schema.sql` is explicit that the
-    column copies the job's rate at the moment of the shift, not a live
-    reference, so the caller decides the value (default it to the job's
-    current rate, let the user override it). `listShifts` takes no filter
-    arguments for now, returns every non-deleted shift most recent first,
-    and leaves grouping to the caller — add a filtered variant once a screen
-    actually needs one. Verified with `tsc --noEmit`
+Append-only. Entries 1–19 (initial commit through finishing the jobs/shifts
+data-access layer) archived to
+[docs/brainstorm/order-of-operations-2026-07.md](docs/brainstorm/order-of-operations-2026-07.md)
+on 2026-07-30, once this section passed the ~500 line split threshold. Picks
+up here at entry 20. New entries go here, not the archive — it moves again
+once this section does.
+
 20. Built the log-a-shift screen — first real UI in the app, and the first
     time writing React/React Native by hand this project. `CreateJobForm`
     built as a fully worked example (never done this before, so nudging
@@ -175,9 +93,18 @@ Last updated: 2026-07-30
     fix for this (force a remount) rather than syncing state with a
     `useEffect`. Verified with `tsc --noEmit` and a bundling
     `CI=1 expo start` (801 modules, no resolution errors)
-25. **NEXT:** Verify edit on a physical device. After that, gross totals
-    are the last piece before Layer 0 is actually complete against this
-    file's own MVP scope
+25. Confirmed edit on a physical device: tapped a shift, it opened
+    pre-filled, changed a value, saved, the list updated correctly; Cancel
+    also confirmed working. Create, list, edit, and delete are all now
+    verified working for real, not just bundled — the full CRUD loop for
+    shifts is done and proven on device
+26. **NEXT:** Gross totals — the last piece of Layer 0's own MVP scope in
+    this file. Likely a small summary above or below `ShiftList` (total
+    hours, total tips, total gross pay), computed from the `shifts` array
+    `App.tsx` already holds in state — no new data-access function should
+    be needed, this is arithmetic over data already being fetched. Once
+    this lands, Layer 0 is actually complete and Layer 1 (Trends) becomes
+    the next real scope decision
 
 ### Settled stack
 
@@ -404,20 +331,23 @@ If there's no backend, it runs on-device. That means tax rules ship inside app
 versions, and updating rates for a new tax year requires an app store release.
 Worth thinking about before Layer 2.
 
-### Round 3: Data model (current)
+### Round 3: Data model — ANSWERED, all of it, see schema.sql
 
-Two entities look obvious: **Job** and **Shift**. The questions are about their
-fields, and a few of these are genuinely expensive to get wrong.
+Two entities looked obvious: **Job** and **Shift**. Every question below is
+now implemented, not just decided — kept in question form because the
+reasoning is the useful part, same rule as everywhere else in this file.
 
-**Q1. How is money stored?**
+**Q1. How is money stored? — ANSWERED: integer cents.**
 
 Not as floating point. `0.1 + 0.2` is `0.30000000000000004` in JavaScript,
 because binary floats can't represent most decimal fractions exactly. Small
 errors compound across hundreds of shifts and a tax calculation.
 
 Store whole cents as integers. `$24.50` is `2450`. Format for display only.
+Every money column in `schema.sql` (`hourly_rate_cents`, `tips_cents`)
+follows this.
 
-**Q2. What happens to shift history when a job's hourly rate changes?**
+**Q2. What happens to shift history when a job's hourly rate changes? — ANSWERED, see D2's sibling reasoning in `schema.sql`'s comments.**
 
 The expensive one. Worth reasoning through before reading ahead.
 
@@ -426,26 +356,32 @@ $10/hr and update the job. If a Shift only stores `job_id` and the rate is
 looked up from Job at display time, what happens to those 200 historical
 shifts?
 
-Whatever this app shows for last year has to still be true next year.
+Whatever this app shows for last year has to still be true next year. Answer:
+`shifts.hourly_rate_cents` copies the job's rate at the moment the shift was
+created, and is never a live lookup. `createShift`/`updateShift` in
+`shifts.ts` take it as a required argument for exactly this reason.
 
-**Q3. What kind of IDs?**
+**Q3. What kind of IDs? — ANSWERED: text UUIDs, via `expo-crypto`.**
 
 D1 committed to sync-later. Auto-incrementing integers collide across devices —
-two phones both create row 5, and there's no way to reconcile them. What's the
-alternative, and what does it cost?
+two phones both create row 5, and there's no way to reconcile them. Text
+UUIDs, generated on-device with `Crypto.randomUUID()`, are unique everywhere
+without needing a central authority to hand them out.
 
-**Q4. How is a shift's date stored?**
+**Q4. How is a shift's date stored? — ANSWERED: date-only ISO 8601.**
 
 A shift on October 5th is October 5th. If it's stored as a UTC timestamp, a user
 in a negative-offset timezone logging a late shift can see it land on the wrong
-day. Date-only, or timestamp?
+day. `shift_date` is `"YYYY-MM-DD"`, no time, no timezone.
 
-**Q5. What happens on delete? — ANSWERED, see D3 in the Decision Log.**
+**Q5. What happens on delete? — ANSWERED, see D3 (jobs) and D4 (shifts) in the Decision Log.**
 
 ### Housekeeping to sort out before submission
 
-- Apple Developer Program: $99/year. Google Play: $25 one-time. Apple review
-  takes days and can reject.
+- Apple Developer Program: $99/year — **done**, membership already active
+  (used it 2026-07-30 to build a custom Expo Go via `eas go` for device
+  testing, see `docs/brainstorm/2026-07-tooling.md`). Google Play: $25
+  one-time, still outstanding. Apple review takes days and can reject.
 - A public app needs a privacy policy URL even if it stores nothing remotely.
 - App name availability on both stores. "Tip Tracker" is likely taken.
 
@@ -464,8 +400,9 @@ without limit, so it archives by calendar month and a pointer stays behind:
   them, GUI vs CLI for SQLite, getting unstuck in the sqlite3 shell, why there's
   no "backend MVP" yet, wiring `schema.sql` into `expo-sqlite` from nothing,
   why UI shouldn't wait on a "backend" that doesn't exist for MVP, what
-  `expo-crypto` is and why it's needed, and the App Store's Expo Go lagging
-  behind Expo's own SDK releases.
+  `expo-crypto` is and why it's needed, the App Store's Expo Go lagging
+  behind Expo's own SDK releases, and what a real engineer would do about
+  splitting UI into component files.
 
 New questions get appended to the current month's file, not to this one.
 
@@ -491,3 +428,15 @@ New questions get appended to the current month's file, not to this one.
   `getAllAsync`/`getFirstAsync` for reads. Mixed these up writing the first
   draft of `listActiveJobs` in `jobs.ts`, which stayed a copy-pasted `INSERT`
   under a new name instead of becoming a `SELECT`
+- React/React Native fundamentals generally — first time writing any of it
+  by hand this project (`CreateJobForm`). `useState` for state that survives
+  a re-render, controlled `TextInput`s (`value` from state, `onChangeText`
+  writes back), callback props as the only way a child tells a parent
+  something happened, `View`/`Text`/`Pressable` as RN's own primitives
+  instead of HTML elements, `StyleSheet.create` as RN's CSS equivalent
+- React's `key` prop as a state-reset mechanism, not just a list-rendering
+  requirement — used in `App.tsx` (`key={editingShift?.id ?? 'new'}`) to
+  force `LogShiftForm` to remount instead of reusing the same instance with
+  a prop that silently changed, since its `useState` initializers only run
+  once at mount. Worth understanding well enough to recognize the next time
+  "a prop changed but the UI didn't update" shows up
