@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { formatCents, formatHours } from '../format';
-import { Shift } from '../shifts';
-import { calculateTotals } from '../totals';
+import { formatCents, formatHours } from '../lib/format';
+import { Shift } from '../data/shifts';
+import { calculateTotals } from '../lib/totals';
 
 type Props = {
   shifts: Shift[];

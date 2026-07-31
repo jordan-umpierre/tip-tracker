@@ -5,9 +5,9 @@ import CreateJobForm from './components/CreateJobForm';
 import LogShiftForm from './components/LogShiftForm';
 import ShiftList from './components/ShiftList';
 import ShiftTotals from './components/ShiftTotals';
-import { getDb } from './db';
-import { Job, listActiveJobs } from './jobs';
-import { listShifts, Shift } from './shifts';
+import { getDb } from './data/db';
+import { Job, listActiveJobs } from './data/jobs';
+import { listShifts, Shift } from './data/shifts';
 
 export default function App() {
   const [loading, setLoading] = useState(true);

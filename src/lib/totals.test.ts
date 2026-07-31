@@ -9,7 +9,7 @@
 // The pre-commit hook runs this, same as scripts/test-schema.sh. A check
 // nothing runs stops being true without anyone noticing.
 import assert from 'node:assert/strict';
-import type { Shift } from './shifts.ts';
+import type { Shift } from '../data/shifts.ts';
 import { calculateTotals } from './totals.ts';
 
 // calculateTotals only reads three of a Shift's fields, but the type requires

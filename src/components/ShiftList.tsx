@@ -1,7 +1,7 @@
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { formatCents, formatHours } from '../format';
-import { Job } from '../jobs';
-import { deleteShift, Shift } from '../shifts';
+import { formatCents, formatHours } from '../lib/format';
+import { Job } from '../data/jobs';
+import { deleteShift, Shift } from '../data/shifts';
 
 type Props = {
   shifts: Shift[];

@@ -8,7 +8,7 @@
 // at runtime. Node strips the line out entirely, so running this file doesn't
 // try to load shifts.ts and, through it, expo-sqlite -- which would fail
 // outside the app.
-import type { Shift } from './shifts';
+import type { Shift } from '../data/shifts';
 
 // Same units the database uses: integer minutes and integer cents. Nothing
 // here formats anything into a string. Display is format.ts's job, which

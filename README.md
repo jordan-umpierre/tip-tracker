@@ -21,14 +21,14 @@ Done:
 - Product definition and MVP scope
 - Architecture decided: local-first, SQLite on device, sync added later
 - Platform decided: Expo, with the escape hatch understood
-- [`schema.sql`](schema.sql) — the `jobs` and `shifts` tables, with tests
+- [`schema.sql`](src/data/schema.sql) — the `jobs` and `shifts` tables, with tests
   confirming every constraint rejects bad data
 - Expo app scaffolded, confirmed running on a physical device
-- `schema.sql` wired into `expo-sqlite` ([`db.ts`](db.ts)), including the
+- `schema.sql` wired into `expo-sqlite` ([`db.ts`](src/data/db.ts)), including the
   `PRAGMA foreign_keys = ON` gotcha SQLite requires per connection
-- Data-access layer ([`jobs.ts`](jobs.ts), [`shifts.ts`](shifts.ts)): create,
+- Data-access layer ([`jobs.ts`](src/data/jobs.ts), [`shifts.ts`](src/data/shifts.ts)): create,
   list, update, and soft-delete
-- The log-a-shift screen ([`components/`](components/)): create a job, log a
+- The log-a-shift screen ([`src/components/`](src/components/)): create a job, log a
   shift (rate inherited from the job but overridable), see the list, edit a
   shift, delete one with confirmation — all confirmed working on a physical
   device, not just bundled
@@ -54,7 +54,7 @@ decision with no visible alternatives is an assumption.
 
 ## Data model
 
-Full commentary lives in [`schema.sql`](schema.sql). The conventions worth
+Full commentary lives in [`schema.sql`](src/data/schema.sql). The conventions worth
 knowing before reading it:
 
 - **Money is integer cents.** `$24.50` is `2450`. Never floats — the rounding

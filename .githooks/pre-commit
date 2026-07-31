@@ -20,5 +20,5 @@
 status=0
 ./scripts/check-docs.sh  || status=1
 ./scripts/test-schema.sh || status=1
-node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON totals.test.ts || status=1
+node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON src/lib/totals.test.ts || status=1
 exit "$status"

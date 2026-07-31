@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { createJob } from '../jobs';
+import { createJob } from '../data/jobs';
 
 type Props = {
   // A callback prop: the parent (App.tsx) passes down a function, and this

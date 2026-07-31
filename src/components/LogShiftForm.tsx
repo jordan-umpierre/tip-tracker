@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Job } from '../jobs';
-import { createShift, Shift, updateShift } from '../shifts';
+import { Job } from '../data/jobs';
+import { createShift, Shift, updateShift } from '../data/shifts';
 
 type Props = {
   // Fetched once by App.tsx (which already needs the list to decide whether

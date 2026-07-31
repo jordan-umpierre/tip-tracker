@@ -28,7 +28,7 @@ tmpdir=$(mktemp -d)
 trap 'rm -rf "$tmpdir"' EXIT
 db="$tmpdir/test.db"
 
-if ! sqlite3 "$db" < schema.sql; then
+if ! sqlite3 "$db" < src/data/schema.sql; then
   echo "FAIL  schema.sql did not load"
   exit 1
 fi
