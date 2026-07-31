@@ -9,15 +9,22 @@ Last updated: 2026-07-31
 
 ## NEXT
 
-**Decide whether the first Trends screen is numbers only or includes a chart.**
-Navigation is settled as Expo Router (D7), and Trends aggregation stays in pure
-TypeScript until the app stops loading every shift or measurement says that is
-too slow (D8).
+**Define what every Trends number means.** Navigation is Expo Router (D7),
+aggregation is pure TypeScript (D8), and exact values plus native weekday bars
+need no chart dependency (D9). One semantic decision remains before building:
 
-A chart would be the first non-Expo UI dependency in the project. Compare that
-cost against an accessible list of weekday, month, and year values—or a small
-bar visualization made from React Native `View`s—before installing anything.
-Do not start building until the display scope has a written answer.
+1. Does Trends default to all jobs or one job, and can the user switch?
+2. Is tips per hour `total tips / total hours` rather than an average of each
+   shift's individual rate?
+3. Does the weekday comparison show tips per hour, gross per hour, or both?
+4. Which sample context appears beside a result—shift count, total hours, or
+   both—so one unusual shift does not look like a reliable trend?
+5. Are month and year summaries calendar periods, and which totals do they
+   show?
+
+Write the formulas and scope as the next decision before installing Expo Router
+or building the screen. A polished visualization cannot rescue an undefined
+metric.
 
 One smaller thing already logged under Open Questions below and worth folding
 into this pass: whether each shift row should show its own gross.

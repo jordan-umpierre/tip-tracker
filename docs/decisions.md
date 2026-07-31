@@ -451,3 +451,37 @@ UI/UX bar from the product definition is achievable here.
 > **Revisit when:** shifts are paginated or no longer all loaded, a measured
 > Trends calculation becomes slow, or a server endpoint needs to return
 > summaries without sending the underlying rows.
+
+### D9 — Keep exact numbers and add only native weekday bars (2026-07-31)
+
+> **Decision:** Exact text values remain the source of truth on the Trends
+> screen. Supplement the fixed seven-weekday comparison with horizontal bars
+> made from ordinary React Native `View`s. Month and year summaries begin as
+> numeric rows or cards. Do not add a chart dependency.
+>
+> **Alternatives:**
+> - Display numbers only
+> - Install a general React Native chart library
+>
+> **Why:** Numbers alone are precise and accessible but make users compare
+> every value mentally, which undercuts the reason a Trends screen exists.
+> Seven weekday categories are simple enough that proportional `View` widths
+> communicate the pattern without adopting another rendering system.
+>
+> A chart library earns its cost when the product needs axes over many points,
+> multiple series, touch inspection, zooming, or panning. None is in Layer 1.
+> Adding the first non-Expo UI dependency for seven bars would create bundle,
+> compatibility, responsive-layout, and accessibility work without a current
+> requirement.
+>
+> Text remains visible beside every bar, so the visual never becomes the only
+> way to obtain the value. Calculations stay in the pure TypeScript module from
+> D8; the component only scales and renders already-calculated results.
+>
+> **Known cost:** the app must handle zero values and proportional widths
+> itself. Keep this as one fixed comparison component—not the beginning of a
+> home-grown chart framework. Month and year views may feel plain until real
+> usage shows which time-series visualization is worth adding.
+>
+> **Revisit when:** Trends needs many chronological points, multiple overlaid
+> series, tooltips, touch inspection, zooming, or panning.
