@@ -157,3 +157,52 @@ user in a negative-offset timezone logging a late shift can see it land on the
 wrong day. `shift_date` is `"YYYY-MM-DD"`, no time, no timezone.
 
 **What happens on delete? — see D3 (jobs) and D4 (shifts).**
+
+### 2026-07-31 — "Help me decide numbers versus charts and see the big picture"
+
+There are three real choices, not two.
+
+**Numbers only.** Exact values in cards and rows are the smallest, most
+accessible version and the easiest one to verify against hand calculations.
+They are also weak at the job a Trends screen exists to do: helping someone
+see a pattern faster than they could by reading a table.
+
+**A third-party chart library.** This buys axes, SVG paths, animations,
+tooltips, multiple series, and interaction. It also introduces the first
+non-Expo UI dependency in the project, plus version compatibility,
+accessibility work, bundle cost, and an API the app would need to wrap or
+rewrite around. None of Layer 1's current requirements needs zooming, panning,
+tooltips, or hundreds of points.
+
+**Exact numbers plus a native comparison.** Keep every value visible as text,
+then use ordinary React Native `View` widths as horizontal bars for the fixed
+seven-weekday comparison. The bars make relative differences visible; the
+labels remain the accessible, testable truth. Month and year summaries can
+start as exact rows or cards rather than forcing a dense chart onto a phone.
+
+The third option is the professional fit here. It improves comprehension
+without adopting a general charting system for seven categories. It is
+deliberately not a home-grown chart library: one fixed comparison component,
+no axes engine, no reusable geometry abstraction.
+
+The trigger for a real chart dependency is a requirement the native bars
+cannot honestly cover—many time-series points, multiple overlaid series,
+touch inspection, zooming, or panning.
+
+The comparison also exposed a more important product question that must be
+settled before implementation:
+
+- Does Trends default to all jobs or one selected job? Combining jobs can make
+  a weekday look better merely because a higher-paying job happens on that
+  day.
+- Is a per-hour value `sum(amount) / sum(hours)` or an average of each shift's
+  individual rate? The ratio of sums is weighted by time and does not let a
+  short shift distort the result.
+- Which number does "Mondays are $24/hr" mean: gross per hour or tips per
+  hour? The product scope names tips per hour as the headline, but the weekday
+  example says earnings per hour.
+- How much evidence sits behind the number? Shift count and total hours stop
+  one unusual shift from looking like a reliable trend.
+
+A polished chart cannot rescue an undefined metric. Exact formulas and job
+scope come before visual treatment.
