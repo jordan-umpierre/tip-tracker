@@ -9,18 +9,19 @@ Last updated: 2026-07-31
 
 ## NEXT
 
-**Close the shift-date trust boundary before wiring Trends into a screen.**
-The new pure calculation correctly rejects malformed or impossible dates, but
-`LogShiftForm` currently allows those strings to reach SQLite.
+**Choose the minimal Expo Router shell and data-refresh boundary as the next
+decision.** Expo Router itself is already settled in D7; two implementation
+choices still change the user experience and state ownership:
 
-1. Put one strict `YYYY-MM-DD` calendar parser in `src/lib/dates.ts`.
-2. Reuse it in Trends and in the form's submit boundary.
-3. Give invalid form input a visible message instead of silently returning.
-4. Test malformed text, impossible dates, and leap day.
+1. Bottom tabs versus pushing Trends onto a stack. Log and Trends look like
+   peer destinations, which favors tabs.
+2. SDK 57's native tabs versus stable JavaScript tabs. Native tabs use the
+   platform tab bars but their import is still named `unstable-native-tabs`.
+3. Each route reading SQLite when focused versus moving jobs and shifts into a
+   shared React context. Route-owned reads are smaller; context gives both
+   screens one live snapshot but adds a provider and update API.
 
-After that fix, settle the two remaining Router implementation details before
-migration: bottom tabs versus a stack, and route-owned SQLite reads versus a
-shared React context. Expo Router itself is already chosen in D7.
+Record the tradeoffs before installing `expo-router` or moving the entrypoint.
 
 ---
 
@@ -280,3 +281,8 @@ Trends scope is complete.
     totals, strict date grouping, and 18 dependency-free checks. The work
     exposed an older input-boundary gap: the form can still save a malformed
     date, so `NEXT` closes that before routing or UI
+35. Closed that input boundary before exposing Trends. One strict calendar
+    parser now serves the form and aggregation code, impossible dates and
+    malformed numbers produce visible native alerts, and date coverage grew
+    from 5 to 11 checks. Rechecked the SDK 57 Router and native-tabs references;
+    `NEXT` now asks only which Router shell and refresh boundary fit this app

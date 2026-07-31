@@ -161,3 +161,20 @@ to `./totals.ts`, reran the full hook and `tsc --noEmit`, then committed.
 
 The exact Expo SDK 57 reference was rechecked before code changes, as required
 by the repository instructions. This slice itself uses no Expo API.
+
+## `6ffea4a` — fix: reject invalid shift input (2026-07-31)
+
+Closed the input boundary exposed by Trends. `parseCalendarDate()` now owns the
+strict `YYYY-MM-DD` rule, rejects impossible dates instead of accepting
+JavaScript's normalized result, and returns the timezone-stable weekday.
+Both the form and Trends use that same parser.
+
+`LogShiftForm` now uses native alerts instead of silently returning for a
+missing job, malformed date, non-numeric value, negative money, or a duration
+that rounds below one minute. Replaced `parseFloat()` with strict `Number()`
+conversion so pasted text such as `7.5 hours` is not silently accepted.
+
+Expanded the date file from 5 to 11 checks with malformed formats, impossible
+dates, a non-leap-year February 29, a valid leap day, and a known weekday.
+The full hook, all 18 Trends checks, `tsc --noEmit`, and `git diff --check`
+passed.
