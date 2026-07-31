@@ -97,12 +97,14 @@ lets the money math be tested without rendering anything or opening a database.
 
 ## Checks
 
-Three, all run by the pre-commit hook:
+All run by the pre-commit hook:
 
 ```sh
 ./scripts/check-docs.sh                # duplicate headings, dead references, broken links
 ./scripts/test-schema.sh               # every constraint in schema.sql rejects bad data
-node src/lib/totals.test.ts            # the money arithmetic, incl. the D5 rounding rule
+for t in src/lib/*.test.ts; do          # dates, editable-value round trips, money arithmetic
+  node "$t"
+done
 ```
 
 A fresh clone needs this once, because git does not look in `.githooks/` on its

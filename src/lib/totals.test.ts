@@ -1,4 +1,4 @@
-// Run with: node totals.test.ts
+// Run from the repo root with: node src/lib/totals.test.ts
 //
 // No test framework, on purpose. Node runs TypeScript directly now (it strips
 // the types and executes the rest), and node:assert is in the standard
@@ -48,9 +48,9 @@ assert.deepEqual(calculateTotals([shift(455, 0, 1550)]).grossCents, 11754);
 
 // D5, stated as a test. Two 30-minute shifts at $15.01/hr each earn exactly
 // 750.5 cents. Rounding per shift gives 751 + 751 = 1502. Rounding the sum
-// instead would give 1501 -- a cent less, and a cent that doesn't match what
-// the two rows in ShiftList display. If someone ever "fixes" totals.ts to
-// round once at the end, this is the line that fails.
+// instead would give 1501 -- a cent less than the sum of the two shifts. If
+// someone ever "fixes" totals.ts to round once at the end, this is the line
+// that fails.
 assert.equal(calculateTotals([shift(30, 0, 1501), shift(30, 0, 1501)]).grossCents, 1502);
 
 // Several shifts at different rates, which is the case a single sum-then-

@@ -21,8 +21,8 @@ const currencyFormatter = new Intl.NumberFormat('en-US', {
   currency: 'USD',
 });
 
-// Money is stored as integer cents everywhere (see the data conventions in
-// CLAUDE.md), so the divide-by-100 lives here and nowhere else.
+// Money is stored as integer cents everywhere (see src/data/schema.sql), so
+// the divide-by-100 lives here and nowhere else.
 export function formatCents(cents: number): string {
   return currencyFormatter.format(cents / 100);
 }

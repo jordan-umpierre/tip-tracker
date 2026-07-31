@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Runs the doc checks and the schema constraint tests before every commit.
+# Runs the doc, schema, and pure-library checks before every commit.
 #
 # This lives in .githooks/ rather than .git/hooks/ so it's tracked in the repo.
 # Git doesn't look here by default, so a fresh clone has to run:

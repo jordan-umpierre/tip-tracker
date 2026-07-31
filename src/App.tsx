@@ -82,10 +82,8 @@ export default function App() {
                 }}
                 onCancelEdit={() => setEditingShift(null)}
               />
-              {/* Summary above the detail it summarizes, and reading the same
-                  shifts array ShiftList does -- so the rows below always add
-                  up to these numbers rather than being fetched separately and
-                  drifting out of sync. */}
+              {/* Summary and detail read the same shifts snapshot rather than
+                  being fetched separately and drifting out of sync. */}
               <ShiftTotals shifts={shifts} />
             </>
           }

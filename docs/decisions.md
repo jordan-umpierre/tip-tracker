@@ -302,18 +302,17 @@ UI/UX bar from the product definition is achievable here.
 > 7h35m shift at $15.50/hr earns 11754.166… cents. Something has to round, and
 > the only question is where.
 >
-> Rounding per shift is the one a user can verify. The totals row sits directly
-> above a list of individual shifts, so anyone who adds the rows up by hand must
-> get the number in the summary. Rounding once at the end breaks that: the total
-> can land a cent or two off the sum of what the rows display, and "your app's
-> math is wrong" is the report that follows. Two 30-minute shifts at $15.01/hr
-> are the smallest case — 751 + 751 = 1502 per shift, versus 1501 rounded once.
+> A shift is the smallest earnings record in the app, and each one carries its
+> own historical rate. Turning that record into whole cents before adding it to
+> a total gives every screen one reusable definition of "this shift's gross."
+> Rounding only after summing would make the total depend on which shifts happen
+> to be grouped together. Two 30-minute shifts at $15.01/hr are the smallest
+> case — 751 + 751 = 1502 per shift, versus 1501 rounded once.
 >
-> It also generalizes, which the alternative does not. `hourly_rate_cents` is
-> stored per shift on purpose, so a raise can't rewrite last year (see the data
-> conventions in `CLAUDE.md`). Once two shifts have different rates you cannot
-> sum hours and multiply once anyway — there is no single rate to multiply by.
-> Per-shift rounding is the only rule that works for both cases.
+> `hourly_rate_cents` is stored per shift on purpose, so a raise can't rewrite
+> last year (see `src/data/schema.sql`). Once shifts have different rates, wage
+> calculations already have to happen per shift; rounding at that same boundary
+> keeps the rule local and testable.
 >
 > A stored `wage_cents` column was rejected because it's derived data: it can
 > disagree with the columns it came from after an edit, and there's no
@@ -325,8 +324,9 @@ UI/UX bar from the product definition is achievable here.
 > sums hours across a pay period at one rate and rounds once, which can differ
 > by a cent from summing per-shift. That gap is smaller than the thing this app
 > is actually for — cash tips nobody withholds against — and it is the correct
-> tradeoff for a screen whose rows must add up. Worth revisiting when paycheck
-> estimates arrive, since matching a real stub is the whole point there.
+> tradeoff for a shift tracker whose totals are built from discrete shift
+> records. Worth revisiting when paycheck estimates arrive, since matching a
+> real stub is the whole point there.
 >
 > **Revisit when:** paycheck estimation ships (Layer 2). That feature's job is
 > to predict a specific employer's number, so it may need pay-period rounding
