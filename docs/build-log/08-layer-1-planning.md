@@ -32,3 +32,29 @@ gets one reusable whole-cent gross before totals group those records.
 
 Verified with `check-docs.sh`, all 19 schema checks, all three pure-library
 test files, and `tsc --noEmit`.
+
+## `cabf21c` — docs: choose Expo Router for Layer 1 navigation (2026-07-31)
+
+Added D7 before installing anything. Compared the three actual options rather
+than treating "navigation" as one choice:
+
+1. An `App.tsx` state toggle is the smallest answer for exactly two views, but
+   the written roadmap already names several later screens, so it would be
+   knowingly temporary.
+2. React Navigation directly is valid in Expo and gives finer control over
+   navigation state and link parsing, but this app has no requirement for that
+   extra configuration.
+3. Expo Router uses React Navigation underneath and adds the route structure
+   Expo integrates with SDK 57.
+
+Chose Expo Router at the first real navigation boundary: it would have been
+premature during Layer 0, and avoiding it now would create code the existing
+roadmap already says to replace.
+
+Also corrected an overbroad statement made during the comparison: SDK 57 does
+not prohibit React Navigation in Expo. The external `@react-navigation/*`
+import restriction applies to application code already using Expo Router.
+
+No package or application code changed. `roadmap.md` now points at the next
+decision—pure TypeScript versus SQLite aggregation—before the router migration
+begins.
