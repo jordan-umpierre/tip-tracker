@@ -9,31 +9,32 @@ Last updated: 2026-07-30
 
 ## NEXT
 
-Confirm the gross totals row on a physical device, the same way steps 21, 23,
-and 25 did for create, delete, and edit. Bundling proves neither of these:
+Fix the four defects found during the 2026-07-30 device test, in this order.
+The first is a correctness bug; the rest are usability. Layer 1 waits until
+these are done — a screen this awkward to use is not a finished Layer 0.
 
-1. **`Intl.NumberFormat` actually works on device.** `src/lib/format.ts` uses
-   it for money. It relies on the JS engine shipping Intl, expected to be fine
-   on Hermes at React Native 0.86. If money renders blank or throws, that's the
-   cause, and `(cents / 100).toFixed(2)` is the fallback.
-2. **The arithmetic is right.** Log exactly these three shifts against a job,
-   with no other shifts in the database:
+1. **Shifts log against the UTC day, not the local one.** `todayIsoDate()` in
+   `LogShiftForm` calls `toISOString()`, which converts to UTC before slicing
+   the date out. At 23:31 Central on 2026-07-30 the form defaulted to
+   `2026-07-31`. Any shift logged after 7pm Central gets tomorrow's date. This
+   is the exact failure the date-only convention exists to prevent, and the
+   comment above that function wrongly claims it prevents it. Build the string
+   from `getFullYear()`/`getMonth()`/`getDate()` instead.
+2. **The edit form shows hours as a repeating decimal.** Opening shift C for
+   editing displays `7.583333333333333`, because it renders `minutes / 60`
+   raw. Careful here: the obvious fix of matching the list's `7.6h` would save
+   456 minutes instead of 455 and silently rewrite the shift on every edit.
+   See D6.
+3. **The shift list is cramped.** The form takes the whole screen and the list
+   is squeezed into what's left, with no way to scroll the form out of the way.
+4. **The keyboard can't be dismissed.** The number fields use `decimal-pad`,
+   which has no return key, and the form isn't inside a scrollable, so tapping
+   outside does nothing. The only escape is tapping the date field and hitting
+   return.
 
-   | Shift | Hours | Tips ($) | Rate ($) |
-   |---|---|---|---|
-   | A | `0.5` | `0` | `15.01` |
-   | B | `0.5` | `0` | `15.01` |
-   | C | `7.58` | `42.75` | `15.50` |
-
-   Expected totals: **`8.6h`**, **`$42.75`**, **`$175.31`**.
-
-   These values are chosen to break a wrong implementation. A and B each earn
-   exactly 750.5 cents, so per-shift rounding (D5) gives `$7.51` each. An
-   implementation that rounded the total instead would show **`$175.30`**.
-
-Once that's confirmed, Layer 0 is done and Layer 1 (Trends) is the next real
-scope decision — worth re-reading the layer definitions in
-[product.md](product.md) before building, not just picking the next bullet.
+After those: Layer 1 (Trends) is the next real scope decision — worth
+re-reading the layer definitions in [product.md](product.md) before building,
+not just picking the next bullet.
 
 ---
 
@@ -228,3 +229,13 @@ the total checkable at a glance. Deliberately not built as part of Layer 0.
     question would have meant remembering which month it was asked in. Also
     replaced the hard 500-line split threshold with a 250-line review prompt,
     since length was only ever a proxy for "is this still one topic?"
+29. Confirmed gross totals on a physical iPhone, using three shifts chosen to
+    break a wrong implementation: `8.6h`, `$42.75`, `$175.31`, exactly as
+    predicted. `Intl.NumberFormat` works on Hermes, so the `toFixed` fallback
+    isn't needed. Layer 0's feature set is complete and verified end to end.
+    The same session surfaced four defects, listed in `NEXT` above. The
+    important one is that shifts were logging against the UTC calendar day
+    rather than the local one — a correctness bug that no amount of bundling
+    or unit testing was going to catch, because it only shows up when a real
+    person looks at a real screen late at night. Worth remembering as an
+    argument for on-device testing every step, which this project already does
