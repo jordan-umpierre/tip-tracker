@@ -189,7 +189,7 @@ The trigger for a real chart dependency is a requirement the native bars
 cannot honestly cover—many time-series points, multiple overlaid series,
 touch inspection, zooming, or panning.
 
-The comparison also exposed a more important product question that must be
+The comparison also exposed a more important product question, which D10
 settled before implementation:
 
 - Does Trends default to all jobs or one selected job? Combining jobs can make
@@ -204,5 +204,7 @@ settled before implementation:
 - How much evidence sits behind the number? Shift count and total hours stop
   one unusual shift from looking like a reliable trend.
 
-A polished chart cannot rescue an undefined metric. Exact formulas and job
-scope come before visual treatment.
+D10 chose one all-jobs-or-single-job scope, time-weighted rates, gross per hour
+for the weekday comparison, and both shift count and total hours as context. A
+polished chart cannot rescue an undefined metric; exact formulas and job scope
+had to come before visual treatment.

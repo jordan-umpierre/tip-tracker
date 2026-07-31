@@ -485,3 +485,63 @@ UI/UX bar from the product definition is achievable here.
 >
 > **Revisit when:** Trends needs many chronological points, multiple overlaid
 > series, tooltips, touch inspection, zooming, or panning.
+
+### D10 — Define Trends as scoped, weighted calendar summaries (2026-07-31)
+
+> **Decision:** Trends defaults to all jobs and offers one job filter that
+> applies to the entire screen. Headline and weekday rates use all recorded
+> non-deleted shifts in that scope. Do not add a rolling window or persist the
+> selected filter in Layer 1.
+>
+> **Formulas and outputs:**
+> - Headline tips per hour is
+>   `round(total tips cents * 60 / total minutes)`.
+> - The weekday comparison shows gross per hour:
+>   `round(total gross cents * 60 / total minutes)`.
+> - Total gross first calculates and rounds each shift's wages under D5, then
+>   sums those shift-level gross values before deriving a rate.
+> - Rates are weighted by time. Never average the per-hour values of individual
+>   shifts, because a short shift would count as much as a long one.
+> - Every rate includes its shift count and total minutes as sample context.
+> - Month and year rows are calendar periods derived from `shift_date`. Each
+>   shows gross, tips, total minutes, and shift count. The current incomplete
+>   month or year remains visible and is labeled as being to date.
+> - A group with no shifts has no rate. Represent it as `null` and display
+>   "No shifts," not `$0.00/hr`; no observations and a measured zero are
+>   different facts.
+>
+> Exact calculation results remain integer cents and integer minutes under D8.
+> Formatting hours and money into strings remains a component concern.
+>
+> **Alternatives:**
+> - Default to one job
+> - Average the rate calculated for each shift
+> - Show both gross per hour and tips per hour in every weekday row
+> - Add a current-month, rolling-window, or custom-date default
+>
+> **Why:** All jobs is the only non-arbitrary default and answers the first
+> question most users have: what the work they logged earned overall. The
+> visible job filter supplies the analytically cleaner comparison when jobs
+> have different wages or tipping patterns. One scope controls the whole
+> screen so headline, weekday, month, and year figures cannot silently describe
+> different subsets.
+>
+> Gross per hour is the weekday metric because the product question is which
+> days are worth working after wages and tips are combined. Tips per hour stays
+> prominent as the one headline promised by Layer 1. Showing both in all seven
+> rows would double the visual density before a user has asked to compare both
+> series.
+>
+> Shift count and total time make the evidence behind a rate inspectable
+> without inventing a confidence score. Calendar months and years match the
+> language people use for earnings records and statements; a rolling period
+> would answer a different question and require another control.
+>
+> **Known cost:** an all-jobs weekday rate can reflect the mix of jobs as much
+> as the weekday itself, and an all-history rate may become less representative
+> as working conditions change. The explicit scope label, job filter, and
+> sample context make those limits visible but do not remove them.
+>
+> **Revisit when:** real use shows old shifts obscuring current patterns, users
+> ask to compare both weekday metrics, or a remembered job/date filter becomes
+> more useful than the predictable all-jobs/all-history default.

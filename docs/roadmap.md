@@ -9,25 +9,21 @@ Last updated: 2026-07-31
 
 ## NEXT
 
-**Define what every Trends number means.** Navigation is Expo Router (D7),
-aggregation is pure TypeScript (D8), and exact values plus native weekday bars
-need no chart dependency (D9). One semantic decision remains before building:
+**Implement and test the pure Trends calculations from D8–D10.** Do this before
+navigation or UI so a screen cannot hide incorrect arithmetic.
 
-1. Does Trends default to all jobs or one job, and can the user switch?
-2. Is tips per hour `total tips / total hours` rather than an average of each
-   shift's individual rate?
-3. Does the weekday comparison show tips per hour, gross per hour, or both?
-4. Which sample context appears beside a result—shift count, total hours, or
-   both—so one unusual shift does not look like a reliable trend?
-5. Are month and year summaries calendar periods, and which totals do they
-   show?
+1. Add one pure module under `src/lib/` that accepts shifts and an optional job
+   scope, then returns the D10 headline, seven weekday groups, calendar months,
+   and calendar years.
+2. Reuse D5's per-shift gross definition. Keep cents and minutes as integers;
+   use `null` for a rate with no shifts.
+3. Add one dependency-free test file beside it. The fixtures must catch an
+   unweighted average, cross-job leakage, per-total wage rounding, empty
+   weekdays, and month/year boundaries.
+4. Run the tracked checks and TypeScript before wiring any component.
 
-Write the formulas and scope as the next decision before installing Expo Router
-or building the screen. A polished visualization cannot rescue an undefined
-metric.
-
-One smaller thing already logged under Open Questions below and worth folding
-into this pass: whether each shift row should show its own gross.
+After the calculation commit, migrate the entry flow to Expo Router under D7,
+then build the Trends screen with D9's exact values and native weekday bars.
 
 ---
 
@@ -274,3 +270,10 @@ Trends scope is complete.
     table in the build log rather than rewriting history. Note that this
     session ran past midnight: entries dated 2026-07-30 and 2026-07-31 are the
     same sitting
+33. Finished the Layer 1 design boundary before implementation. D7 chooses
+    Expo Router at the second screen, D8 keeps aggregation in pure TypeScript,
+    D9 keeps exact values beside one bounded native weekday comparison, and D10
+    defines the actual product semantics: one all-jobs-or-single-job scope,
+    time-weighted rates, gross per hour by weekday, visible sample context,
+    calendar month/year totals, and no-data values that stay distinct from
+    zero. `NEXT` now starts with tested arithmetic rather than UI
