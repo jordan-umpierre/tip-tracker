@@ -60,6 +60,20 @@ export default function ShiftList({ shifts, jobs, onShiftDeleted, onShiftPress, 
       style={styles.list}
       data={shifts}
       keyExtractor={(shift) => shift.id}
+      // Two ways out of the keyboard, because the number fields use
+      // keyboardType="decimal-pad" and iOS gives that pad no return key --
+      // so there was previously no way to dismiss it except tapping the date
+      // field, which has a normal keyboard, and hitting return there.
+      //
+      // "handled" means a tap that some child already dealt with keeps the
+      // keyboard up, and any other tap closes it. That gets both behaviors
+      // right: tapping empty space dismisses, and tapping Log shift or Delete
+      // fires on the first tap instead of being swallowed by the dismissal.
+      // The default, "never", would eat that first tap.
+      keyboardShouldPersistTaps="handled"
+      // Dragging the list closes the keyboard too, which is what the rest of
+      // iOS does and costs nothing here now that the screen is one scroller.
+      keyboardDismissMode="on-drag"
       ListHeaderComponent={header}
       ListEmptyComponent={
         <View style={styles.empty}>
