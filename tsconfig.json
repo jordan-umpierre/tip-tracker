@@ -20,5 +20,15 @@
     // second config and a second tsc run. Not worth it at this size -- worth
     // revisiting if app code ever accidentally depends on a Node global.
     "types": ["node", "react"]
-  }
+  },
+
+  // Expo Router adds the last two entries when typed routes are enabled.
+  // The generated files stay gitignored, but TypeScript must include them for
+  // route autocomplete and compile-time route checks to work.
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ]
 }
