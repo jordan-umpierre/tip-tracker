@@ -2,6 +2,7 @@
   "expo": {
     "name": "tip-tracker",
     "slug": "tip-tracker",
+    "scheme": "tiptracker",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -23,7 +24,12 @@
     },
     "plugins": [
       "expo-sqlite",
-      "expo-asset"
-    ]
+      "expo-asset",
+      "expo-router",
+      "expo-status-bar"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
   }
 }
