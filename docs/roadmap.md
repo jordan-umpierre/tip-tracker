@@ -301,3 +301,10 @@ Trends scope is complete.
     tracked checks, TypeScript, and fresh iOS and Android exports pass. Physical
     iPhone validation remains the next gate, so Layer 1 is implemented but not
     yet claimed as device-verified
+38. Closed the final generated-config and learning-log gaps during the handoff
+    audit. Expo Router's first typed-route generation added the required hidden
+    route types to `tsconfig.json`; preserved that SDK 57 requirement while
+    restoring the explanatory comments its JSON rewrite removed. Also logged
+    the previously missed question about continuing a Claude session in VS
+    Code with Codex. The tracked checks and TypeScript pass, and `NEXT` remains
+    the physical iPhone verification rather than expanding scope

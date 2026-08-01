@@ -74,3 +74,16 @@ trends OK (18 checks)
 fresh iOS and Android exports passed. Those exports prove both platform bundles
 compile; physical iPhone inspection remains the next gate, and Android still
 needs a device or emulator before release.
+
+## `112e3a5` — chore: include Expo Router route types (2026-08-01)
+
+The first development-server run after enabling typed routes generated
+`.expo/types/router.d.ts` and `expo-env.d.ts`, then added their required include
+patterns to `tsconfig.json`. Expo's JSON rewrite also removed the existing
+teaching comments, so the final change kept Expo's four documented include
+entries while restoring the comments around the project's Node test settings.
+
+Confirmed against Expo's SDK 57 typed-route documentation: the generated files
+remain gitignored, while `tsconfig.json` must include them for route
+autocomplete and compile-time route checking. The tracked hook,
+`npx tsc --noEmit`, and `git diff --check` passed before commit.

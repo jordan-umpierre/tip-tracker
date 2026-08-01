@@ -275,3 +275,22 @@ The transferable part: `tsc`, four test suites, `expo-doctor` and a clean
 bundle all passed the whole time every one of these was live. Automated checks
 verify what someone thought to check. A real device at 23:31 verifies what
 nobody thought of.
+
+### 2026-07-31 — "What's the best way to continue this session in VS Code with Codex when it isn't there?"
+
+A conversation belongs to the client that created it, so opening the same
+folder in another agent does not guarantee the old thread appears there. The
+durable continuation is the repository: open the same checkout, inspect live
+Git state, and read `docs/roadmap.md` before trusting any saved summary.
+
+When the exact conversational stopping point matters, recover the persisted
+Claude transcript under `~/.claude/projects/` and compare its claims with the
+working tree and recent commits. At the time this was asked, Codex desktop also
+offered **Settings → Import** for Claude projects and chats; that can carry
+conversation history into Codex, but it does not replace checking the actual
+repository state.
+
+That is why this project keeps one tracked `NEXT` section, decisions, learning
+notes, and a commit-by-commit build log. A fresh Codex or Claude thread can pick
+up the baton without a giant pasted summary, while the transcript remains a
+fallback for details that were discussed but never persisted.
