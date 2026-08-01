@@ -54,7 +54,7 @@ just having working code for.
   `Pressable` as RN's own primitives instead of HTML elements,
   `StyleSheet.create` as RN's CSS equivalent
 - React's `key` prop as a state-reset mechanism, not just a list-rendering
-  requirement — used in `App.tsx` (`key={editingShift?.id ?? 'new'}`) to force
+  requirement — used in `LogScreen.tsx` (`key={editingShift?.id ?? 'new'}`) to force
   `LogShiftForm` to remount instead of reusing the same instance with a prop
   that silently changed. Worth understanding well enough to recognize the next
   time "a prop changed but the UI didn't update" shows up

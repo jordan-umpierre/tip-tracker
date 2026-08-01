@@ -23,9 +23,11 @@ Service workers have irregular income. They don't know what they actually make
 per hour, which shifts are worth taking, or what they'll owe at tax time. Cash
 tips make it worse — nothing withholds tax from cash.
 
-## What the app does
+## What the full product will do
 
 Log a shift in seconds. See what you actually earn — after tax, not before.
+Layer 0 and Layer 1 currently cover logging, gross totals, and trends; the tax
+and 1099 promises below remain planned layers, not current app behavior.
 
 ## The three differentiators
 

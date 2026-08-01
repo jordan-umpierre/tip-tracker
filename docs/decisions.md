@@ -402,10 +402,11 @@ UI/UX bar from the product definition is achievable here.
 > would have been premature in Layer 0, but avoiding it now would create code
 > the existing roadmap already tells us to replace.
 >
-> **Known cost:** the current `index.ts` → `App.tsx` entry flow must migrate to
-> an `app/` route tree, and the state `App.tsx` owns needs a deliberate home
-> shared by the Log and Trends routes. File locations also become part of route
-> behavior, so moving a route is not merely filing.
+> **Known cost at decision time:** the old `index.ts` → `App.tsx` entry flow
+> needed to migrate to an `app/` route tree, and the state `App.tsx` owned
+> needed a deliberate home. D11 settled that ownership before implementation;
+> the migration completed in `341274c` and `0c7eb92`. File locations are now
+> part of route behavior, so moving a route is not merely filing.
 >
 > **Revisit when:** navigation needs custom state restoration or URL parsing
 > that Expo Router cannot express cleanly, or a required navigation feature
@@ -555,9 +556,9 @@ UI/UX bar from the product definition is achievable here.
 >
 > Each screen owns its loading state and reads through the existing SQLite
 > data functions when it gains focus. SQLite remains the source of truth; do
-> not add a shared React context or external state store. Preserve the current
-> root component's wiring responsibility, but rename it from `App.tsx` to
-> `LogScreen.tsx` once Expo Router becomes the actual entrypoint.
+> not add a shared React context or external state store. Preserve the old root
+> component's wiring responsibility under `LogScreen.tsx` once Expo Router
+> owns the actual entrypoint.
 >
 > **Alternatives:**
 > - Push Trends onto a stack from the Log screen

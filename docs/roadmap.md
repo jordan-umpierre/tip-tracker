@@ -9,17 +9,20 @@ Last updated: 2026-08-01
 
 ## NEXT
 
-**Implement D11 and expose the tested Trends calculations on-device.**
+**Verify Layer 1 on real hardware before choosing the next product layer.**
 
-1. Install Expo Router with Expo's SDK-aware installer and configure its entry
-   point and app plugin.
-2. Add one root native-tab layout and thin Log/Trends route files.
-3. Rename `App.tsx` to `src/screens/LogScreen.tsx` without changing its wiring
-   behavior, then refresh its SQLite snapshot on focus.
-4. Build `TrendsScreen.tsx` with one all-jobs/job scope control, D10's headline,
-   exact weekday values with D9's native bars, and calendar month/year rows.
-5. Run the tracked checks, TypeScript, Expo dependency diagnostics, a bundle
-   export, and Expo Go/device verification where available.
+1. Start Expo with a cleared Metro cache and open the app in the SDK 57 iPhone
+   client already used for this project.
+2. Confirm the Router migration preserved every existing job and shift, then
+   create, edit, and delete one disposable shift from the Log tab.
+3. On Trends, switch between All jobs and each job. Check the headline,
+   weekday labels and bar proportions, month/year rows, current-period "to
+   date" labels, scrolling, safe areas, and tab icons against the source data.
+4. Record and fix any device-only defects before marking Layer 1 complete.
+   Android has a clean bundle but still needs a real device or emulator before
+   release; do not turn bundle evidence into a device claim.
+5. After Layer 1 passes on-device, decide whether optional cloud backup/sync is
+   Layer 1.5 or part of Layer 2 before beginning tax projections.
 
 ---
 
@@ -288,4 +291,13 @@ Trends scope is complete.
 36. Chose the concrete Layer 1 route boundary in D11. Log and Trends are static
     native peer tabs; route files stay thin; screens own focused SQLite reads;
     no Context, external store, custom tab bar, or empty nested stack is added.
-    The old app-root wiring becomes `LogScreen.tsx` once Router owns entry
+    The old app-root wiring would become `LogScreen.tsx` once Router owned entry
+37. Implemented Layer 1's route and UI boundary. Expo Router now owns the app
+    entry, Log and Trends are native peer tabs, and both screens refresh their
+    own SQLite snapshot on focus. Trends renders D10's tested all-history
+    summaries with exact text and D9's dependency-free weekday bars. Corrected
+    Router's transitive React DOM peer from 19.2.8 to Expo SDK 57's 19.2.3;
+    npm's dependency tree and Expo's online compatibility check now pass. The
+    tracked checks, TypeScript, and fresh iOS and Android exports pass. Physical
+    iPhone validation remains the next gate, so Layer 1 is implemented but not
+    yet claimed as device-verified

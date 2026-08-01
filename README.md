@@ -1,14 +1,14 @@
 # tip-tracker
 
-A mobile app for service workers to log shifts and see what they actually take
-home, not what they grossed.
+A mobile app for service workers to log shifts, understand gross earnings and
+tip patterns, and eventually estimate take-home pay.
 
 Tipped income is irregular and mostly invisible until tax time. Cash tips make
-it worse, because nothing withholds tax from cash. This app answers three
-questions the existing options mostly ignore: what do I really make per hour,
-which shifts are worth taking, and what will I owe in April.
+it worse, because nothing withholds tax from cash. The product is being built
+to answer three questions the existing options mostly ignore: what do I really
+make per hour, which shifts are worth taking, and what will I owe in April.
 
-Built for both W2 and 1099 workers. iOS and Android.
+The product roadmap targets both W2 and 1099 workers on iOS and Android.
 
 ## Status
 
@@ -16,6 +16,10 @@ Built for both W2 and 1099 workers. iOS and Android.
 log a shift, see it in the list, edit it, delete it, and see gross totals over
 everything logged. Every feature in Layer 0's scope is built, covered by a
 check, and verified on real hardware rather than only bundled.
+
+**Layer 1 Trends is implemented and bundles for iOS and Android.** Its final
+visual and interaction check on physical hardware is still outstanding, so it
+is not described as device-verified yet.
 
 Done:
 
@@ -36,12 +40,15 @@ Done:
 - Gross totals ([`src/lib/totals.ts`](src/lib/totals.ts)): hours, tips and
   gross pay over every logged shift, with the money rounding rule pinned by a
   test that runs on Node with no device
+- Expo Router navigation with native Log and Trends tabs ([`app/`](app/))
+- Trends ([`src/lib/trends.ts`](src/lib/trends.ts),
+  [`TrendsScreen.tsx`](src/screens/TrendsScreen.tsx)): all jobs or one job,
+  weighted tips per hour, gross per hour by weekday, and month/year summaries
 
 Next:
 
-- Decide Layer 1 (Trends) scope — where a second screen lives, whether
-  aggregation happens in SQL or JS, and whether it needs charts at all. See
-  [docs/roadmap.md](docs/roadmap.md)
+- Verify the new tab shell and Trends screen on a physical iPhone before
+  choosing the next product layer. See [docs/roadmap.md](docs/roadmap.md).
 
 ## Stack
 
@@ -50,8 +57,9 @@ Next:
 | Language | TypeScript | |
 | UI | React Native | One codebase, reuses React |
 | Tooling | Expo | [D2](docs/decisions.md) — `expo prebuild` is a real escape hatch |
+| Navigation | Expo Router native tabs | [D7 and D11](docs/decisions.md) — two peer screens, no custom tab bar or state store |
 | Storage | SQLite via `expo-sqlite` | [D1](docs/decisions.md) — logging a shift has to work with no signal |
-| Backend | None in MVP | [D1](docs/decisions.md) — Node, Express and Postgres arrive with optional sign-in |
+| Backend | None through Layer 1 | [D1](docs/decisions.md) — Node, Express and Postgres arrive with optional sign-in |
 
 Every one of these is written up with its rejected alternatives in
 [docs/decisions.md](docs/decisions.md). The alternatives stay in the file permanently; a
@@ -78,10 +86,10 @@ knowing before reading it:
 ## Repo layout
 
 ```
-index.ts              entry point, registers the root component
+app/                  Expo Router entry, native tab layout, and thin routes
 src/
-  App.tsx             wiring: fetches state, hands it to components
-  components/         the log-a-shift screen's UI
+  screens/            route-level SQLite reads and screen composition
+  components/         focused pieces of screen UI
   data/               SQLite: db.ts, schema.sql, and one file per table
   lib/                pure calculation and formatting -- no I/O, so testable
                       on Node with no device and no database
@@ -91,9 +99,10 @@ scripts/              the checks below
 metro.config.js       bundler config (lets schema.sql ship as an asset)
 ```
 
-The three folders under `src/` are the architecture boundary, not filing:
-`components/` renders, `data/` persists, `lib/` computes. The split is what
-lets the money math be tested without rendering anything or opening a database.
+These folders describe ownership, not arbitrary filing: `app/` routes,
+`screens/` coordinates, `components/` renders focused UI, `data/` persists,
+and `lib/` computes. The split is what lets the money math be tested without
+rendering anything or opening a database.
 
 ## Checks
 
@@ -121,10 +130,10 @@ being true.
 
 ## Scope
 
-MVP is logging shifts, viewing them, editing them, deleting them, and gross
-totals. Trends, net-income projection and 1099 support are later layers,
-planned in [docs/product.md](docs/product.md) and deliberately not built ahead
-of time.
+Layer 0 is logging shifts, viewing them, editing them, deleting them, and gross
+totals. Layer 1 adds Trends. Net-income projection and 1099 support remain
+later layers in [docs/product.md](docs/product.md) and are deliberately not
+built ahead of time.
 
 Tax projections are the highest-risk part of this product, because real people
 make real financial decisions on them. They will ship as estimates and never as

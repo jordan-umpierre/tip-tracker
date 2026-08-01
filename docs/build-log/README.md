@@ -66,3 +66,5 @@ name — the number adds sequence without costing you the description.
    the trapped keyboard.
 8. [08-layer-1-planning.md](08-layer-1-planning.md) — the handoff audit and
    architecture decisions required before building the Trends screen.
+9. [09-layer-1-trends.md](09-layer-1-trends.md) — Expo Router installation,
+   dependency alignment, native peer tabs, and the mobile Trends screen.
