@@ -7,7 +7,7 @@ type Props = {
   shifts: Shift[];
 };
 
-// Takes the raw shifts rather than a pre-computed totals object, so App.tsx
+// Takes the raw shifts rather than a pre-computed totals object, so LogScreen
 // stays wiring -- it hands components the state it already holds and doesn't
 // do arithmetic of its own. The math itself still lives outside this file, in
 // totals.ts, which is what keeps it testable without rendering anything.

@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { createJob } from '../data/jobs';
 
 type Props = {
-  // A callback prop: the parent (App.tsx) passes down a function, and this
+  // A callback prop: the parent screen passes down a function, and this
   // component calls it when a job's been created. That's how a child tells
   // a parent "something happened" in React -- there's no other direction
   // for data to flow back up.

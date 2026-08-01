@@ -6,15 +6,15 @@ import { localDateString, parseCalendarDate } from '../lib/dates';
 import { hoursInputValue, moneyInputValue } from '../lib/format';
 
 type Props = {
-  // Fetched once by App.tsx (which already needs the list to decide whether
+  // Fetched once by LogScreen (which already needs the list to decide whether
   // to show this form at all) and passed down, rather than fetched again
   // here -- no reason to hit the database twice for the same data.
   jobs: Job[];
 
   // When present, this form edits that shift instead of creating a new
   // one: fields pre-fill from it, and submitting calls updateShift instead
-  // of createShift. App.tsx is responsible for giving this component a
-  // fresh `key` whenever editingShift changes (see App.tsx for why) -- this
+  // of createShift. LogScreen is responsible for giving this component a
+  // fresh `key` whenever editingShift changes -- this
   // component doesn't need to know that's happening, it just reads
   // editingShift once at mount like any other prop-seeded state.
   editingShift?: Shift | null;
@@ -120,7 +120,7 @@ export default function LogShiftForm({ jobs, editingShift, onShiftSaved, onCance
       // Reset the per-shift fields, but leave the job selected -- logging
       // several shifts at the same job in a row is the common case, not
       // the exception. Only done for create: after an edit, this component
-      // is about to be torn down anyway (App.tsx clears editingShift and
+      // is about to be torn down anyway (LogScreen clears editingShift and
       // remounts back to "new shift" mode), so resetting fields here would
       // just be wasted work.
       setHours('');
