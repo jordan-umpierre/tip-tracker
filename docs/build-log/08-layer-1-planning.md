@@ -178,3 +178,24 @@ Expanded the date file from 5 to 11 checks with malformed formats, impossible
 dates, a non-leap-year February 29, a valid leap day, and a known weekday.
 The full hook, all 18 Trends checks, `tsc --noEmit`, and `git diff --check`
 passed.
+
+## `b077095` — docs: define the Layer 1 route boundary (2026-08-01)
+
+Added D11 after comparing stack navigation, JavaScript tabs, native tabs,
+custom tabs, route-owned SQLite reads, shared Context, and external stores.
+
+Log and Trends are static peer destinations under SDK 57 native tabs. Route
+files stay thin, screens live under `src/screens/`, and each screen refreshes
+through the existing SQLite read functions when focused. No nested stack,
+shared provider, or state dependency is added without a current consumer.
+
+The `unstable-native-tabs` risk is limited to the root layout. Dependency
+locking, Expo Go device checks, and the ability to replace that one layout
+with JavaScript tabs keep the decision reversible. `App.tsx` will become
+`LogScreen.tsx` because Router, not that component, becomes the app entrypoint.
+
+Rechecked the exact Expo SDK 57 Router, native-tabs, JavaScript-tabs, Stack,
+and focus-effect documentation before settling the implementation. The Fallow
+workflow remains unavailable: `npx --no-install fallow` did not complete and
+the command is not installed locally. It was terminated without downloading
+or changing the project; tracked checks remain the fallback.

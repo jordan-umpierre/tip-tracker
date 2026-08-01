@@ -36,7 +36,7 @@ Not automated on purpose: deciding whether a commit is "real work" or
 bookkeeping needs a judgment a script can't make, and a check that guessed
 would either nag constantly or pass while missing things.
 
-Last updated: 2026-07-31
+Last updated: 2026-08-01
 
 ---
 
