@@ -545,3 +545,53 @@ UI/UX bar from the product definition is achievable here.
 > **Revisit when:** real use shows old shifts obscuring current patterns, users
 > ask to compare both weekday metrics, or a remembered job/date filter becomes
 > more useful than the predictable all-jobs/all-history default.
+
+### D11 — Use native peer tabs with route-owned SQLite reads (2026-08-01)
+
+> **Decision:** Make Log and Trends two static root tabs using Expo Router's
+> SDK 57 `NativeTabs`. Keep route files under `app/` thin and keep screen
+> composition under `src/screens/`. Do not add nested stacks until a tab has a
+> real child route.
+>
+> Each screen owns its loading state and reads through the existing SQLite
+> data functions when it gains focus. SQLite remains the source of truth; do
+> not add a shared React context or external state store. Preserve the current
+> root component's wiring responsibility, but rename it from `App.tsx` to
+> `LogScreen.tsx` once Expo Router becomes the actual entrypoint.
+>
+> **Alternatives:**
+> - Push Trends onto a stack from the Log screen
+> - Use Expo Router's stable JavaScript tabs
+> - Build a custom tab bar
+> - Put jobs and shifts in a shared React context
+> - Add Redux, Zustand, React Query, or another state dependency
+> - Keep the `App.tsx` name after it stops representing the application root
+>
+> **Why:** Log and Trends are peer destinations a user moves between
+> repeatedly. A stack is the right shape for details and temporary flows, but
+> would make Trends secondary and less discoverable. Future details can gain a
+> stack inside the relevant tab when the first such screen exists.
+>
+> Native tabs support the product's native-feeling UI goal without making the
+> app own tab accessibility, safe areas, animation, and platform behavior.
+> Their unstable API is contained in one layout file, the dependency is pinned
+> by the lockfile, and replacing that layout with JavaScript tabs would not
+> change route or screen code. Do not use deeper unstable escape hatches.
+>
+> Route-owned reads reuse `listActiveJobs()` and `listShifts()` rather than
+> creating another query implementation. At a few thousand local rows, one
+> read when a route is focused is cheaper than maintaining a second in-memory
+> source of truth and an update protocol for two screens. A shared provider
+> becomes justified by shared unsaved state or a measured read problem, not by
+> the mere existence of a second screen.
+>
+> **Known cost:** each screen has its own loading/error/refresh logic, tab
+> focus performs another SQLite read, and the native-tabs API may change during
+> an Expo upgrade. Native tab behavior and insets must be checked on both iOS
+> and Android; current development can verify iOS in Expo Go, while Android
+> remains a release gate until it is tested.
+>
+> **Revisit when:** native tabs remain unstable near release or cause a device
+> defect; a tab gains a child route; several screens duplicate substantial
+> loading logic; screens need shared unsaved state; or background sync must
+> update a visible screen immediately.

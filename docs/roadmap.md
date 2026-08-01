@@ -3,25 +3,23 @@
 Where this project is, what's next, and everything done so far in order.
 This is the file to open first, every session.
 
-Last updated: 2026-07-31
+Last updated: 2026-08-01
 
 ---
 
 ## NEXT
 
-**Choose the minimal Expo Router shell and data-refresh boundary as the next
-decision.** Expo Router itself is already settled in D7; two implementation
-choices still change the user experience and state ownership:
+**Implement D11 and expose the tested Trends calculations on-device.**
 
-1. Bottom tabs versus pushing Trends onto a stack. Log and Trends look like
-   peer destinations, which favors tabs.
-2. SDK 57's native tabs versus stable JavaScript tabs. Native tabs use the
-   platform tab bars but their import is still named `unstable-native-tabs`.
-3. Each route reading SQLite when focused versus moving jobs and shifts into a
-   shared React context. Route-owned reads are smaller; context gives both
-   screens one live snapshot but adds a provider and update API.
-
-Record the tradeoffs before installing `expo-router` or moving the entrypoint.
+1. Install Expo Router with Expo's SDK-aware installer and configure its entry
+   point and app plugin.
+2. Add one root native-tab layout and thin Log/Trends route files.
+3. Rename `App.tsx` to `src/screens/LogScreen.tsx` without changing its wiring
+   behavior, then refresh its SQLite snapshot on focus.
+4. Build `TrendsScreen.tsx` with one all-jobs/job scope control, D10's headline,
+   exact weekday values with D9's native bars, and calendar month/year rows.
+5. Run the tracked checks, TypeScript, Expo dependency diagnostics, a bundle
+   export, and Expo Go/device verification where available.
 
 ---
 
@@ -45,6 +43,7 @@ reason.
 - **Language:** TypeScript
 - **UI:** React via React Native
 - **Framework/tooling:** Expo (D2)
+- **Navigation:** Expo Router with native peer tabs (D7, D11)
 - **Storage:** SQLite on device via `expo-sqlite` (D1)
 - **Backend:** none for MVP. Node + Express + Postgres later, sign-in
   optional (D1)
@@ -286,3 +285,7 @@ Trends scope is complete.
     malformed numbers produce visible native alerts, and date coverage grew
     from 5 to 11 checks. Rechecked the SDK 57 Router and native-tabs references;
     `NEXT` now asks only which Router shell and refresh boundary fit this app
+36. Chose the concrete Layer 1 route boundary in D11. Log and Trends are static
+    native peer tabs; route files stay thin; screens own focused SQLite reads;
+    no Context, external store, custom tab bar, or empty nested stack is added.
+    The old app-root wiring becomes `LogScreen.tsx` once Router owns entry

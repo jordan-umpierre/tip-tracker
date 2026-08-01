@@ -339,3 +339,31 @@ choice reversible?" At a few thousand local rows, a linear TypeScript pass is
 negligible, directly testable, and easy to move later. The decision includes
 the conditions that reverse it: pagination, measured slowness, or a server
 that needs summaries without transferring raw rows. See D8.
+
+### 2026-08-01 — "What would a true software engineer do for the Router shell and state?"
+
+A professional choice is not whichever option scales farthest. It is the
+smallest reversible structure that tells the truth about today's product.
+
+Log and Trends are peer destinations, so bottom tabs fit better than pushing
+Trends onto a stack. A stack becomes correct when a tab gains a detail screen;
+adding nested stacks before that would create navigation with no consumer.
+
+SDK 57 offers stable JavaScript tabs and first-party native tabs through the
+explicitly unstable `expo-router/unstable-native-tabs` path. Stable tabs reduce
+API-churn risk and allow more uniform customization. Native tabs better match
+this product's stated native-UI goal. The risk is acceptable now because the
+app has no public users, uses two static tabs, pins dependencies, and can
+contain the unstable import in one layout. Replacing that layout later does
+not affect route or screen code.
+
+The same proportional test chooses route-owned SQLite reads over Context.
+Context would give both screens one in-memory snapshot, but it would also make
+that snapshot a cache that every database write must keep current. Both routes
+can instead reuse the same existing read functions when focused. Add shared
+state only when screens share an unsaved draft, background sync needs to update
+visible UI, or measured reads become a problem.
+
+`App.tsx` was correctly a wiring file while it was the app root. Expo Router
+makes the route layout the root, so keeping the responsibility but renaming the
+file `LogScreen.tsx` makes the new ownership explicit. See D11.
