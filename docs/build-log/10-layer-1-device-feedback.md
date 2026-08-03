@@ -115,3 +115,25 @@ Fallow remained unavailable, so the fallback added a stricter TypeScript pass
 with `--noUnusedLocals --noUnusedParameters`. It found one dead React Native
 `View` import left in `LogScreen` after its layout moved into `ShiftList`.
 Removed that import and reran the strict check successfully.
+
+## Physical-iPhone correction recheck (2026-08-03)
+
+The user ran the explicit four-part checklist on the SDK 57 physical-iPhone
+client and reported every item passed:
+
+- empty additional-job input showed **Check job details**;
+- a real second job appeared in the shift form and supplied its default rate;
+- the headline card, time-weighted gross per hour, and job filters matched the
+  underlying shifts; and
+- all seven proportional weekday bars, exact rates, sample context, scrolling,
+  safe areas, and both tabs remained readable and usable.
+
+This is user-observed device evidence, not an inference from compilation. It
+closes Layer 1's iPhone acceptance gate. Android still has clean bundle evidence
+only, so a physical device or emulator remains the next release gate.
+
+The tracked hook, TypeScript, `git diff --check`, and Fallow's changed-file
+audit passed for the three documentation files. Whole-repository Fallow still
+reports its existing six reachability/dependency findings, one small duplicate,
+and seven estimated complexity findings in application code; none came from
+this device-result update, so no unrelated refactor was mixed into it.

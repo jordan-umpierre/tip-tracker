@@ -9,24 +9,17 @@ Last updated: 2026-08-03
 
 ## NEXT
 
-**Recheck the four device-driven corrections before choosing the next product layer.**
+**Verify Layer 1 on Android before choosing the next product layer.**
 
-1. Start Expo with a cleared Metro cache and open the current `main` branch in
-   the SDK 57 iPhone client already used for this project.
-2. On Log, tap **Add another job**. Submit the empty form once and confirm the
-   **Check job details** alert appears. Then create a real job worth keeping and
-   confirm the form closes and the job appears in the shift form. Select it and
-   confirm its hourly rate becomes the shift's default. The app does not expose
-   job archiving yet, so do not create a disposable job solely for this check.
-3. On Trends, confirm the headline-card sample text is readable and the
-   headline now shows time-weighted gross per hour. Switch between All jobs
-   and each job and compare the result with the underlying shifts.
-4. Confirm all seven vertical weekday bars fit without clipping, their exact
-   rates remain readable, their heights match the values, and shift-count/time
-   context remains legible. Recheck scrolling, safe areas, and both tabs.
-5. Record the result before calling Layer 1 device-verified. Android still has
-   a clean bundle but needs a real device or emulator before release.
-6. After this iPhone pass, decide whether optional cloud backup/sync is Layer
+1. Open the current `main` branch on a physical Android device or emulator.
+2. On Log, create a test job and shift. Confirm validation alerts, the inherited
+   hourly rate, editing, deletion, keyboard behavior, and Android back behavior.
+3. On Trends, switch between All jobs and the test job. Confirm the weighted
+   gross-per-hour headline and the underlying shift agree.
+4. Confirm all seven weekday bars, exact rates, sample context, scrolling, safe
+   areas, and both native tabs render and behave correctly.
+5. Record the result before calling Layer 1 cross-platform verified.
+6. After the Android pass, decide whether optional cloud backup/sync is Layer
    1.5 or part of Layer 2 before beginning tax projections.
 
 ---
@@ -344,3 +337,9 @@ Trends scope is complete.
     current-facing terminology sweep, and native exports pass. `NEXT` remains
     the physical-iPhone correction recheck, now including the new invalid-job
     alert
+41. Completed the Layer 1 correction recheck on the physical iPhone. The user
+    confirmed the empty-job alert, second-job creation and inherited rate,
+    readable time-weighted gross-per-hour headline and job filters, all seven
+    proportional weekday bars with exact values and sample context, scrolling,
+    safe areas, and both tabs. This closes Layer 1's iPhone acceptance gate;
+    Android runtime behavior remains unverified and is now `NEXT`

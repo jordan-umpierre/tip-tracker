@@ -13,15 +13,16 @@ The product roadmap targets both W2 and 1099 workers on iOS and Android.
 ## Status
 
 **MVP Layer 0 is implemented.** Its original job and shift CRUD, keyboard,
-layout, and gross-total flows were confirmed on a physical iPhone. The
-additional-job entry point found missing during the Layer 1 device pass is now
-built and awaits the correction-pass recheck described below.
+layout, and gross-total flows were confirmed on a physical iPhone. The later
+additional-job entry point and its validation/default-rate behavior have now
+also passed their physical-iPhone recheck.
 
 **Layer 1 Trends is implemented and bundles for iOS and Android.** Its first
 physical-iPhone pass confirmed the calculations and exposed four bounded
 corrections: headline-card contrast, the missing additional-job entry point, a
 more useful gross-per-hour headline, and vertical weekday bars. All four are
-built; their physical recheck is still outstanding.
+built and passed their physical-iPhone recheck. Android still needs runtime
+verification on a real device or emulator before release.
 
 Done:
 
@@ -49,8 +50,8 @@ Done:
 
 Next:
 
-- Recheck the four device-driven corrections on the physical iPhone before
-  choosing the next product layer. See [docs/roadmap.md](docs/roadmap.md).
+- Verify Layer 1 on Android before choosing the next product layer. See
+  [docs/roadmap.md](docs/roadmap.md).
 
 ## Stack
 
