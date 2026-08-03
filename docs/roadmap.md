@@ -13,10 +13,11 @@ Last updated: 2026-08-03
 
 1. Start Expo with a cleared Metro cache and open the current `main` branch in
    the SDK 57 iPhone client already used for this project.
-2. On Log, tap **Add another job**, create a real job worth keeping, and confirm
-   the form closes and the job appears in the shift form. Select it and confirm
-   its hourly rate becomes the shift's default. The app does not expose job
-   archiving yet, so do not create a disposable job solely for this check.
+2. On Log, tap **Add another job**. Submit the empty form once and confirm the
+   **Check job details** alert appears. Then create a real job worth keeping and
+   confirm the form closes and the job appears in the shift form. Select it and
+   confirm its hourly rate becomes the shift's default. The app does not expose
+   job archiving yet, so do not create a disposable job solely for this check.
 3. On Trends, confirm the headline-card sample text is readable and the
    headline now shows time-weighted gross per hour. Switch between All jobs
    and each job and compare the result with the underlying shifts.
@@ -327,3 +328,19 @@ Trends scope is complete.
     browser preview was not applicable because this mobile checkout omits
     `react-native-web`; no test-only dependency was added. The four corrections
     still need their physical-iPhone recheck, and Android remains bundle-only
+40. Ran the explicit freshness and cold-agent handoff audit. Refreshed the
+    GitHub remote, confirmed no stashes or uncommitted work, and found one real
+    stale implementation/comment pair: `CreateJobForm` still described itself
+    as a first pass and silently ignored invalid input. Commit `0b5b8aa` now
+    uses the same strict number parsing and visible native-alert behavior as
+    the shift form. Commit `4f1408d` makes the baton path discoverable from the
+    tracked `AGENTS.md`, replaces a tracked reference to ignored `CLAUDE.md`,
+    and ignores local Fallow/Playwright caches. Fallow's local command still
+    hangs without output and was stopped; its documented fallback completed
+    instead. Its stricter unused-code check found and removed one dead
+    `LogScreen` import in `1035266`; the final sweep also narrowed one outdated
+    tips-or-gross helper comment to the gross rate the app now calculates. The
+    tracked checks, TypeScript, Expo compatibility, React peer tree,
+    current-facing terminology sweep, and native exports pass. `NEXT` remains
+    the physical-iPhone correction recheck, now including the new invalid-job
+    alert

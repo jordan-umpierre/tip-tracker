@@ -73,3 +73,45 @@ The online Expo SDK check and React 19.2.3 peer tree pass. `npm audit` still
 reports the same ten moderate transitive build-tool findings through
 `@expo/config-plugins -> xcode -> uuid`; its only complete proposed fix would
 downgrade Expo 57 to Expo 46. No forced breaking downgrade was applied.
+
+## `0b5b8aa` — fix: validate job creation input (2026-08-03)
+
+The final comment audit found that `CreateJobForm` still described silent
+validation as a deferred first-pass gap. That was stale once the same form
+became the public entry point for every additional job.
+
+Replaced `parseFloat()` with `Number()` plus explicit empty and finite checks,
+matching `LogShiftForm`: pasted text can no longer be partially accepted, a
+negative rate is rejected, and zero remains valid for tip-only work. Invalid
+input now produces a native **Check job details** alert instead of making the
+button appear broken. Updated the completion comment so it describes both the
+first-job and additional-job parent flows.
+
+TypeScript, `git diff --check`, an adversarial input matrix, and every tracked
+pre-commit check passed.
+
+## `4f1408d` — chore: harden cold-agent handoff (2026-08-03)
+
+The tracked `AGENTS.md` previously contained only the SDK 57 documentation
+rule, while the detailed baton instructions lived in ignored local
+`CLAUDE.md`. Added a short tracked pointer to `docs/roadmap.md`'s `NEXT`
+section plus the required Git and hooks checks, without duplicating current
+status into another file.
+
+Updated `check-docs.sh`'s own comment to reference tracked guidance instead of
+ignored `CLAUDE.md`. Added `.fallow/` and `.playwright-cli/` to the root ignore
+rules so local analysis artifacts cannot dirty a cold agent's worktree.
+
+The documentation checker, `git diff --check`, the configured `.githooks`
+path, and every tracked pre-commit check passed.
+
+The final terminology sweep also narrowed `centsPerHour()`'s old "tips or
+gross" no-data comment to the gross rate its current callers actually derive.
+That comment-only correction ships with the handoff documentation commit.
+
+## `1035266` — refactor: remove unused LogScreen import (2026-08-03)
+
+Fallow remained unavailable, so the fallback added a stricter TypeScript pass
+with `--noUnusedLocals --noUnusedParameters`. It found one dead React Native
+`View` import left in `LogScreen` after its layout moved into `ShiftList`.
+Removed that import and reran the strict check successfully.

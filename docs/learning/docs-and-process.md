@@ -294,3 +294,38 @@ That is why this project keeps one tracked `NEXT` section, decisions, learning
 notes, and a commit-by-commit build log. A fresh Codex or Claude thread can pick
 up the baton without a giant pasted summary, while the transcript remains a
 fallback for details that were discussed but never persisted.
+
+### 2026-08-03 — "Can a cold agent trust that everything is current and pushed?"
+
+A clean `git status` is necessary, but it is not enough. It can only compare
+the worktree with local refs, and those refs may be stale. A defensible handoff
+checks the whole chain:
+
+1. Fetch the remote, then compare `main` with `origin/main` in both directions.
+2. Check the working tree, branch tracking, stashes, recent commits, remote,
+   and `.githooks` configuration.
+3. Read current-facing status documents separately from historical build logs.
+   An old statement in a dated build step is history; the same statement in
+   `README.md`, a decision, or `roadmap.md` is staleness.
+4. Search code and comments for the names and assumptions that just changed,
+   then trace each hit instead of blindly replacing historical evidence.
+5. Run the repository checks, TypeScript, dependency compatibility, native
+   bundles, and the configured health analyzer or its explicit fallback.
+
+That process found something the previous green run missed:
+`CreateJobForm` still said visible validation was deferred and silently
+returned on invalid input. Reusing it for additional jobs made that old comment
+and behavior current again. The form now shows a native alert and uses strict
+number parsing, and the comment describes both parent flows.
+
+The fallback also ran TypeScript with unused-local and unused-parameter checks,
+which found a dead `View` import normal project compilation allowed. A green
+default check means its configured contract passed; it does not mean every
+useful stricter diagnostic is enabled.
+
+It also exposed a discoverability gap. Ignored `CLAUDE.md` correctly pointed
+at the roadmap, but a fresh clone does not contain that file. The tracked
+`AGENTS.md` now points directly at `docs/roadmap.md` without copying its status,
+so both Claude on this machine and a cold Codex agent from a clone reach the
+same baton. The durable rule is simple: one source owns current state; every
+agent instruction points to it rather than restating it.

@@ -74,7 +74,7 @@ function totalsForPeriod(periods: Map<string, TrendTotals>, period: string): Tre
 
 function centsPerHour(cents: number, minutes: number): number | null {
   // Null means "no evidence." Zero is reserved for real shifts that earned
-  // zero tips or gross, so the UI can tell those two cases apart.
+  // zero gross, so the UI can tell those two cases apart.
   return minutes === 0 ? null : Math.round((cents * 60) / minutes);
 }
 
