@@ -1,5 +1,14 @@
-import { ReactElement } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ReactElement, useMemo, useRef } from 'react';
+import {
+  Alert,
+  Animated,
+  FlatList,
+  PanResponder,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { formatCents, formatHours } from '../lib/format';
 import { Job } from '../data/jobs';
 import { deleteShift, Shift } from '../data/shifts';
@@ -82,28 +91,120 @@ export default function ShiftList({ shifts, jobs, onShiftDeleted, onShiftPress, 
         </View>
       }
       renderItem={({ item }) => (
-        <View style={styles.row}>
-          {/* Tapping the text column opens this shift for editing. Kept as
-              its own Pressable rather than wrapping the whole row, so it
-              stays a sibling of the Delete button below instead of a
-              parent of it -- no ambiguity about which handler a tap on
-              Delete fires. */}
-          <Pressable style={styles.rowText} onPress={() => onShiftPress(item)}>
-            <Text style={styles.rowTitle}>
-              {jobNameById.get(item.job_id) ?? 'Unknown job'} — {item.shift_date}
-            </Text>
-            <Text style={styles.rowDetail}>
-              {formatHours(item.duration_seconds)} · {formatCents(item.tips_cents)} tips ·{' '}
-              {formatCents(item.hourly_rate_cents)}/hr
-            </Text>
-            {item.note ? <Text style={styles.rowNote}>{item.note}</Text> : null}
-          </Pressable>
-          <Pressable onPress={() => handleDeletePress(item)} hitSlop={8}>
-            <Text style={styles.deleteText}>Delete</Text>
-          </Pressable>
-        </View>
+        <SwipeableShiftRow
+          jobName={jobNameById.get(item.job_id) ?? 'Unknown job'}
+          shift={item}
+          onDelete={() => handleDeletePress(item)}
+          onPress={() => onShiftPress(item)}
+        />
       )}
     />
+  );
+}
+
+const DELETE_ACTION_WIDTH = 88;
+
+function SwipeableShiftRow({
+  jobName,
+  shift,
+  onDelete,
+  onPress,
+}: {
+  jobName: string;
+  shift: Shift;
+  onDelete: () => void;
+  onPress: () => void;
+}) {
+  const translateX = useRef(new Animated.Value(0)).current;
+  const dragStart = useRef(0);
+
+  function animateTo(value: number) {
+    dragStart.current = value;
+    Animated.timing(translateX, {
+      toValue: value,
+      duration: 180,
+      useNativeDriver: true,
+    }).start();
+  }
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        // Only claim a clearly horizontal gesture. Vertical drags stay with
+        // FlatList, so concealing Delete does not make the history harder to scroll.
+        onMoveShouldSetPanResponder: (_, gesture) =>
+          Math.abs(gesture.dx) > 6 &&
+          Math.abs(gesture.dx) > Math.abs(gesture.dy) &&
+          (gesture.dx < 0 || dragStart.current < 0),
+        onPanResponderGrant: () => {
+          translateX.stopAnimation((value) => {
+            dragStart.current = value;
+          });
+        },
+        onPanResponderMove: (_, gesture) => {
+          translateX.setValue(Math.max(
+            -DELETE_ACTION_WIDTH,
+            Math.min(0, dragStart.current + gesture.dx)
+          ));
+        },
+        onPanResponderRelease: (_, gesture) => {
+          const position = Math.max(
+            -DELETE_ACTION_WIDTH,
+            Math.min(0, dragStart.current + gesture.dx)
+          );
+          const open =
+            gesture.vx < -0.3 ||
+            (Math.abs(gesture.vx) < 0.3 && position <= -DELETE_ACTION_WIDTH / 2);
+          animateTo(open ? -DELETE_ACTION_WIDTH : 0);
+        },
+        onPanResponderTerminate: () => {
+          animateTo(0);
+        },
+      }),
+    [translateX]
+  );
+
+  function handleDelete() {
+    animateTo(0);
+    onDelete();
+  }
+
+  return (
+    <View style={styles.swipeable}>
+      <Pressable
+        accessible={false}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={styles.deleteAction}
+        onPress={handleDelete}
+      >
+        <Text style={styles.deleteText}>Delete</Text>
+      </Pressable>
+      <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityHint="Opens this shift for editing. Use the Delete shift action to delete."
+          accessibilityActions={[{ name: 'delete', label: 'Delete shift' }]}
+          style={styles.row}
+          onAccessibilityAction={(event) => {
+            if (event.nativeEvent.actionName === 'delete') handleDelete();
+          }}
+          onLongPress={handleDelete}
+          onPress={onPress}
+        >
+          <View style={styles.rowText}>
+            <Text style={styles.rowTitle}>
+              {jobName} — {shift.shift_date}
+            </Text>
+            <Text style={styles.rowDetail}>
+              {formatHours(shift.duration_seconds)} · {formatCents(shift.tips_cents)} tips ·{' '}
+              {formatCents(shift.hourly_rate_cents)}/hr
+            </Text>
+            {shift.note ? <Text style={styles.rowNote}>{shift.note}</Text> : null}
+          </View>
+        </Pressable>
+      </Animated.View>
+    </View>
   );
 }
 
@@ -118,10 +219,13 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    minHeight: 68,
+    justifyContent: 'center',
+    backgroundColor: '#fff',
     padding: 12,
+  },
+  swipeable: {
+    overflow: 'hidden',
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
@@ -141,8 +245,17 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   deleteText: {
-    color: '#dc2626',
+    color: '#fff',
     fontWeight: '600',
-    marginLeft: 12,
+  },
+  deleteAction: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: 88,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#dc2626',
   },
 });

@@ -6,7 +6,7 @@
 // in src/lib/.
 import assert from 'node:assert/strict';
 import type { Shift } from '../data/shifts.ts';
-import { calculateTrends } from './trends.ts';
+import { calculateTrends, calculateTrendSeries } from './trends.ts';
 
 function shift(
   id: string,
@@ -158,4 +158,71 @@ assert.throws(
   /Invalid shift date: 2026-02-30/
 );
 
-console.log('trends OK (26 checks)');
+// The chart anchors to the newest shift in the selected job, not the device
+// clock. That matters after importing historical data. Empty days remain in
+// the series so horizontal spacing still represents real calendar time.
+const chartShifts = [
+  shift('before-window', 'job-a', '2024-02-24', 3600, 100, 1000),
+  shift('sunday-a', 'job-a', '2024-02-25', 1800, 100, 1501),
+  shift('sunday-b', 'job-a', '2024-02-25', 1800, 100, 1501),
+  shift('leap-day', 'job-a', '2024-02-29', 3600, 200, 1000),
+  shift('saturday', 'job-a', '2024-03-02', 3600, 300, 1000),
+  shift('other-job', 'job-b', '2024-03-03', 3600, 9000, 1000),
+];
+const weekSeries = calculateTrendSeries(chartShifts, 'week', 'job-a');
+assert.equal(weekSeries.anchorDate, '2024-03-02');
+assert.equal(weekSeries.bucket, 'day');
+assert.deepEqual(
+  weekSeries.points.map((point) => point.period),
+  ['2024-02-25', '2024-02-26', '2024-02-27', '2024-02-28', '2024-02-29', '2024-03-01', '2024-03-02']
+);
+assert.deepEqual(weekSeries.points[0], {
+  period: '2024-02-25',
+  shiftCount: 2,
+  durationSeconds: 3600,
+  tipsCents: 200,
+  grossCents: 1702,
+});
+assert.deepEqual(weekSeries.points[1], {
+  period: '2024-02-26',
+  shiftCount: 0,
+  durationSeconds: 0,
+  tipsCents: 0,
+  grossCents: 0,
+});
+
+const monthSeries = calculateTrendSeries(chartShifts, 'month', 'job-a');
+assert.equal(monthSeries.points.length, 30);
+assert.equal(monthSeries.points[0].period, '2024-02-02');
+assert.equal(monthSeries.points.at(-1)?.period, '2024-03-02');
+
+const quarterSeries = calculateTrendSeries(chartShifts, 'quarter', 'job-a');
+assert.equal(quarterSeries.bucket, 'week');
+assert.equal(quarterSeries.points.length, 13);
+assert.equal(quarterSeries.points.at(-1)?.period, '2024-02-25');
+assert.equal(quarterSeries.points.at(-1)?.grossCents, 4202);
+
+const yearSeries = calculateTrendSeries(chartShifts, 'year', 'job-a');
+assert.equal(yearSeries.points.length, 12);
+assert.equal(yearSeries.points[0].period, '2023-04');
+assert.equal(yearSeries.points.at(-1)?.period, '2024-03');
+
+const allSeries = calculateTrendSeries([
+  shift('all-december', 'job-a', '2022-12-31', 3600, 0, 1000),
+  shift('all-february', 'job-a', '2023-02-01', 3600, 0, 1000),
+], 'all');
+assert.deepEqual(
+  allSeries.points.map((point) => [point.period, point.grossCents]),
+  [['2022-12', 1000], ['2023-01', 0], ['2023-02', 1000]]
+);
+assert.deepEqual(calculateTrendSeries([], 'quarter'), {
+  anchorDate: null,
+  bucket: 'week',
+  points: [],
+});
+assert.throws(
+  () => calculateTrendSeries([shift('bad-chart-date', 'job-a', '2026-02-30', 3600, 0, 1000)], 'all'),
+  /Invalid shift date: 2026-02-30/
+);
+
+console.log('trends and chart OK');

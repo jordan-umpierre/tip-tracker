@@ -158,6 +158,8 @@ function LogHeader({
 
   return (
     <>
+      {/* A new key remounts the prop-seeded form when edit targets change,
+          so it cannot retain the previous shift's fields or an archived job. */}
       {jobs.length === 0 ? (
         <CreateJobForm
           onJobCreated={() => {
@@ -166,7 +168,22 @@ function LogHeader({
           }}
         />
       ) : (
+        <LogShiftForm
+          key={`${editingShift?.id ?? 'new'}:${formJobs.map((job) => job.id).join(':')}`}
+          jobs={formJobs}
+          editingShift={editingShift}
+          onShiftSaved={() => {
+            setEditingShift(null);
+            void refresh();
+          }}
+          onCancelEdit={() => setEditingShift(null)}
+        />
+      )}
+      <ShiftTotals shifts={shifts} />
+
+      {jobs.length > 0 ? (
         <>
+          <Text style={styles.manageDataTitle}>Manage data</Text>
           <Pressable
             accessibilityRole="button"
             accessibilityState={{ expanded: addingJob }}
@@ -214,22 +231,8 @@ function LogHeader({
             onImported={refresh}
           />
         </>
-      )}
-      {/* A new key remounts the prop-seeded form when edit targets change, so
-          it cannot retain the previous shift's fields or an archived job. */}
-      {formJobs.length > 0 ? (
-        <LogShiftForm
-          key={`${editingShift?.id ?? 'new'}:${formJobs.map((job) => job.id).join(':')}`}
-          jobs={formJobs}
-          editingShift={editingShift}
-          onShiftSaved={() => {
-            setEditingShift(null);
-            void refresh();
-          }}
-          onCancelEdit={() => setEditingShift(null)}
-        />
       ) : null}
-      <ShiftTotals shifts={shifts} />
+      <Text style={styles.historyTitle}>Logged shifts</Text>
     </>
   );
 }
@@ -262,6 +265,19 @@ const styles = StyleSheet.create({
   retryText: {
     color: '#fff',
     fontWeight: '600',
+  },
+  manageDataTitle: {
+    color: '#111827',
+    fontSize: 18,
+    fontWeight: '700',
+    paddingHorizontal: 16,
+    paddingTop: 20,
+  },
+  historyTitle: {
+    color: '#111827',
+    fontSize: 18,
+    fontWeight: '700',
+    padding: 16,
   },
   manageJobsButton: {
     minHeight: 44,

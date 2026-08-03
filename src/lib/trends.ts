@@ -43,6 +43,14 @@ export type CalendarTrend = TrendTotals & {
   period: string;
 };
 
+export type TrendChartRange = 'week' | 'month' | 'quarter' | 'year' | 'all';
+
+export type TrendSeries = {
+  anchorDate: string | null;
+  bucket: 'day' | 'week' | 'month';
+  points: CalendarTrend[];
+};
+
 export type Trends = {
   headline: HeadlineTrend;
   weekdays: WeekdayTrend[];
@@ -95,6 +103,124 @@ function weekStartKey(date: NonNullable<ReturnType<typeof parseCalendarDate>>): 
 
 function shiftMatchesJob(shift: Shift, jobId: string | null): boolean {
   return jobId === null || shift.job_id === jobId;
+}
+
+const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
+
+function dateKey(timestamp: number): string {
+  return new Date(timestamp).toISOString().slice(0, 10);
+}
+
+function monthKey(timestamp: number): string {
+  return new Date(timestamp).toISOString().slice(0, 7);
+}
+
+function dayKeys(startTimestamp: number, count: number): string[] {
+  return Array.from({ length: count }, (_, index) =>
+    dateKey(startTimestamp + index * DAY_IN_MILLISECONDS)
+  );
+}
+
+function monthKeys(startTimestamp: number, count: number): string[] {
+  const start = new Date(startTimestamp);
+  return Array.from({ length: count }, (_, index) =>
+    monthKey(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + index, 1))
+  );
+}
+
+type DatedShift = {
+  shift: Shift;
+  date: NonNullable<ReturnType<typeof parseCalendarDate>>;
+  timestamp: number;
+};
+
+function datedShiftsForJob(shifts: Shift[], jobId: string | null): DatedShift[] {
+  return shifts.filter((shift) => shiftMatchesJob(shift, jobId)).map((shift) => {
+    const date = parseCalendarDate(shift.shift_date);
+    if (!date) {
+      throw new Error(`Invalid shift date: ${shift.shift_date}`);
+    }
+
+    return {
+      shift,
+      date,
+      timestamp: Date.UTC(date.year, date.month - 1, date.day),
+    };
+  });
+}
+
+function bucketForRange(range: TrendChartRange): TrendSeries['bucket'] {
+  if (range === 'week' || range === 'month') return 'day';
+  return range === 'quarter' ? 'week' : 'month';
+}
+
+// Every range branch is covered through calculateTrendSeries in the direct-run
+// assertions; this repo does not produce Istanbul data for Fallow's CRAP model.
+// fallow-ignore-next-line complexity
+function seriesKeys(range: TrendChartRange, oldest: DatedShift, newest: DatedShift): string[] {
+  if (range === 'week' || range === 'month') {
+    const dayCount = range === 'week' ? 7 : 30;
+    return dayKeys(newest.timestamp - (dayCount - 1) * DAY_IN_MILLISECONDS, dayCount);
+  }
+
+  if (range === 'quarter') {
+    const newestWeekStart = Date.parse(`${weekStartKey(newest.date)}T00:00:00.000Z`);
+    return Array.from({ length: 13 }, (_, index) =>
+      dateKey(newestWeekStart - (12 - index) * 7 * DAY_IN_MILLISECONDS)
+    );
+  }
+
+  if (range === 'year') {
+    return monthKeys(Date.UTC(newest.date.year, newest.date.month - 12, 1), 12);
+  }
+
+  const start = Date.UTC(oldest.date.year, oldest.date.month - 1, 1);
+  const monthCount =
+    (newest.date.year - oldest.date.year) * 12 + newest.date.month - oldest.date.month + 1;
+  return monthKeys(start, monthCount);
+}
+
+function pointKeyForShift(
+  bucket: TrendSeries['bucket'],
+  shift: Shift,
+  date: DatedShift['date']
+): string {
+  if (bucket === 'day') return shift.shift_date;
+  if (bucket === 'week') return weekStartKey(date);
+  return shift.shift_date.slice(0, 7);
+}
+
+export function calculateTrendSeries(
+  shifts: Shift[],
+  range: TrendChartRange,
+  jobId: string | null = null
+): TrendSeries {
+  const datedShifts = datedShiftsForJob(shifts, jobId);
+  const bucket = bucketForRange(range);
+
+  if (datedShifts.length === 0) {
+    return { anchorDate: null, bucket, points: [] };
+  }
+
+  datedShifts.sort((left, right) => left.timestamp - right.timestamp);
+  const oldest = datedShifts[0];
+  const newest = datedShifts[datedShifts.length - 1];
+  const keys = seriesKeys(range, oldest, newest);
+
+  const totalsByPoint = new Map(keys.map((key) => [key, emptyTotals()]));
+
+  for (const { shift, date } of datedShifts) {
+    const totals = totalsByPoint.get(pointKeyForShift(bucket, shift, date));
+    if (totals) {
+      addShift(totals, shift, calculateShiftGrossCents(shift));
+    }
+  }
+
+  return {
+    anchorDate: newest.shift.shift_date,
+    bucket,
+    points: [...totalsByPoint].map(([period, totals]) => ({ period, ...totals })),
+  };
 }
 
 export function calculateTrends(shifts: Shift[], jobId: string | null = null): Trends {
