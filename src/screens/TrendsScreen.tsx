@@ -164,31 +164,51 @@ function WeekdayBars({ weekdays }: { weekdays: WeekdayTrend[] }) {
   return (
     <View style={styles.section}>
       <Text selectable style={styles.sectionTitle}>Gross per hour by weekday</Text>
-      <Text style={styles.sectionNote}>Hourly wages plus tips, weighted by time.</Text>
-      {weekdays.map((day) => {
-        const width =
-          day.grossPerHourCents === null || maxRate === 0
-            ? '0%'
-            : (`${(day.grossPerHourCents / maxRate) * 100}%` as `${number}%`);
+      <Text style={styles.sectionNote}>
+        Hourly wages plus tips, weighted by time. Rates above; samples below.
+      </Text>
+      <View style={styles.weekdayChart}>
+        {weekdays.map((day) => {
+          const height =
+            day.grossPerHourCents === null || maxRate === 0
+              ? '0%'
+              : (`${(day.grossPerHourCents / maxRate) * 100}%` as `${number}%`);
 
-        return (
-          <View
-            key={day.weekday}
-            accessible
-            accessibilityLabel={`${day.weekday}: ${rateLabel(day.grossPerHourCents)}, ${sampleLabel(day.shiftCount, day.minutes)}`}
-            style={styles.weekdayRow}
-          >
-            <View style={styles.weekdayHeading}>
-              <Text style={styles.weekdayName}>{day.weekday}</Text>
-              <Text selectable style={styles.rate}>{rateLabel(day.grossPerHourCents)}</Text>
+          return (
+            <View
+              key={day.weekday}
+              accessible
+              accessibilityLabel={`${day.weekday}: ${rateLabel(day.grossPerHourCents)}, ${sampleLabel(day.shiftCount, day.minutes)}`}
+              style={styles.weekdayColumn}
+            >
+              <Text
+                selectable
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
+                numberOfLines={1}
+                style={styles.chartRate}
+              >
+                {day.grossPerHourCents === null ? '—' : formatCents(day.grossPerHourCents)}
+              </Text>
+              <View style={styles.verticalBarTrack}>
+                <View style={[styles.verticalBarFill, { height }]} />
+              </View>
+              <Text style={styles.weekdayName}>{day.weekday.slice(0, 3)}</Text>
+              <Text
+                selectable
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
+                numberOfLines={2}
+                style={styles.weekdayContext}
+              >
+                {shiftCountLabel(day.shiftCount)}
+                {'\n'}
+                {formatHours(day.minutes)}
+              </Text>
             </View>
-            <View style={styles.barTrack}>
-              <View style={[styles.barFill, { width }]} />
-            </View>
-            <Text style={styles.context}>{sampleLabel(day.shiftCount, day.minutes)}</Text>
-          </View>
-        );
-      })}
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -287,12 +307,34 @@ const styles = StyleSheet.create({
   section: { gap: 12, borderRadius: 16, backgroundColor: '#fff', padding: 16 },
   sectionTitle: { color: '#111827', fontSize: 20, fontWeight: '700' },
   sectionNote: { color: '#6b7280', marginTop: -8 },
-  weekdayRow: { gap: 6, paddingTop: 4 },
-  weekdayHeading: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-  weekdayName: { color: '#374151', fontWeight: '600' },
-  rate: { color: '#111827', fontWeight: '600', fontVariant: ['tabular-nums'] },
-  barTrack: { height: 8, overflow: 'hidden', borderRadius: 4, backgroundColor: '#e5e7eb' },
-  barFill: { height: '100%', borderRadius: 4, backgroundColor: '#2563eb' },
+  weekdayChart: { height: 230, flexDirection: 'row', gap: 4 },
+  weekdayColumn: { flex: 1, minWidth: 0, alignItems: 'center', gap: 4 },
+  chartRate: {
+    width: '100%',
+    color: '#111827',
+    fontSize: 11,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+    textAlign: 'center',
+  },
+  verticalBarTrack: {
+    flex: 1,
+    width: '68%',
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
+    borderRadius: 6,
+    backgroundColor: '#e5e7eb',
+  },
+  verticalBarFill: { width: '100%', borderRadius: 6, backgroundColor: '#2563eb' },
+  weekdayName: { color: '#374151', fontSize: 11, fontWeight: '600' },
+  weekdayContext: {
+    width: '100%',
+    color: '#6b7280',
+    fontSize: 10,
+    fontVariant: ['tabular-nums'],
+    lineHeight: 12,
+    textAlign: 'center',
+  },
   context: { color: '#6b7280', fontSize: 13, fontVariant: ['tabular-nums'] },
   periodRow: { gap: 4, borderTopWidth: 1, borderTopColor: '#e5e7eb', paddingTop: 12 },
   periodHeading: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
