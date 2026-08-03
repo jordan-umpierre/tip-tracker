@@ -20,7 +20,7 @@ export default function ShiftTotals({ shifts }: Props) {
 
   return (
     <View style={styles.container}>
-      <Stat label="Hours" value={formatHours(totals.minutes)} />
+      <Stat label="Hours" value={formatHours(totals.durationSeconds)} />
       <Stat label="Tips" value={formatCents(totals.tipsCents)} />
       <Stat label="Gross pay" value={formatCents(totals.grossCents)} />
     </View>

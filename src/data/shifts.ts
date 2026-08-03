@@ -7,7 +7,7 @@ export type Shift = {
   id: string;
   job_id: string;
   shift_date: string;
-  minutes: number;
+  duration_seconds: number;
   tips_cents: number;
   hourly_rate_cents: number;
   note: string | null;
@@ -18,7 +18,7 @@ export type Shift = {
 export async function createShift(
   jobId: string,
   shiftDate: string,
-  minutes: number,
+  durationSeconds: number,
   tipsCents: number,
   hourlyRateCents: number,
   note: string | null
@@ -37,12 +37,12 @@ export async function createShift(
   // deleted_at is explicitly NULL: a brand new shift is never deleted.
   await db.runAsync(
     `INSERT INTO shifts
-       (id, job_id, shift_date, minutes, tips_cents, hourly_rate_cents, note, deleted_at, created_at, updated_at)
+       (id, job_id, shift_date, duration_seconds, tips_cents, hourly_rate_cents, note, deleted_at, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?);`,
     id,
     jobId,
     shiftDate,
-    minutes,
+    durationSeconds,
     tipsCents,
     hourlyRateCents,
     note,
@@ -69,7 +69,7 @@ export async function listShifts(): Promise<Shift[]> {
   // Most recent first, since that's the natural order for a list a user
   // scrolls through.
   return db.getAllAsync<Shift>(
-    `SELECT id, job_id, shift_date, minutes, tips_cents, hourly_rate_cents, note, created_at, updated_at
+    `SELECT id, job_id, shift_date, duration_seconds, tips_cents, hourly_rate_cents, note, created_at, updated_at
      FROM shifts
      WHERE deleted_at IS NULL
      ORDER BY shift_date DESC;`
@@ -80,7 +80,7 @@ export async function updateShift(
   id: string,
   jobId: string,
   shiftDate: string,
-  minutes: number,
+  durationSeconds: number,
   tipsCents: number,
   hourlyRateCents: number,
   note: string | null
@@ -96,11 +96,11 @@ export async function updateShift(
   // did this row last change" for eventual sync conflict resolution.
   await db.runAsync(
     `UPDATE shifts
-     SET job_id = ?, shift_date = ?, minutes = ?, tips_cents = ?, hourly_rate_cents = ?, note = ?, updated_at = ?
+     SET job_id = ?, shift_date = ?, duration_seconds = ?, tips_cents = ?, hourly_rate_cents = ?, note = ?, updated_at = ?
      WHERE id = ?;`,
     jobId,
     shiftDate,
-    minutes,
+    durationSeconds,
     tipsCents,
     hourlyRateCents,
     note,

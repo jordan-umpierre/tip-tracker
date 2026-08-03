@@ -3,7 +3,11 @@ import { File } from 'expo-file-system';
 import * as SQLite from 'expo-sqlite';
 
 const DATABASE_NAME = 'tip-tracker.db';
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
+const upgradeSqlByVersion = [
+  require('./schema.sql'),
+  require('./migrations/1-to-2.sql'),
+];
 
 // Opening a connection is async, and we only want to do it once -- not a
 // fresh connection per call. This caches the in-flight (or finished) open,
@@ -34,21 +38,36 @@ async function openDb(): Promise<SQLite.SQLiteDatabase> {
   // previous launch already ran them, since running them twice would fail
   // the second time (no "IF NOT EXISTS" in schema.sql, on purpose -- that
   // keeps it identical to what scripts/test-schema.sh loads and tests).
-  const versionRow = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version;');
-  const currentVersion = versionRow?.user_version ?? 0;
+  // PRAGMA user_version always returns one row, including 0 for a new file.
+  const currentVersion = (
+    await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version;')
+  )!.user_version;
+
+  if (currentVersion > SCHEMA_VERSION) {
+    throw new Error(
+      `Database version ${currentVersion} is newer than this app supports (${SCHEMA_VERSION}).`
+    );
+  }
 
   if (currentVersion < SCHEMA_VERSION) {
-    // schema.sql ships as a bundled asset (see metro.config.js), not
-    // inlined as a JS string -- that way this file and
-    // scripts/test-schema.sh are always running the exact same source of
-    // truth. downloadAsync() makes sure the asset is actually on disk
-    // before .localUri is usable.
-    const asset = await Asset.fromModule(require('./schema.sql')).downloadAsync();
-    const schemaSql = await new File(asset.localUri!).text();
+    // SQL ships as bundled assets (see metro.config.js), not duplicated JS
+    // strings. downloadAsync() makes sure the asset is on disk before it is
+    // read, and the transaction keeps the SQL and version marker atomic.
+    // Version 0 gets the complete current schema; version 1 gets the one
+    // migration that advances it to version 2. Both assets are statically
+    // required above so Metro includes them in native bundles.
+    const upgradeSql = await readBundledSql(upgradeSqlByVersion[currentVersion]);
 
-    await db.execAsync(schemaSql);
-    await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION};`);
+    await db.withExclusiveTransactionAsync(async (transaction) => {
+      await transaction.execAsync(upgradeSql);
+      await transaction.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION};`);
+    });
   }
 
   return db;
+}
+
+async function readBundledSql(moduleId: number): Promise<string> {
+  const asset = await Asset.fromModule(moduleId).downloadAsync();
+  return new File(asset.localUri!).text();
 }

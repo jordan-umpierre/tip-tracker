@@ -286,21 +286,23 @@ UI/UX bar from the product definition is achievable here.
 > **Revisit when:** the purge policy is needed, which is when sync ships (D1).
 
 
-### D5 — Round wages per shift, not once per total (2026-07-30)
+### D5 — Round wages per shift, not once per total (2026-07-30; revised 2026-08-03)
 
-> **Decision:** A shift's wage is `Math.round(minutes * hourly_rate_cents / 60)`
-> — rounded to whole cents for that one shift. Totals sum those already-rounded
-> numbers. The multiplication happens before the division so the arithmetic
-> stays on integers as long as possible.
+> **Decision:** A shift's wage is
+> `Math.round(duration_seconds * hourly_rate_cents / 3600)` — rounded to whole
+> cents for that one shift. Totals sum those already-rounded numbers. The
+> multiplication happens before the division so the arithmetic stays on
+> integers as long as possible.
 >
 > **Alternatives:**
 > - Sum the unrounded wages and round once at the end
 > - Store a `wage_cents` column on `shifts`, computed at write time
 > - Keep fractional cents in a decimal library and round only for display
 >
-> **Why:** Minutes divided by 60 is usually not a whole number of cents. A
+> **Why:** Seconds divided by 3600 is usually not a whole number of cents. A
 > 7h35m shift at $15.50/hr earns 11754.166… cents. Something has to round, and
-> the only question is where.
+> the only question is where. D12 changed the duration unit, not this rounding
+> boundary.
 >
 > A shift is the smallest earnings record in the app, and each one carries its
 > own historical rate. Turning that record into whole cents before adding it to
@@ -333,46 +335,45 @@ UI/UX bar from the product definition is achievable here.
 > alongside this. This rule stays correct for "what did I earn," which is what
 > the totals row answers.
 
-### D6 — The edit form shows hours at a precision that round-trips (2026-07-30)
+### D6 — Edit hours at round-trip-safe precision (2026-07-30; revised 2026-08-03)
 
 > **Decision:** When `LogShiftForm` pre-fills the hours field for an existing
-> shift, it renders `minutes / 60` to **two** decimal places, not raw and not
-> at the one-decimal precision `ShiftList` displays. Money fields pre-fill at
-> two decimals for the same reason.
+> shift, it renders `duration_seconds / 3600` to at most **four** decimal
+> places, not raw and not at the one-decimal precision `ShiftList` displays.
+> Money fields pre-fill at two decimals for the same reason.
 >
 > **Alternatives:**
 > - Leave it raw — the status quo, which showed `7.583333333333333`
 > - Match the list's one-decimal display, so both read `7.6`
-> - Replace the decimal-hours input with separate hours and minutes fields
-> - Store whatever the user typed alongside the canonical minutes
+> - Replace the decimal-hours input with hours, minutes, and seconds controls
+> - Store whatever the user typed alongside the canonical seconds
 >
-> **Why:** Minutes are the stored truth and decimal hours are a lossy view of
+> **Why:** Seconds are the stored truth and decimal hours are a lossy view of
 > them, so the only safe display precision is one that converts back to the
-> same number of minutes. Saving runs `Math.round(hours * 60)`, which makes
+> same number of seconds. Saving runs `Math.round(hours * 3600)`, which makes
 > this checkable rather than a matter of taste.
 >
-> Two decimals round-trips for every minute from 1 to 1440. One decimal does
-> not, and the failure is not cosmetic: a 455-minute shift shown as `7.6` saves
-> as 456 minutes, so merely opening a shift and pressing save would rewrite it.
-> A one-minute shift shown as `0.0` saves as zero and violates a `CHECK`
-> constraint. Matching the list would have been the obvious change and it
-> quietly corrupts data on every edit.
+> Four decimals round-trip for every second from 1 to 86,400; the test checks
+> that full range. Three decimals do not. The failure is not cosmetic: a
+> 27,300-second shift shown as `7.6` saves as 27,360 seconds, so merely opening
+> a shift and pressing save would rewrite it. Matching the list would have
+> been the obvious change and it quietly corrupts data on every edit.
 >
-> Separate hours and minutes fields are the genuinely correct fix, because they
+> Separate duration controls are the genuinely correct fix, because they
 > remove the lossy conversion instead of choosing a safe precision within it.
 > Not done now: it changes the shape of the primary input on the one screen
 > this project has committed to obsessing over, which deserves its own pass
 > rather than being smuggled into a bug fix.
 >
-> **Known cost:** the same shift now reads `7.58` in the edit field and `7.6`
+> **Known cost:** the same shift now reads `7.5833` in the edit field and `7.6`
 > in the list. Two renderings of one value is a real inconsistency. It is the
 > lesser problem — a display that disagrees with itself is visible and
-> annoying, whereas silently rewriting stored minutes is invisible and
+> annoying, whereas silently rewriting stored seconds is invisible and
 > permanent.
 >
-> **Revisit when:** the hours input becomes hours-and-minutes. That removes the
-> conversion this decision is working around, and both this rule and the
-> mismatch it causes disappear with it.
+> **Revisit when:** the hours input becomes hours/minutes/seconds controls.
+> That removes the conversion this decision is working around, and both this
+> rule and the mismatch it causes disappear with it.
 
 ### D7 — Add Expo Router when Layer 1 introduces the second screen (2026-07-31)
 
@@ -412,11 +413,11 @@ UI/UX bar from the product definition is achievable here.
 > that Expo Router cannot express cleanly, or a required navigation feature
 > forces work against the router instead of with it.
 
-### D8 — Calculate Layer 1 Trends in pure TypeScript (2026-07-31)
+### D8 — Calculate Layer 1 Trends in pure TypeScript (2026-07-31; revised 2026-08-03)
 
 > **Decision:** Group shifts by weekday, month, and year and calculate
 > tips-per-hour in a pure module under `src/lib/`. The functions take `Shift[]`
-> and return integer-minute / integer-cent result objects. They do not query
+> and return integer-second / integer-cent result objects. They do not query
 > SQLite or format display strings.
 >
 > **Alternatives:**
@@ -508,23 +509,23 @@ UI/UX bar from the product definition is achievable here.
 >
 > **Formulas and outputs:**
 > - The headline shows gross per hour:
->   `round(total gross cents * 60 / total minutes)`.
+>   `round(total gross cents * 3600 / total duration seconds)`.
 > - Each weekday uses the same gross-per-hour formula over that weekday's
 >   shifts:
->   `round(total gross cents * 60 / total minutes)`.
+>   `round(total gross cents * 3600 / total duration seconds)`.
 > - Total gross first calculates and rounds each shift's wages under D5, then
 >   sums those shift-level gross values before deriving a rate.
 > - Rates are weighted by time. Never average the per-hour values of individual
 >   shifts, because a short shift would count as much as a long one.
-> - Every rate includes its shift count and total minutes as sample context.
+> - Every rate includes its shift count and total duration as sample context.
 > - Month and year rows are calendar periods derived from `shift_date`. Each
->   shows gross, tips, total minutes, and shift count. The current incomplete
+>   shows gross, tips, total duration, and shift count. The current incomplete
 >   month or year remains visible and is labeled as being to date.
 > - A group with no shifts has no rate. Represent it as `null` and display
 >   "No shifts," not `$0.00/hr`; no observations and a measured zero are
 >   different facts.
 >
-> Exact calculation results remain integer cents and integer minutes under D8.
+> Exact calculation results remain integer cents and integer seconds under D8.
 > Formatting hours and money into strings remains a component concern.
 >
 > **Alternatives:**
@@ -601,13 +602,50 @@ UI/UX bar from the product definition is achievable here.
 > becomes justified by shared unsaved state or a measured read problem, not by
 > the mere existence of a second screen.
 >
-> **Known cost:** each screen has its own loading/error/refresh logic, tab
-> focus performs another SQLite read, and the native-tabs API may change during
-> an Expo upgrade. Native tab behavior and insets must be checked on both iOS
-> and Android; current development can verify iOS in Expo Go, while Android
-> remains a release gate until it is tested.
+> **Known cost at decision time:** each screen has its own
+> loading/error/refresh logic, tab focus performs another SQLite read, and the
+> native-tabs API may change during an Expo upgrade. Native tab behavior and
+> insets had to be checked on both platforms; the physical-iPhone and
+> Android-emulator acceptance passes are now recorded.
 >
 > **Revisit when:** native tabs remain unstable near release or cause a device
 > defect; a tab gains a child route; several screens duplicate substantial
 > loading logic; screens need shared unsaved state; or background sync must
 > update a visible screen immediately.
+
+### D12 — Store duration as integer seconds, not hundredths of an hour (2026-08-03)
+
+> **Decision:** `shifts.duration_seconds` is the canonical duration. Version 2
+> renames the old `minutes` column and multiplies every value by 60 inside one
+> transaction. CSV hours with two decimal places convert as
+> `hundredths * 36`, also without rounding.
+>
+> **Alternatives:**
+> - Keep integer minutes and round imported values
+> - Store integer hundredths of an hour because the first import source does
+> - Store decimal hours in SQLite `REAL`
+>
+> **Why:** The supplied export contains 495 shifts that are not whole-minute
+> durations. Rounding them would change wage calculations before the user even
+> sees the preview. Integer seconds preserve both histories exactly: every old
+> minute is 60 seconds and every source hundredth is 36 seconds.
+>
+> Hundredths would also preserve this one file, but it is a source format, not
+> a neutral time unit. It cannot represent an existing one-minute shift
+> exactly, while seconds represent minutes, hundredths, and future clock-based
+> durations. SQLite `REAL` was rejected for the same reason money never uses
+> floating point: exact stored facts should not depend on binary decimal
+> approximations.
+>
+> The migration and its `PRAGMA user_version = 2` marker commit together. Its
+> runnable test compares every non-duration field, archived relationship, and
+> tombstone before and after migration, then forces a failure to prove the
+> version-1 database rolls back intact.
+>
+> **Known cost:** editable decimal hours need up to four places to round-trip
+> any whole second under D6. Display-only hours can remain rounded to one
+> decimal because they are never saved.
+>
+> **Revisit when:** the product records sub-second work, which a shift tracker
+> does not currently need, or imports real start/end times that justify a
+> different input control. The integer-second storage unit still remains valid.

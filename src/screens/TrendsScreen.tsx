@@ -122,7 +122,7 @@ export default function TrendsScreen() {
             {rateLabel(trends.headline.grossPerHourCents)}
           </Text>
           <Text style={[styles.context, styles.headlineContext]}>
-            {sampleLabel(trends.headline.shiftCount, trends.headline.minutes)}
+            {sampleLabel(trends.headline.shiftCount, trends.headline.durationSeconds)}
           </Text>
         </View>
 
@@ -178,7 +178,7 @@ function WeekdayBars({ weekdays }: { weekdays: WeekdayTrend[] }) {
             <View
               key={day.weekday}
               accessible
-              accessibilityLabel={`${day.weekday}: ${rateLabel(day.grossPerHourCents)}, ${sampleLabel(day.shiftCount, day.minutes)}`}
+              accessibilityLabel={`${day.weekday}: ${rateLabel(day.grossPerHourCents)}, ${sampleLabel(day.shiftCount, day.durationSeconds)}`}
               style={styles.weekdayColumn}
             >
               <Text
@@ -203,7 +203,7 @@ function WeekdayBars({ weekdays }: { weekdays: WeekdayTrend[] }) {
               >
                 {shiftCountLabel(day.shiftCount)}
                 {'\n'}
-                {formatHours(day.minutes)}
+                {formatHours(day.durationSeconds)}
               </Text>
             </View>
           );
@@ -237,7 +237,7 @@ function CalendarSection({
             <Text selectable style={styles.periodGross}>{formatCents(row.grossCents)}</Text>
           </View>
           <Text style={styles.context}>
-            {formatCents(row.tipsCents)} tips · {formatHours(row.minutes)} ·{' '}
+            {formatCents(row.tipsCents)} tips · {formatHours(row.durationSeconds)} ·{' '}
             {shiftCountLabel(row.shiftCount)}
           </Text>
         </View>
@@ -254,8 +254,8 @@ function shiftCountLabel(count: number): string {
   return `${count} ${count === 1 ? 'shift' : 'shifts'}`;
 }
 
-function sampleLabel(shiftCount: number, minutes: number): string {
-  return `${shiftCountLabel(shiftCount)} · ${formatHours(minutes)}`;
+function sampleLabel(shiftCount: number, durationSeconds: number): string {
+  return `${shiftCountLabel(shiftCount)} · ${formatHours(durationSeconds)}`;
 }
 
 function formatMonth(period: string): string {

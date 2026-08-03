@@ -20,6 +20,7 @@
 status=0
 ./scripts/check-docs.sh  || status=1
 ./scripts/test-schema.sh || status=1
+./scripts/test-migration.sh || status=1
 for t in src/lib/*.test.ts; do
   node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON "$t" || status=1
 done

@@ -16,12 +16,12 @@ import { calculateShiftGrossCents, calculateTotals } from './totals.ts';
 // all of them, so this fills in the rest with throwaway values. Building the
 // object by hand rather than inserting into SQLite is the whole point of
 // keeping totals.ts free of database code.
-function shift(minutes: number, tipsCents: number, hourlyRateCents: number): Shift {
+function shift(durationSeconds: number, tipsCents: number, hourlyRateCents: number): Shift {
   return {
     id: 'test-id',
     job_id: 'test-job',
     shift_date: '2026-07-30',
-    minutes,
+    duration_seconds: durationSeconds,
     tips_cents: tipsCents,
     hourly_rate_cents: hourlyRateCents,
     note: null,
@@ -32,40 +32,47 @@ function shift(minutes: number, tipsCents: number, hourlyRateCents: number): Shi
 
 // No shifts yet is the state the app opens in, so it has to produce zeros
 // rather than NaN or a crash. This is what reduce's starting value buys.
-assert.deepEqual(calculateTotals([]), { minutes: 0, tipsCents: 0, grossCents: 0 });
+assert.deepEqual(calculateTotals([]), {
+  durationSeconds: 0,
+  tipsCents: 0,
+  grossCents: 0,
+});
 
 // The easy case, where nothing needs rounding: 450 minutes is exactly 7.5
 // hours, and 7.5 * $15.50 is exactly $116.25.
-assert.deepEqual(calculateTotals([shift(450, 2000, 1550)]), {
-  minutes: 450,
+assert.deepEqual(calculateTotals([shift(450 * 60, 2000, 1550)]), {
+  durationSeconds: 450 * 60,
   tipsCents: 2000,
   grossCents: 13625, // 11625 wage + 2000 tips
 });
 
 // The case that actually needs a rule: 455 minutes at $15.50/hr works out to
 // 11754.1666... cents, which is not a number of cents that exists.
-assert.deepEqual(calculateTotals([shift(455, 0, 1550)]).grossCents, 11754);
+assert.deepEqual(calculateTotals([shift(455 * 60, 0, 1550)]).grossCents, 11754);
 
 // Trends needs this same one-shift value. Testing the exported helper directly
 // makes a copied or differently rounded implementation unnecessary.
-assert.equal(calculateShiftGrossCents(shift(455, 2000, 1550)), 13754);
+assert.equal(calculateShiftGrossCents(shift(455 * 60, 2000, 1550)), 13754);
 
 // D5, stated as a test. Two 30-minute shifts at $15.01/hr each earn exactly
 // 750.5 cents. Rounding per shift gives 751 + 751 = 1502. Rounding the sum
 // instead would give 1501 -- a cent less than the sum of the two shifts. If
 // someone ever "fixes" totals.ts to round once at the end, this is the line
 // that fails.
-assert.equal(calculateTotals([shift(30, 0, 1501), shift(30, 0, 1501)]).grossCents, 1502);
+assert.equal(
+  calculateTotals([shift(30 * 60, 0, 1501), shift(30 * 60, 0, 1501)]).grossCents,
+  1502
+);
 
 // Several shifts at different rates, which is the case a single sum-then-
 // multiply can't handle at all: there is no one rate to multiply by.
 const mixed = [
-  shift(480, 8000, 1600), // 12800 wage + 8000 tips = 20800
-  shift(305, 4250, 1725), // round(305 * 1725 / 60) = 8769 wage + 4250 = 13019
-  shift(120, 1500, 1500), // 3000 wage + 1500 tips = 4500
+  shift(480 * 60, 8000, 1600), // 12800 wage + 8000 tips = 20800
+  shift(305 * 60, 4250, 1725), // round(18300 * 1725 / 3600) = 8769 + 4250
+  shift(120 * 60, 1500, 1500), // 3000 wage + 1500 tips = 4500
 ];
 assert.deepEqual(calculateTotals(mixed), {
-  minutes: 905,
+  durationSeconds: 905 * 60,
   tipsCents: 13750,
   grossCents: 38319,
 });

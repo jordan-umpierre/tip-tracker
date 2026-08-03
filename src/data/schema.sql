@@ -70,10 +70,12 @@ CREATE TABLE shifts (
   -- offset timezone display as the following day.
   shift_date TEXT NOT NULL,
 
-  -- Duration as whole minutes, so 7.5 hours is 450. Same reason as cents:
-  -- fractional hours in REAL would reintroduce floating point drift.
+  -- Duration as whole seconds, so 7.5 hours is 27000. Same reason as cents:
+  -- fractional hours in REAL would reintroduce floating point drift. Seconds
+  -- also preserve CSV exports measured in hundredths of an hour exactly (D12):
+  -- one hundredth is 36 seconds.
   -- CHECK because a shift of zero or negative length isn't a shift.
-  minutes INTEGER NOT NULL CHECK (minutes > 0),
+  duration_seconds INTEGER NOT NULL CHECK (duration_seconds > 0),
 
   -- Zero is a real answer here (slow night), negative is not.
   tips_cents INTEGER NOT NULL CHECK (tips_cents >= 0),

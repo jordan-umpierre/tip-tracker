@@ -1,4 +1,4 @@
-// Turning the database's integer cents and integer minutes into strings a
+// Turning the database's integer cents and integer seconds into strings a
 // person reads. Split out once ShiftTotals became the third place doing it --
 // ShiftList was already formatting money in two spots, and three copies of
 // "divide by 100 and hope everyone picked the same number of decimals" is how
@@ -27,11 +27,11 @@ export function formatCents(cents: number): string {
   return currencyFormatter.format(cents / 100);
 }
 
-// Durations are stored as integer minutes. One decimal place is enough to
+// Durations are stored as integer seconds. One decimal place is enough to
 // tell 7.5 hours from 7.6 without pretending to a precision that would just
 // be noise on a shift log.
-export function formatHours(minutes: number): string {
-  return `${(minutes / 60).toFixed(1)}h`;
+export function formatHours(durationSeconds: number): string {
+  return `${(durationSeconds / 3600).toFixed(1)}h`;
 }
 
 // --- Values for editable form fields ---------------------------------------
@@ -40,20 +40,18 @@ export function formatHours(minutes: number): string {
 // text a person only reads, so any precision that looks right is right. These
 // produce the starting contents of an input the user can edit and save back,
 // which means whatever comes out has to survive the trip home: LogShiftForm
-// saves with Math.round(value * 60) for hours and Math.round(value * 100) for
+// saves with Math.round(value * 3600) for hours and Math.round(value * 100) for
 // money, so a number that doesn't convert back to the same integer silently
 // rewrites the shift the moment someone opens it and presses save.
 
-// Two decimals, per D6. Not one -- matching formatHours above would turn a
-// 455-minute shift into "7.6", which saves as 456 minutes, and a one-minute
-// shift into "0.0", which saves as zero and fails a CHECK constraint. Two
-// decimals converts back to the identical minute count for every duration
-// from one minute to a full day; format.test.ts checks all 1440 of them.
+// Four decimals, per D6. Each displayed step is 0.36 seconds, so rounding the
+// input back to whole seconds recovers every duration from one second through
+// a full day. Fewer decimals can silently rewrite a shift when it is edited.
 //
 // Trailing zeros come off because "7.5" reads better than "7.50" in an input
 // box, and dropping them cannot change the number's value.
-export function hoursInputValue(minutes: number): string {
-  return (minutes / 60).toFixed(2).replace(/\.?0+$/, '');
+export function hoursInputValue(durationSeconds: number): string {
+  return (durationSeconds / 3600).toFixed(4).replace(/\.?0+$/, '');
 }
 
 // Money keeps its trailing zeros: a rate field showing "15.5" looks like an

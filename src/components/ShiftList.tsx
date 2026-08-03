@@ -92,7 +92,7 @@ export default function ShiftList({ shifts, jobs, onShiftDeleted, onShiftPress, 
               {jobNameById.get(item.job_id) ?? 'Unknown job'} — {item.shift_date}
             </Text>
             <Text style={styles.rowDetail}>
-              {formatHours(item.minutes)} · {formatCents(item.tips_cents)} tips ·{' '}
+              {formatHours(item.duration_seconds)} · {formatCents(item.tips_cents)} tips ·{' '}
               {formatCents(item.hourly_rate_cents)}/hr
             </Text>
             {item.note ? <Text style={styles.rowNote}>{item.note}</Text> : null}

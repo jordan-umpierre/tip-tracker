@@ -17,19 +17,19 @@ export const WEEKDAYS = [
 export type HeadlineTrend = {
   grossPerHourCents: number | null;
   shiftCount: number;
-  minutes: number;
+  durationSeconds: number;
 };
 
 export type WeekdayTrend = {
   weekday: (typeof WEEKDAYS)[number];
   grossPerHourCents: number | null;
   shiftCount: number;
-  minutes: number;
+  durationSeconds: number;
 };
 
 type TrendTotals = {
   shiftCount: number;
-  minutes: number;
+  durationSeconds: number;
   tipsCents: number;
   grossCents: number;
 };
@@ -48,7 +48,7 @@ export type Trends = {
 };
 
 function emptyTotals(): TrendTotals {
-  return { shiftCount: 0, minutes: 0, tipsCents: 0, grossCents: 0 };
+  return { shiftCount: 0, durationSeconds: 0, tipsCents: 0, grossCents: 0 };
 }
 
 function addShift(totals: TrendTotals, shift: Shift, grossCents: number): void {
@@ -56,7 +56,7 @@ function addShift(totals: TrendTotals, shift: Shift, grossCents: number): void {
   // Updating them in place avoids creating four new objects for every shift;
   // callers still receive a brand-new result on every call.
   totals.shiftCount += 1;
-  totals.minutes += shift.minutes;
+  totals.durationSeconds += shift.duration_seconds;
   totals.tipsCents += shift.tips_cents;
   totals.grossCents += grossCents;
 }
@@ -72,10 +72,10 @@ function totalsForPeriod(periods: Map<string, TrendTotals>, period: string): Tre
   return totals;
 }
 
-function centsPerHour(cents: number, minutes: number): number | null {
+function centsPerHour(cents: number, durationSeconds: number): number | null {
   // Null means "no evidence." Zero is reserved for real shifts that earned
   // zero gross, so the UI can tell those two cases apart.
-  return minutes === 0 ? null : Math.round((cents * 60) / minutes);
+  return durationSeconds === 0 ? null : Math.round((cents * 3600) / durationSeconds);
 }
 
 export function calculateTrends(shifts: Shift[], jobId: string | null = null): Trends {
@@ -109,18 +109,18 @@ export function calculateTrends(shifts: Shift[], jobId: string | null = null): T
 
   return {
     headline: {
-      grossPerHourCents: centsPerHour(allTotals.grossCents, allTotals.minutes),
+      grossPerHourCents: centsPerHour(allTotals.grossCents, allTotals.durationSeconds),
       shiftCount: allTotals.shiftCount,
-      minutes: allTotals.minutes,
+      durationSeconds: allTotals.durationSeconds,
     },
     weekdays: WEEKDAYS.map((weekday, index) => ({
       weekday,
       grossPerHourCents: centsPerHour(
         weekdayTotals[index].grossCents,
-        weekdayTotals[index].minutes
+        weekdayTotals[index].durationSeconds
       ),
       shiftCount: weekdayTotals[index].shiftCount,
-      minutes: weekdayTotals[index].minutes,
+      durationSeconds: weekdayTotals[index].durationSeconds,
     })),
     months: [...monthTotals.entries()]
       .sort(([left], [right]) => right.localeCompare(left))

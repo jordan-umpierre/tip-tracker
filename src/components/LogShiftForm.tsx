@@ -41,9 +41,11 @@ export default function LogShiftForm({ jobs, editingShift, onShiftSaved, onCance
   // These three used to be a raw division, which is how the edit form ended up
   // showing 7.583333333333333 for a 455-minute shift. The helpers pick a
   // precision that converts back to the identical stored integer, per D6 --
-  // the tempting fix of matching the list's "7.6h" would have saved 456
-  // minutes and quietly rewritten the shift.
-  const [hours, setHours] = useState(editingShift ? hoursInputValue(editingShift.minutes) : '');
+  // the tempting fix of matching the list's "7.6h" would quietly rewrite
+  // the stored seconds.
+  const [hours, setHours] = useState(
+    editingShift ? hoursInputValue(editingShift.duration_seconds) : ''
+  );
   const [tips, setTips] = useState(editingShift ? moneyInputValue(editingShift.tips_cents) : '');
   const [hourlyRate, setHourlyRate] = useState(() => {
     if (editingShift) {
@@ -100,22 +102,37 @@ export default function LogShiftForm({ jobs, editingShift, onShiftSaved, onCance
 
     // Same unit conversions either way: Math.round rather than a bare
     // multiply, to avoid floating point landing one cent off.
-    const minutes = Math.round(hoursValue * 60);
+    const durationSeconds = Math.round(hoursValue * 3600);
     const tipsCents = Math.round(tipsValue * 100);
     const hourlyRateCents = Math.round(rateValue * 100);
     const noteValue = note.trim() === '' ? null : note.trim();
 
-    // A tiny positive decimal can still round to zero stored minutes. Catch it
+    // A tiny positive decimal can still round to zero stored seconds. Catch it
     // here instead of letting SQLite's CHECK constraint surface as an error.
-    if (minutes <= 0) {
-      Alert.alert('Check hours worked', 'Hours worked must round to at least one minute.');
+    if (durationSeconds <= 0) {
+      Alert.alert('Check hours worked', 'Hours worked must round to at least one second.');
       return;
     }
 
     if (editingShift) {
-      await updateShift(editingShift.id, selectedJobId, shiftDate, minutes, tipsCents, hourlyRateCents, noteValue);
+      await updateShift(
+        editingShift.id,
+        selectedJobId,
+        shiftDate,
+        durationSeconds,
+        tipsCents,
+        hourlyRateCents,
+        noteValue
+      );
     } else {
-      await createShift(selectedJobId, shiftDate, minutes, tipsCents, hourlyRateCents, noteValue);
+      await createShift(
+        selectedJobId,
+        shiftDate,
+        durationSeconds,
+        tipsCents,
+        hourlyRateCents,
+        noteValue
+      );
 
       // Reset the per-shift fields, but leave the job selected -- logging
       // several shifts at the same job in a row is the common case, not

@@ -77,7 +77,8 @@ knowing before reading it:
 
 - **Money is integer cents.** `$24.50` is `2450`. Never floats — the rounding
   error compounds across hundreds of shifts and a tax calculation.
-- **Durations are integer minutes.** 7.5 hours is `450`.
+- **Durations are integer seconds.** 7.5 hours is `27000`; one hundredth of an
+  hour is exactly `36`.
 - **Units go in the column name.** `hourly_rate_cents`, not `hourly_rate`.
 - **IDs are text UUIDs**, so rows created on two devices cannot collide once
   sync exists.
