@@ -19,9 +19,11 @@ Last updated: 2026-08-03
    status, pay frequency, W-4 inputs, other income/adjustments, and actual
    withholding. Do not substitute one flat percentage; state/local, 1099, and
    tipped-credit edge cases remain explicit later scope.
-3. Run the CSV import plus this product revision on a physical iPhone. The new
-   Trends home/summary/breakdown controls, opaque tab bar, visible Log actions,
-   and remove-job confirmation passed in the Android emulator.
+3. Run the CSV import plus the complete dashboard revision on a physical
+   iPhone. Android now passes the graph ranges and scrub interaction, chart
+   vertical scrolling, lower Log management controls, concealed swipe-delete,
+   long-press/accessibility delete paths, and native confirmation. The iOS
+   bundle passes, but that is not a VoiceOver or gesture claim.
 4. Place user-controlled export and optional cloud backup/sync before public
    tax projections. Years of local income history need a recovery story before
    net estimates increase the data's value.
@@ -377,3 +379,17 @@ Trends scope is complete.
     $32.14/hr. The tracked hook, TypeScript, Expo dependency check, Fallow
     changed-file gate, and Android interaction pass. D14 records why overtime
     and tax math require profiles instead of guessed universal percentages.
+46. Added the requested interactive dashboard in `5bf1375`. Trends now opens
+    with one large gross-income line, exact wage/tip/hour text, 1W/1M/3M/1Y/All
+    ranges, job scope, and nearest-point touch inspection. The supplied 845-row
+    history condenses to 51 monthly All points instead of a multi-year daily
+    scroll. D9 now records why this uses one Expo-supported SVG primitive
+    dependency rather than a chart framework or misleading investment-style
+    red/green semantics; D10 pins the tested calendar buckets and newest-shift
+    anchor. Log now orders form, totals, management, then history. Shift Delete
+    is visually concealed until a left swipe, while long press and a screen-
+    reader action reach the same soft-delete confirmation. React Native's own
+    gesture and animation primitives handle both interactions. The tracked
+    hook, TypeScript, Expo dependency check, Fallow changed-file audit, fresh
+    iOS/Android exports, and Android cold-runtime interactions pass. Physical-
+    iPhone CSV, gesture, and VoiceOver verification remains in `NEXT`.

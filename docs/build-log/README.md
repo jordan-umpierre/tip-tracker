@@ -77,3 +77,6 @@ name — the number adds sequence without costing you the description.
 12. [12-product-revision.md](12-product-revision.md) — Trends as home, safe job
     removal, visible Log actions, worked-week summaries, and the overtime/tax
     boundary exposed by the revision.
+13. [13-interactive-dashboard.md](13-interactive-dashboard.md) — the
+    chronological income graph, touch inspection, lower Log management
+    controls, and concealed swipe-to-delete interaction.

@@ -459,51 +459,42 @@ UI/UX bar from the product definition is achievable here.
 > Trends calculation becomes slow, or a server endpoint needs to return
 > summaries without sending the underlying rows.
 
-### D9 — Keep exact numbers and add only native weekday bars (2026-07-31; revised 2026-08-03)
+### D9 — Keep exact text around one focused income chart (2026-07-31; revised 2026-08-03)
 
-> **Decision:** Exact text values remain the source of truth on the Trends
-> screen. Supplement the fixed seven-weekday comparison with vertical bars
-> made from ordinary React Native `View`s. Show each exact rate above its bar,
-> an abbreviated weekday below it, and shift-count/time context underneath.
-> Month and year summaries remain numeric rows. Do not add a chart dependency.
+> **Decision:** Make one chronological gross-income line the first content on
+> Trends. Keep its exact gross, wage, tip, duration, date, and scope in text;
+> horizontal touch inspection changes those values to the nearest point.
+> Render the path with `react-native-svg`, not a general chart framework.
+>
+> Keep the fixed seven-weekday comparison as vertical React Native `View`s and
+> keep month/year summaries as numeric rows. Use the existing blue accent for
+> income. Red remains destructive; lower income is not an investment loss.
 >
 > **Alternatives:**
-> - Display numbers only
-> - Keep the original horizontal native bars
-> - Install a general React Native chart library
+> - Display numbers and weekday bars only
+> - Plot wage, tips, and gross as three permanent lines
+> - Install a full chart library
+> - Copy an investment chart's red/green gain and loss language
 >
-> **Why:** Numbers alone are precise and accessible but make users compare
-> every value mentally, which undercuts the reason a Trends screen exists.
-> Seven fixed weekday categories fit in one phone-width comparison, so
-> proportional `View` heights communicate the pattern without adopting
-> another rendering system. Vertical bars share a baseline, match the familiar
-> shape of a weekday comparison, and use less vertical space than seven rows.
+> **Why:** Multi-year CSV history created the condition that originally would
+> justify revisiting this decision: many chronological points and touch
+> inspection are now real requirements. A single gross line answers the main
+> question without the density of three overlapping series. Exact visible text
+> and an adjustable accessibility action keep shape and color from becoming
+> the only way to read the data.
 >
-> The first implementation used horizontal bars because they gave long labels
-> and sample context more room. Physical iPhone testing showed that the user
-> found a vertical comparison easier to scan. That device evidence justified
-> revising the orientation while keeping the exact-number and no-dependency
-> boundaries intact.
+> SVG supplies only the path primitives this screen needs and is supported by
+> Expo Go. Range controls, bucketing, scaling, and touch selection remain small
+> app-owned code; a chart framework would add a larger API and bundle surface
+> without supplying a currently requested interaction.
 >
-> A chart library earns its cost when the product needs axes over many points,
-> multiple series, touch inspection, zooming, or panning. None is in Layer 1.
-> Adding the first non-Expo UI dependency for seven bars would create bundle,
-> compatibility, responsive-layout, and accessibility work without a current
-> requirement.
+> **Known cost:** the app owns a fixed line-chart layout and nearest-point
+> selection. It does not provide zoom, free-form dates, comparison overlays, or
+> period paging. Scrubbing and paging are not assigned to the same horizontal
+> gesture because their outcomes conflict; range buttons select the time scale.
 >
-> Text remains visible around every bar, and each column has a full
-> accessibility label, so bar height never becomes the only way to obtain the
-> value. Calculations stay in the pure TypeScript module from D8; the component
-> only scales and renders already-calculated results.
->
-> **Known cost:** seven narrow columns require abbreviated weekday labels and
-> responsive rate text. The app must also handle zero values and proportional
-> heights itself. Keep this as one fixed comparison component—not the
-> beginning of a home-grown chart framework. If real values stop fitting
-> legibly, change the layout rather than hiding exact data behind interaction.
->
-> **Revisit when:** Trends needs many chronological points, multiple overlaid
-> series, tooltips, touch inspection, zooming, or panning.
+> **Revisit when:** users need comparison series, custom dates, zooming, or
+> explicit navigation to an older week/month at its original resolution.
 
 ### D10 — Define Trends as scoped, weighted calendar summaries (2026-07-31; revised 2026-08-03)
 
@@ -536,6 +527,15 @@ UI/UX bar from the product definition is achievable here.
 > - A group with no shifts has no rate. Represent it as `null` and display
 >   "No shifts," not `$0.00/hr`; no observations and a measured zero are
 >   different facts.
+> - The chart defaults to 3M. Its fixed choices are 1W (7 daily points), 1M
+>   (30 daily points), 3M (13 Sunday-start weekly points), 1Y (12 monthly
+>   points), and All (one point for every month from first through last shift).
+>   Each range anchors to the newest shift in the selected job scope rather
+>   than the device clock, and missing periods are explicit zero points.
+> - Each chart point sums D5 gross, tips, and duration for its calendar bucket.
+>   The line shows gross only; touch inspection exposes the exact breakdown.
+>   This is recorded gross under the current contract, not overtime-adjusted
+>   or after-tax income until D14's required profiles exist.
 >
 > Exact calculation results remain integer cents and integer seconds under D8.
 > Formatting hours and money into strings remains a component concern.

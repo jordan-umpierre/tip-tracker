@@ -231,5 +231,26 @@ the answer poorly.
 
 The professional lesson is not that an initial decision must never change. It
 is that the boundary should remain stable while evidence improves the choice:
-the calculations are still pure TypeScript, the chart still uses native views,
-and no new dependency or data migration was needed.
+the calculations are still pure TypeScript and the weekday comparison still
+uses native views. The later chronological line below adds one SVG primitive
+dependency after its original revisit condition becomes real; neither change
+needs a data migration.
+
+### 2026-08-03 — "Why add SVG now, but not a chart framework?"
+
+The 845-row import changed the requirement. Trends now needs many chronological
+points and touch inspection—the exact trigger D9 originally named. Keeping the
+old no-dependency rule after its premise changed would be stubbornness, not
+consistency.
+
+The smallest new boundary is `react-native-svg`: it draws one path, guide, and
+selection dot and is supported by Expo Go. The app still owns its five fixed
+calendar ranges and exact accessible text. A general chart framework would add
+axes, legends, zoom, comparison series, and configuration that this screen does
+not need. One line also avoids copying the three-series density of the reference
+tracker or Robinhood's misleading red/green gain-and-loss semantics.
+
+Horizontal drag inspects the nearest point. The same gesture does not also page
+between periods because the two outcomes conflict; the visible range buttons
+change scale. Add period navigation only when users need an older week or month
+at its original resolution, not merely because the reference app has arrows.

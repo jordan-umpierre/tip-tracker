@@ -69,6 +69,7 @@ This is a complete, shippable, useful app. Someone would actually use it.
 
 ### Layer 1 — Trends
 
+- Interactive gross-income timeline with 1W, 1M, 3M, 1Y, and All ranges
 - Earnings by day of week ("Mondays are $24/hr, Tuesdays are $33/hr")
 - Earnings by month and by year, going back as far as data exists
 - Gross per hour as the headline number, weighted by time

@@ -32,12 +32,12 @@ passed preview, confirmation, one-transaction import, totals refresh, and
 duplicate-warning checks in the Android emulator. The new iOS picker flow is
 bundle-verified but still needs a physical-iPhone runtime pass.
 
-**The August product revision is implemented.** Its home route, selectors,
-action visibility, tab-bar behavior, and remove-job confirmation passed in the
-Android emulator; archive preservation is schema-tested. Trends is now the
-home tab, Log keeps its job and CSV actions above the shift form, jobs can be
-removed without destroying history, and Trends defaults to a compact
-worked-week average with selectable all-time and year/month/weekday views.
+**The August product revision is implemented.** Trends is the home tab and now
+opens with an interactive gross-income graph, exact touch-selected values, and
+1W/1M/3M/1Y/All ranges. Log keeps job and CSV management below the form and
+totals but above history; row deletion stays concealed until a left swipe, with
+long-press and screen-reader alternatives. Those flows, the opaque tab bar,
+and remove-job confirmation passed in Android; preservation is schema-tested.
 
 Done:
 
@@ -61,8 +61,9 @@ Done:
 - Expo Router navigation with native Log and Trends tabs ([`app/`](app/))
 - Trends ([`src/lib/trends.ts`](src/lib/trends.ts),
   [`TrendsScreen.tsx`](src/screens/TrendsScreen.tsx)): all jobs or one job,
-  weighted gross per hour, gross/hours per worked week, and one selectable
-  year, month, or weekday breakdown
+  an interactive gross timeline with five ranges, weighted gross per hour,
+  gross/hours per worked week, and one selectable year, month, or weekday
+  breakdown
 - Exact nine-column CSV import on the Log screen: choose one job, validate and
   preview every row, review overlaps, then append the whole file atomically
   ([D13](docs/decisions.md))
@@ -71,7 +72,7 @@ Next:
 
 - Confirm the profile-driven overtime and federal-only W2 tax scope in D14,
   then implement it as a separate money phase. A physical-iPhone regression
-  still covers CSV import and this product revision. See
+  still covers CSV import, graph and delete gestures, and VoiceOver. See
   [docs/roadmap.md](docs/roadmap.md).
 
 ## Stack
