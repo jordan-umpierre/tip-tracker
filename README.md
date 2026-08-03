@@ -25,6 +25,13 @@ built and passed their physical-iPhone recheck. The same Log and Trends
 acceptance checklist then passed in an Android emulator, closing the Layer 1
 cross-platform gate.
 
+**Exact-format CSV import is implemented and Android-verified.** The version-2
+schema stores duration as integer seconds, preserving both existing whole
+minutes and imported hundredths of an hour exactly. The supplied 845-row file
+passed preview, confirmation, one-transaction import, totals refresh, and
+duplicate-warning checks in the Android emulator. The new iOS picker flow is
+bundle-verified but still needs a physical-iPhone runtime pass.
+
 Done:
 
 - Product definition and MVP scope
@@ -48,11 +55,14 @@ Done:
   [`TrendsScreen.tsx`](src/screens/TrendsScreen.tsx)): all jobs or one job,
   weighted gross per hour, vertical weekday comparison, and month/year
   summaries
+- Exact nine-column CSV import on the Log screen: choose one job, validate and
+  preview every row, review overlaps, then append the whole file atomically
+  ([D13](docs/decisions.md))
 
 Next:
 
-- Preserve imported hundredths-of-an-hour exactly with integer-second duration
-  storage, then add the supplied nine-column CSV import flow. See
+- Run the CSV picker/import acceptance pass on a physical iPhone, then decide
+  where optional backup and sync belongs before starting tax projections. See
   [docs/roadmap.md](docs/roadmap.md).
 
 ## Stack

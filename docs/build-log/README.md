@@ -71,3 +71,6 @@ name — the number adds sequence without costing you the description.
 10. [10-layer-1-device-feedback.md](10-layer-1-device-feedback.md) — the first
     physical-iPhone Trends pass and its contrast, multiple-job, headline, and
     vertical-chart corrections.
+11. [11-duration-and-csv-import.md](11-duration-and-csv-import.md) — the
+    version-2 integer-second migration and the first atomic, format-specific
+    shift-history importer.

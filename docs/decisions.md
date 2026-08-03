@@ -649,3 +649,42 @@ UI/UX bar from the product definition is achievable here.
 > **Revisit when:** the product records sub-second work, which a shift tracker
 > does not currently need, or imports real start/end times that justify a
 > different input control. The integer-second storage unit still remains valid.
+
+### D13 — Import one CSV contract atomically and append-only (2026-08-03)
+
+> **Decision:** The first importer supports the supplied nine-column contract
+> only. A user chooses one saved job, picks a document, reviews a complete
+> preview and any conflicts, then confirms one append-only SQLite transaction.
+> Any invalid row blocks the import. Existing rows are never changed, merged,
+> or silently deduplicated.
+>
+> **Alternatives:**
+> - Build a generic column-mapping screen for arbitrary exports
+> - Import valid rows while skipping invalid ones
+> - Automatically merge same-day rows or discard likely duplicates
+> - Trust the source's `Daily Income` value as stored truth
+> - Add a general CSV dependency before a second format exists
+>
+> **Why:** A financial-history import is a trust boundary. Partial success or
+> guessed merging leaves the user with a dataset that looks complete but is
+> not. The preview makes the transformation visible; the transaction makes it
+> all-or-nothing; overlap and exact-match warnings leave the final choice with
+> the user.
+>
+> The adapter parses money and duration as integers. Cash and credit tips are
+> combined because the current schema stores one tip total. `Daily Income` is
+> checked but recalculated under D5 because the supplied file has one one-cent
+> disagreement. Blank or `no data` start/end times are accepted; real times
+> block the import because the current schema cannot preserve them. A private,
+> tested RFC 4180 state machine is smaller than a production dependency for
+> one known layout.
+>
+> **Known cost:** importing the same file twice creates duplicates if the user
+> confirms past the warning. Other tip trackers remain unsupported until their
+> real exports are inspected. Some Android document providers expose an opaque
+> identifier instead of the original filename, so content and headers—not the
+> extension—are the validation boundary.
+>
+> **Revisit when:** a second real export needs a different adapter, users need
+> undo for large imports, or sync introduces a durable import identity that can
+> prevent cross-device duplication without guessing.

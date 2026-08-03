@@ -9,20 +9,16 @@ Last updated: 2026-08-03
 
 ## NEXT
 
-**Preserve exact imported durations, then add CSV shift import.**
+**Verify CSV import on iOS, then place backup and sync on the roadmap.**
 
-1. Migrate canonical shift duration from integer minutes to integer seconds.
-   Existing rows convert exactly with `minutes * 60`; hundredths of an hour
-   convert exactly with `hundredths * 36`.
-2. Prove the version-1-to-version-2 migration preserves every non-duration
-   field, tombstone, and relationship while changing only the duration unit.
-3. Add a Log-screen import flow for the supplied nine-column CSV contract:
-   choose one saved job, pick and validate a file, preview the result, then
-   insert all accepted rows in one transaction.
-4. Keep the first importer format-specific. Add another adapter only after a
-   real export with a different contract exists.
-5. After data portability, decide whether optional cloud backup/sync is Layer
-   1.5 or part of Layer 2 before beginning tax projections.
+1. Run the exact-format picker, preview, cancel, confirmation, totals refresh,
+   and duplicate-warning flow on a physical iPhone. Android already passed the
+   full supplied-file flow; an iOS bundle is not runtime evidence.
+2. Keep the importer format-specific. Add another adapter only after a real
+   export with a different contract exists.
+3. Decide whether user-controlled export and optional cloud backup/sync become
+   Layer 1.5 or part of Layer 2. Years of local income history need a recovery
+   story before tax projections increase the data's value.
 
 ---
 
@@ -352,3 +348,16 @@ Trends scope is complete.
     existing nine-column shift history without rounding away its hundredths of
     an hour, so exact duration preservation and CSV import replace platform
     verification in `NEXT`
+43. Migrated canonical shift duration from integer minutes to integer seconds.
+    Version 2 renames and scales existing values atomically, while all data,
+    calculations, forms, totals, and Trends now use seconds. The migration test
+    proves non-duration fields, tombstones, archived relationships, constraints,
+    foreign keys, and rollback survive; the edit-format check exhaustively
+    round-trips every duration from one second through 24 hours
+44. Added the first format-specific CSV importer. The Log screen now chooses a
+    destination job, reads a native document, validates the exact nine-column
+    contract and every row, previews totals and conflicts, then appends all
+    rows in one exclusive SQLite transaction after confirmation. The supplied
+    845-row file imported successfully in Android, refreshed Log and Trends,
+    and produced 845 exact-match warnings when selected again. Static iOS and
+    Android exports pass; physical-iPhone picker verification is now `NEXT`
