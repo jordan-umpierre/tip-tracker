@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CreateJobForm from '../components/CreateJobForm';
+import ImportCsvForm from '../components/ImportCsvForm';
 import LogShiftForm from '../components/LogShiftForm';
 import ShiftList from '../components/ShiftList';
 import ShiftTotals from '../components/ShiftTotals';
@@ -79,44 +80,78 @@ export default function LogScreen() {
           onShiftDeleted={refresh}
           onShiftPress={setEditingShift}
           header={
-            <>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ expanded: addingJob }}
-                style={styles.addJobButton}
-                onPress={() => setAddingJob((current) => !current)}
-              >
-                <Text style={styles.addJobButtonText}>
-                  {addingJob ? 'Cancel adding job' : 'Add another job'}
-                </Text>
-              </Pressable>
-              {addingJob ? (
-                <CreateJobForm
-                  onJobCreated={() => {
-                    setAddingJob(false);
-                    void refresh();
-                  }}
-                />
-              ) : null}
-              {/* A new key remounts the prop-seeded form when edit targets
-                  change, so it cannot retain the previous shift's fields. */}
-              <LogShiftForm
-                key={editingShift?.id ?? 'new'}
-                jobs={jobs}
-                editingShift={editingShift}
-                onShiftSaved={() => {
-                  setEditingShift(null);
-                  void refresh();
-                }}
-                onCancelEdit={() => setEditingShift(null)}
-              />
-              <ShiftTotals shifts={shifts} />
-            </>
+            <LogHeader
+              jobs={jobs}
+              shifts={shifts}
+              editingShift={editingShift}
+              addingJob={addingJob}
+              refresh={refresh}
+              setAddingJob={setAddingJob}
+              setEditingShift={setEditingShift}
+            />
           }
         />
       )}
       <StatusBar style="auto" />
     </SafeAreaView>
+  );
+}
+
+// These branches are the visible add/edit/import states of one screen header;
+// splitting the two ternaries into helper functions only hides the UI flow.
+// fallow-ignore-next-line complexity -- Native device checks cover these visible header states.
+function LogHeader({
+  jobs,
+  shifts,
+  editingShift,
+  addingJob,
+  refresh,
+  setAddingJob,
+  setEditingShift,
+}: {
+  jobs: Job[];
+  shifts: Shift[];
+  editingShift: Shift | null;
+  addingJob: boolean;
+  refresh: () => Promise<void>;
+  setAddingJob: (value: boolean | ((current: boolean) => boolean)) => void;
+  setEditingShift: (shift: Shift | null) => void;
+}) {
+  return (
+    <>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: addingJob }}
+        style={styles.addJobButton}
+        onPress={() => setAddingJob((current) => !current)}
+      >
+        <Text style={styles.addJobButtonText}>
+          {addingJob ? 'Cancel adding job' : 'Add another job'}
+        </Text>
+      </Pressable>
+      {addingJob ? (
+        <CreateJobForm
+          onJobCreated={() => {
+            setAddingJob(false);
+            void refresh();
+          }}
+        />
+      ) : null}
+      {/* A new key remounts the prop-seeded form when edit targets change, so
+          it cannot retain the previous shift's fields. */}
+      <LogShiftForm
+        key={editingShift?.id ?? 'new'}
+        jobs={jobs}
+        editingShift={editingShift}
+        onShiftSaved={() => {
+          setEditingShift(null);
+          void refresh();
+        }}
+        onCancelEdit={() => setEditingShift(null)}
+      />
+      <ShiftTotals shifts={shifts} />
+      <ImportCsvForm jobs={jobs} existingShifts={shifts} onImported={refresh} />
+    </>
   );
 }
 

@@ -1,5 +1,6 @@
 import * as Crypto from 'expo-crypto';
 import { getDb } from './db';
+import type { ShiftImportRow } from '../lib/shiftImportCsv';
 
 // Matches schema.sql's shifts columns verbatim, same reasoning as jobs.ts's
 // Job type -- no camelCase mapping layer until something actually needs one.
@@ -119,4 +120,32 @@ export async function deleteShift(id: string): Promise<void> {
   // truly deleted is invisible to a device that never saw it in the first
   // place, and it would just reappear on the next sync.
   await db.runAsync(`UPDATE shifts SET deleted_at = ?, updated_at = ? WHERE id = ?;`, now, now, id);
+}
+
+export async function importShifts(jobId: string, rows: ShiftImportRow[]): Promise<number> {
+  const db = await getDb();
+  const now = new Date().toISOString();
+
+  // An import is one user action. If row 845 fails, the first 844 must roll
+  // back too; a partial financial history is harder to repair than no import.
+  await db.withExclusiveTransactionAsync(async (transaction) => {
+    for (const row of rows) {
+      await transaction.runAsync(
+        `INSERT INTO shifts
+           (id, job_id, shift_date, duration_seconds, tips_cents, hourly_rate_cents, note, deleted_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?);`,
+        Crypto.randomUUID(),
+        jobId,
+        row.shiftDate,
+        row.durationSeconds,
+        row.tipsCents,
+        row.hourlyRateCents,
+        row.note,
+        now,
+        now
+      );
+    }
+  });
+
+  return rows.length;
 }
