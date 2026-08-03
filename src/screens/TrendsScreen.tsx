@@ -121,7 +121,7 @@ export default function TrendsScreen() {
           <Text selectable style={styles.headlineValue}>
             {rateLabel(trends.headline.tipsPerHourCents)}
           </Text>
-          <Text style={styles.context}>
+          <Text style={[styles.context, styles.headlineContext]}>
             {sampleLabel(trends.headline.shiftCount, trends.headline.minutes)}
           </Text>
         </View>
@@ -283,6 +283,7 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
     marginVertical: 4,
   },
+  headlineContext: { color: '#dbeafe' },
   section: { gap: 12, borderRadius: 16, backgroundColor: '#fff', padding: 16 },
   sectionTitle: { color: '#111827', fontSize: 20, fontWeight: '700' },
   sectionNote: { color: '#6b7280', marginTop: -8 },
