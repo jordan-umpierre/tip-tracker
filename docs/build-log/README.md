@@ -36,7 +36,7 @@ Not automated on purpose: deciding whether a commit is "real work" or
 bookkeeping needs a judgment a script can't make, and a check that guessed
 would either nag constantly or pass while missing things.
 
-Last updated: 2026-08-01
+Last updated: 2026-08-03
 
 ---
 
@@ -68,3 +68,6 @@ name — the number adds sequence without costing you the description.
    architecture decisions required before building the Trends screen.
 9. [09-layer-1-trends.md](09-layer-1-trends.md) — Expo Router installation,
    dependency alignment, native peer tabs, and the mobile Trends screen.
+10. [10-layer-1-device-feedback.md](10-layer-1-device-feedback.md) — the first
+    physical-iPhone Trends pass and its contrast, multiple-job, headline, and
+    vertical-chart corrections.

@@ -453,21 +453,31 @@ UI/UX bar from the product definition is achievable here.
 > Trends calculation becomes slow, or a server endpoint needs to return
 > summaries without sending the underlying rows.
 
-### D9 — Keep exact numbers and add only native weekday bars (2026-07-31)
+### D9 — Keep exact numbers and add only native weekday bars (2026-07-31; revised 2026-08-03)
 
 > **Decision:** Exact text values remain the source of truth on the Trends
-> screen. Supplement the fixed seven-weekday comparison with horizontal bars
-> made from ordinary React Native `View`s. Month and year summaries begin as
-> numeric rows or cards. Do not add a chart dependency.
+> screen. Supplement the fixed seven-weekday comparison with vertical bars
+> made from ordinary React Native `View`s. Show each exact rate above its bar,
+> an abbreviated weekday below it, and shift-count/time context underneath.
+> Month and year summaries remain numeric rows. Do not add a chart dependency.
 >
 > **Alternatives:**
 > - Display numbers only
+> - Keep the original horizontal native bars
 > - Install a general React Native chart library
 >
 > **Why:** Numbers alone are precise and accessible but make users compare
 > every value mentally, which undercuts the reason a Trends screen exists.
-> Seven weekday categories are simple enough that proportional `View` widths
-> communicate the pattern without adopting another rendering system.
+> Seven fixed weekday categories fit in one phone-width comparison, so
+> proportional `View` heights communicate the pattern without adopting
+> another rendering system. Vertical bars share a baseline, match the familiar
+> shape of a weekday comparison, and use less vertical space than seven rows.
+>
+> The first implementation used horizontal bars because they gave long labels
+> and sample context more room. Physical iPhone testing showed that the user
+> found a vertical comparison easier to scan. That device evidence justified
+> revising the orientation while keeping the exact-number and no-dependency
+> boundaries intact.
 >
 > A chart library earns its cost when the product needs axes over many points,
 > multiple series, touch inspection, zooming, or panning. None is in Layer 1.
@@ -475,19 +485,21 @@ UI/UX bar from the product definition is achievable here.
 > compatibility, responsive-layout, and accessibility work without a current
 > requirement.
 >
-> Text remains visible beside every bar, so the visual never becomes the only
-> way to obtain the value. Calculations stay in the pure TypeScript module from
-> D8; the component only scales and renders already-calculated results.
+> Text remains visible around every bar, and each column has a full
+> accessibility label, so bar height never becomes the only way to obtain the
+> value. Calculations stay in the pure TypeScript module from D8; the component
+> only scales and renders already-calculated results.
 >
-> **Known cost:** the app must handle zero values and proportional widths
-> itself. Keep this as one fixed comparison component—not the beginning of a
-> home-grown chart framework. Month and year views may feel plain until real
-> usage shows which time-series visualization is worth adding.
+> **Known cost:** seven narrow columns require abbreviated weekday labels and
+> responsive rate text. The app must also handle zero values and proportional
+> heights itself. Keep this as one fixed comparison component—not the
+> beginning of a home-grown chart framework. If real values stop fitting
+> legibly, change the layout rather than hiding exact data behind interaction.
 >
 > **Revisit when:** Trends needs many chronological points, multiple overlaid
 > series, tooltips, touch inspection, zooming, or panning.
 
-### D10 — Define Trends as scoped, weighted calendar summaries (2026-07-31)
+### D10 — Define Trends as scoped, weighted calendar summaries (2026-07-31; revised 2026-08-03)
 
 > **Decision:** Trends defaults to all jobs and offers one job filter that
 > applies to the entire screen. Headline and weekday rates use all recorded
@@ -495,9 +507,10 @@ UI/UX bar from the product definition is achievable here.
 > selected filter in Layer 1.
 >
 > **Formulas and outputs:**
-> - Headline tips per hour is
->   `round(total tips cents * 60 / total minutes)`.
-> - The weekday comparison shows gross per hour:
+> - The headline shows gross per hour:
+>   `round(total gross cents * 60 / total minutes)`.
+> - Each weekday uses the same gross-per-hour formula over that weekday's
+>   shifts:
 >   `round(total gross cents * 60 / total minutes)`.
 > - Total gross first calculates and rounds each shift's wages under D5, then
 >   sums those shift-level gross values before deriving a rate.
@@ -517,6 +530,7 @@ UI/UX bar from the product definition is achievable here.
 > **Alternatives:**
 > - Default to one job
 > - Average the rate calculated for each shift
+> - Keep tips per hour as the headline
 > - Show both gross per hour and tips per hour in every weekday row
 > - Add a current-month, rolling-window, or custom-date default
 >
@@ -527,11 +541,12 @@ UI/UX bar from the product definition is achievable here.
 > screen so headline, weekday, month, and year figures cannot silently describe
 > different subsets.
 >
-> Gross per hour is the weekday metric because the product question is which
-> days are worth working after wages and tips are combined. Tips per hour stays
-> prominent as the one headline promised by Layer 1. Showing both in all seven
-> rows would double the visual density before a user has asked to compare both
-> series.
+> Gross per hour is both the headline and weekday metric because the product
+> question is what the user's time actually earned after hourly wages and tips
+> are combined. Physical iPhone testing showed that tips per hour alone was not
+> a satisfying top-level answer. Tips remain visible in month and year totals;
+> keeping a second hourly headline would add density without answering a new
+> primary question.
 >
 > Shift count and total time make the evidence behind a rate inspectable
 > without inventing a confidence score. Calendar months and years match the
@@ -544,8 +559,8 @@ UI/UX bar from the product definition is achievable here.
 > sample context make those limits visible but do not remove them.
 >
 > **Revisit when:** real use shows old shifts obscuring current patterns, users
-> ask to compare both weekday metrics, or a remembered job/date filter becomes
-> more useful than the predictable all-jobs/all-history default.
+> ask for a separate tip-efficiency view, or a remembered job/date filter
+> becomes more useful than the predictable all-jobs/all-history default.
 
 ### D11 — Use native peer tabs with route-owned SQLite reads (2026-08-01)
 

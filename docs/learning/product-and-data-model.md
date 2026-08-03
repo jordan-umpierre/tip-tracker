@@ -175,10 +175,10 @@ rewrite around. None of Layer 1's current requirements needs zooming, panning,
 tooltips, or hundreds of points.
 
 **Exact numbers plus a native comparison.** Keep every value visible as text,
-then use ordinary React Native `View` widths as horizontal bars for the fixed
-seven-weekday comparison. The bars make relative differences visible; the
-labels remain the accessible, testable truth. Month and year summaries can
-start as exact rows or cards rather than forcing a dense chart onto a phone.
+then use ordinary React Native `View`s as bars for the fixed seven-weekday
+comparison. The bars make relative differences visible; the labels remain the
+accessible, testable truth. Month and year summaries can start as exact rows
+or cards rather than forcing a dense chart onto a phone.
 
 The third option is the professional fit here. It improves comprehension
 without adopting a general charting system for seven categories. It is
@@ -199,12 +199,37 @@ settled before implementation:
   individual rate? The ratio of sums is weighted by time and does not let a
   short shift distort the result.
 - Which number does "Mondays are $24/hr" mean: gross per hour or tips per
-  hour? The product scope names tips per hour as the headline, but the weekday
-  example says earnings per hour.
+  hour? At the time, the product scope named tips per hour as the headline,
+  but the weekday example said earnings per hour.
 - How much evidence sits behind the number? Shift count and total hours stop
   one unusual shift from looking like a reliable trend.
 
-D10 chose one all-jobs-or-single-job scope, time-weighted rates, gross per hour
-for the weekday comparison, and both shift count and total hours as context. A
-polished chart cannot rescue an undefined metric; exact formulas and job scope
-had to come before visual treatment.
+D10 initially chose one all-jobs-or-single-job scope, time-weighted rates,
+gross per hour for the weekday comparison, and both shift count and total hours
+as context. A polished chart cannot rescue an undefined metric; exact formulas
+and job scope had to come before visual treatment. The device-test revision
+below changed the headline and orientation without changing those foundations.
+
+### 2026-08-03 — "Why did the iPhone test change the Trends design?"
+
+The first device pass confirmed the arithmetic, but it also showed that a
+mathematically correct screen can still answer the wrong question or present
+the answer poorly.
+
+- Gray sample text reused on a dark-blue card passed compilation but was hard
+  to read. Accessibility contrast is part of correctness, not later polish.
+- Tips per hour excluded hourly wages, so it did not answer the more useful
+  question: "What did my time actually earn?" D10 now makes time-weighted
+  gross per hour the headline.
+- The data model and form already supported many jobs, but `LogScreen` stopped
+  rendering the creation form after job one. Supporting a capability in the
+  database is not the same as exposing a complete user flow.
+- Horizontal bars made exact labels easy to place but required seven stacked
+  rows. The user clarified that vertical bars would be better for the user
+  experience. D9 now uses seven native columns while keeping exact rates,
+  sample context, and full accessibility labels visible.
+
+The professional lesson is not that an initial decision must never change. It
+is that the boundary should remain stable while evidence improves the choice:
+the calculations are still pure TypeScript, the chart still uses native views,
+and no new dependency or data migration was needed.

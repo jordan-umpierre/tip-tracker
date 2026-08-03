@@ -12,14 +12,16 @@ The product roadmap targets both W2 and 1099 workers on iOS and Android.
 
 ## Status
 
-**MVP Layer 0 is complete and confirmed on a physical device.** Create a job,
-log a shift, see it in the list, edit it, delete it, and see gross totals over
-everything logged. Every feature in Layer 0's scope is built, covered by a
-check, and verified on real hardware rather than only bundled.
+**MVP Layer 0 is implemented.** Its original job and shift CRUD, keyboard,
+layout, and gross-total flows were confirmed on a physical iPhone. The
+additional-job entry point found missing during the Layer 1 device pass is now
+built and awaits the correction-pass recheck described below.
 
-**Layer 1 Trends is implemented and bundles for iOS and Android.** Its final
-visual and interaction check on physical hardware is still outstanding, so it
-is not described as device-verified yet.
+**Layer 1 Trends is implemented and bundles for iOS and Android.** Its first
+physical-iPhone pass confirmed the calculations and exposed four bounded
+corrections: headline-card contrast, the missing additional-job entry point, a
+more useful gross-per-hour headline, and vertical weekday bars. All four are
+built; their physical recheck is still outstanding.
 
 Done:
 
@@ -33,21 +35,21 @@ Done:
   `PRAGMA foreign_keys = ON` gotcha SQLite requires per connection
 - Data-access layer ([`jobs.ts`](src/data/jobs.ts), [`shifts.ts`](src/data/shifts.ts)): create,
   list, update, and soft-delete
-- The log-a-shift screen ([`src/components/`](src/components/)): create a job, log a
-  shift (rate inherited from the job but overridable), see the list, edit a
-  shift, delete one with confirmation — all confirmed working on a physical
-  device, not just bundled
+- The log-a-shift screen ([`src/components/`](src/components/)): create and
+  switch among jobs, log a shift (rate inherited from the job but
+  overridable), see the list, edit a shift, and delete one with confirmation
 - Gross totals ([`src/lib/totals.ts`](src/lib/totals.ts)): hours, tips and
   gross pay over every logged shift, with the money rounding rule pinned by a
   test that runs on Node with no device
 - Expo Router navigation with native Log and Trends tabs ([`app/`](app/))
 - Trends ([`src/lib/trends.ts`](src/lib/trends.ts),
   [`TrendsScreen.tsx`](src/screens/TrendsScreen.tsx)): all jobs or one job,
-  weighted tips per hour, gross per hour by weekday, and month/year summaries
+  weighted gross per hour, vertical weekday comparison, and month/year
+  summaries
 
 Next:
 
-- Verify the new tab shell and Trends screen on a physical iPhone before
+- Recheck the four device-driven corrections on the physical iPhone before
   choosing the next product layer. See [docs/roadmap.md](docs/roadmap.md).
 
 ## Stack

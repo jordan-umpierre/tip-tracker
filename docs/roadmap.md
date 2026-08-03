@@ -3,26 +3,30 @@
 Where this project is, what's next, and everything done so far in order.
 This is the file to open first, every session.
 
-Last updated: 2026-08-01
+Last updated: 2026-08-03
 
 ---
 
 ## NEXT
 
-**Verify Layer 1 on real hardware before choosing the next product layer.**
+**Recheck the four device-driven corrections before choosing the next product layer.**
 
-1. Start Expo with a cleared Metro cache and open the app in the SDK 57 iPhone
-   client already used for this project.
-2. Confirm the Router migration preserved every existing job and shift, then
-   create, edit, and delete one disposable shift from the Log tab.
-3. On Trends, switch between All jobs and each job. Check the headline,
-   weekday labels and bar proportions, month/year rows, current-period "to
-   date" labels, scrolling, safe areas, and tab icons against the source data.
-4. Record and fix any device-only defects before marking Layer 1 complete.
-   Android has a clean bundle but still needs a real device or emulator before
-   release; do not turn bundle evidence into a device claim.
-5. After Layer 1 passes on-device, decide whether optional cloud backup/sync is
-   Layer 1.5 or part of Layer 2 before beginning tax projections.
+1. Start Expo with a cleared Metro cache and open the current `main` branch in
+   the SDK 57 iPhone client already used for this project.
+2. On Log, tap **Add another job**, create a real job worth keeping, and confirm
+   the form closes and the job appears in the shift form. Select it and confirm
+   its hourly rate becomes the shift's default. The app does not expose job
+   archiving yet, so do not create a disposable job solely for this check.
+3. On Trends, confirm the headline-card sample text is readable and the
+   headline now shows time-weighted gross per hour. Switch between All jobs
+   and each job and compare the result with the underlying shifts.
+4. Confirm all seven vertical weekday bars fit without clipping, their exact
+   rates remain readable, their heights match the values, and shift-count/time
+   context remains legible. Recheck scrolling, safe areas, and both tabs.
+5. Record the result before calling Layer 1 device-verified. Android still has
+   a clean bundle but needs a real device or emulator before release.
+6. After this iPhone pass, decide whether optional cloud backup/sync is Layer
+   1.5 or part of Layer 2 before beginning tax projections.
 
 ---
 
@@ -308,3 +312,18 @@ Trends scope is complete.
     the previously missed question about continuing a Claude session in VS
     Code with Codex. The tracked checks and TypeScript pass, and `NEXT` remains
     the physical iPhone verification rather than expanding scope
+39. Completed the first Layer 1 physical-iPhone pass. The calculations looked
+    correct, while real use exposed low-contrast sample text, the missing path
+    to create job two, an unsatisfying tips-per-hour headline, and a preference
+    for vertical weekday bars. The last report originally cut off after
+    `exep`; the user clarified that they meant user experience before the chart
+    direction changed. Fixed each concern as a separate verified and pushed
+    commit: `d9341fa` corrects card contrast, `02a7120` reuses the existing job
+    form after job one, `4714516` makes time-weighted gross per hour the tested
+    headline, and `ac65e6a` turns the dependency-free weekday comparison
+    vertical while retaining exact values and sample context. Revised D9 and
+    D10 rather than erasing their original reasoning. TypeScript, all tracked
+    checks, the 18 Trends checks, and fresh iOS and Android exports pass. A
+    browser preview was not applicable because this mobile checkout omits
+    `react-native-web`; no test-only dependency was added. The four corrections
+    still need their physical-iPhone recheck, and Android remains bundle-only

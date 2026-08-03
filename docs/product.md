@@ -69,7 +69,7 @@ This is a complete, shippable, useful app. Someone would actually use it.
 
 - Earnings by day of week ("Mondays are $24/hr, Tuesdays are $33/hr")
 - Earnings by month and by year, going back as far as data exists
-- Tips per hour as the headline number
+- Gross per hour as the headline number, weighted by time
 
 No new data model. Every one of these is a query over Layer 0 data. That is
 exactly why it's Layer 1 and not MVP — it can't block anything.
