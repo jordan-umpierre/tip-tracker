@@ -17,6 +17,7 @@ export default function LogScreen() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
+  const [addingJob, setAddingJob] = useState(false);
 
   // SQLite is the source of truth. Re-query after every write and whenever
   // this tab regains focus, rather than maintaining a second shared cache.
@@ -79,6 +80,24 @@ export default function LogScreen() {
           onShiftPress={setEditingShift}
           header={
             <>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ expanded: addingJob }}
+                style={styles.addJobButton}
+                onPress={() => setAddingJob((current) => !current)}
+              >
+                <Text style={styles.addJobButtonText}>
+                  {addingJob ? 'Cancel adding job' : 'Add another job'}
+                </Text>
+              </Pressable>
+              {addingJob ? (
+                <CreateJobForm
+                  onJobCreated={() => {
+                    setAddingJob(false);
+                    void refresh();
+                  }}
+                />
+              ) : null}
               {/* A new key remounts the prop-seeded form when edit targets
                   change, so it cannot retain the previous shift's fields. */}
               <LogShiftForm
@@ -128,6 +147,18 @@ const styles = StyleSheet.create({
   },
   retryText: {
     color: '#fff',
+    fontWeight: '600',
+  },
+  addJobButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    paddingHorizontal: 16,
+  },
+  addJobButtonText: {
+    color: '#2563eb',
     fontWeight: '600',
   },
 });
