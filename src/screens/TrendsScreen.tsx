@@ -117,9 +117,9 @@ export default function TrendsScreen() {
         </ScrollView>
 
         <View style={styles.headlineCard}>
-          <Text style={styles.eyebrow}>Tips per hour</Text>
+          <Text style={styles.eyebrow}>Gross per hour</Text>
           <Text selectable style={styles.headlineValue}>
-            {rateLabel(trends.headline.tipsPerHourCents)}
+            {rateLabel(trends.headline.grossPerHourCents)}
           </Text>
           <Text style={[styles.context, styles.headlineContext]}>
             {sampleLabel(trends.headline.shiftCount, trends.headline.minutes)}

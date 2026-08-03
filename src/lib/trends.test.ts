@@ -30,7 +30,7 @@ function shift(
 
 const empty = calculateTrends([]);
 assert.deepEqual(empty.headline, {
-  tipsPerHourCents: null,
+  grossPerHourCents: null,
   shiftCount: 0,
   minutes: 0,
 });
@@ -39,9 +39,9 @@ assert.ok(empty.weekdays.every((day) => day.grossPerHourCents === null));
 assert.deepEqual(empty.months, []);
 assert.deepEqual(empty.years, []);
 
-// Job A has a one-hour and a three-hour Monday with the same tips. Its
-// time-weighted tips rate is $3.00/hr. Averaging the two shift rates instead
-// would incorrectly produce $4.00/hr.
+// Job A has one one-hour and one three-hour Monday. Its time-weighted gross
+// rate is $13.00/hr. Averaging the two shift rates instead would incorrectly
+// produce $14.00/hr because it would give the shorter shift equal influence.
 const scopedShifts = [
   shift('a-july', 'job-a', '2026-07-27', 60, 600, 1000),
   shift('a-august', 'job-a', '2026-08-03', 180, 600, 1000),
@@ -49,7 +49,7 @@ const scopedShifts = [
 ];
 const jobATrends = calculateTrends(scopedShifts, 'job-a');
 assert.deepEqual(jobATrends.headline, {
-  tipsPerHourCents: 300,
+  grossPerHourCents: 1300,
   shiftCount: 2,
   minutes: 240,
 });
@@ -94,7 +94,7 @@ assert.deepEqual(jobATrends.years, [
 // With no job filter, the high-tip Job B shift participates everywhere. This
 // pair proves the scope is applied to the whole result, not only the headline.
 const allJobTrends = calculateTrends(scopedShifts);
-assert.equal(allJobTrends.headline.tipsPerHourCents, 1440);
+assert.equal(allJobTrends.headline.grossPerHourCents, 2640);
 assert.deepEqual(allJobTrends.weekdays[2], {
   weekday: 'Tuesday',
   grossPerHourCents: 8000,
@@ -109,7 +109,7 @@ const roundingTrends = calculateTrends([
   shift('round-1', 'job-a', '2026-07-06', 30, 0, 1501),
   shift('round-2', 'job-a', '2026-07-13', 30, 0, 1501),
 ]);
-assert.equal(roundingTrends.headline.tipsPerHourCents, 0);
+assert.equal(roundingTrends.headline.grossPerHourCents, 1502);
 assert.equal(roundingTrends.weekdays[1].grossPerHourCents, 1502);
 assert.equal(roundingTrends.months[0].grossCents, 1502);
 

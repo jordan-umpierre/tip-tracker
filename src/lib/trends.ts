@@ -15,7 +15,7 @@ export const WEEKDAYS = [
 ] as const;
 
 export type HeadlineTrend = {
-  tipsPerHourCents: number | null;
+  grossPerHourCents: number | null;
   shiftCount: number;
   minutes: number;
 };
@@ -109,7 +109,7 @@ export function calculateTrends(shifts: Shift[], jobId: string | null = null): T
 
   return {
     headline: {
-      tipsPerHourCents: centsPerHour(allTotals.tipsCents, allTotals.minutes),
+      grossPerHourCents: centsPerHour(allTotals.grossCents, allTotals.minutes),
       shiftCount: allTotals.shiftCount,
       minutes: allTotals.minutes,
     },
