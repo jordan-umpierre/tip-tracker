@@ -78,7 +78,10 @@ exactly why it's Layer 1 and not MVP — it can't block anything.
 
 ### Layer 2 — Net income for W2
 
-- Opt-in tax profile: filing status, state, W4 allowances/adjustments
+- Opt-in per-job overtime settings: whether the job pays time-and-a-half and
+  when its fixed workweek starts
+- Opt-in tax profile: tax year, filing status, pay frequency, W-4 adjustments,
+  other income/adjustments, and actual withholding
 - Projected take-home per shift and per pay period
 - Projected paycheck amount (weekly / biweekly / semimonthly)
 - Year-end estimate: refund or amount due
@@ -123,6 +126,8 @@ Mitigations to build in from day one of Layer 2:
   failure than under-estimating.
 - Federal only, at first. Fifty states of tax law is not a v1 problem, and
   pretending to handle a state you handle badly is worse than saying you don't.
+- Overtime-adjusted wages feed the tax estimate only after the job's workweek
+  and overtime terms are configured; never infer them from a calendar week.
 
 App store review may also scrutinize a finance app more closely. Worth knowing
 before submission, not during.

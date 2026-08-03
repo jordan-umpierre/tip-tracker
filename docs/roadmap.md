@@ -9,16 +9,22 @@ Last updated: 2026-08-03
 
 ## NEXT
 
-**Verify CSV import on iOS, then place backup and sync on the roadmap.**
+**Confirm the Layer 2 money contract, then implement overtime before taxes.**
 
-1. Run the exact-format picker, preview, cancel, confirmation, totals refresh,
-   and duplicate-warning flow on a physical iPhone. Android already passed the
-   full supplied-file flow; an iOS bundle is not runtime evidence.
-2. Keep the importer format-specific. Add another adapter only after a real
-   export with a different contract exists.
-3. Decide whether user-controlled export and optional cloud backup/sync become
-   Layer 1.5 or part of Layer 2. Years of local income history need a recovery
-   story before tax projections increase the data's value.
+1. Confirm D14's first overtime slice: opt-in per job, a configured fixed
+   workweek, 40-hour threshold, 1.5x base wage, and an explicit estimate label.
+   Decide whether a weekday-at-midnight boundary is sufficient or shift times
+   must be stored before the feature can claim accuracy.
+2. Confirm the first tax slice: opt-in 2026 federal W2 estimates using filing
+   status, pay frequency, W-4 inputs, other income/adjustments, and actual
+   withholding. Do not substitute one flat percentage; state/local, 1099, and
+   tipped-credit edge cases remain explicit later scope.
+3. Run the CSV import plus this product revision on a physical iPhone. The new
+   Trends home/summary/breakdown controls, opaque tab bar, visible Log actions,
+   and remove-job confirmation passed in the Android emulator.
+4. Place user-controlled export and optional cloud backup/sync before public
+   tax projections. Years of local income history need a recovery story before
+   net estimates increase the data's value.
 
 ---
 
@@ -361,3 +367,13 @@ Trends scope is complete.
     845-row file imported successfully in Android, refreshed Log and Trends,
     and produced 845 exact-match warnings when selected again. Static iOS and
     Android exports pass; physical-iPhone picker verification is now `NEXT`
+45. Shipped the requested product revision in three verified commits. Trends
+    is now the real index/home tab and Android's native tab bar stays opaque.
+    Log puts outlined job-management and CSV actions before the shift form;
+    removing a job archives it, preserves named history, and is covered by the
+    schema check. Trends defaults to average gross/hours per worked week and a
+    compact Year view, with All time and Month/Weekday choices. The supplied
+    845 rows calculate to 198 worked weeks, $645.61/week, 20.1h/week, and
+    $32.14/hr. The tracked hook, TypeScript, Expo dependency check, Fallow
+    changed-file gate, and Android interaction pass. D14 records why overtime
+    and tax math require profiles instead of guessed universal percentages.

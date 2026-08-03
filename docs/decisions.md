@@ -208,7 +208,7 @@ native than hand-written Swift, especially in complex animations. For a
 form-and-charts app, that gap is not where quality will be won or lost — the
 UI/UX bar from the product definition is achievable here.
 
-### D3 — Soft delete for jobs, not cascade (2026-07-29)
+### D3 — Soft delete for jobs, not cascade (2026-07-29; revised 2026-08-03)
 
 > **Decision:** Jobs are never hard-deleted. They get an `archived_at` column,
 > and "delete" in the UI sets it. The foreign key on `shifts.job_id` uses
@@ -240,9 +240,14 @@ UI/UX bar from the product definition is achievable here.
 > reappear. This is a real recurring footgun — worth centralizing the job-list
 > query in one place rather than rewriting the filter at each call site.
 >
-> **Revisit when:** users want to truly delete a job created by mistake. The
-> likely answer then is: allow hard delete only when the job has zero shifts.
-> Deliberately not in MVP — one code path is simpler, and nobody has asked.
+> The requested job-removal UI now uses this one archive path. Its confirmation
+> says that shift and trend history stays; active Log/import choices exclude
+> the job, while historical screens read all jobs so old rows keep their name.
+> The last active job can be removed without hiding its history.
+>
+> **Revisit when:** users need restore, or user research shows that permanently
+> erasing a zero-shift mistake is meaningfully different from hiding it. Do not
+> add a second deletion path merely because the archived row still exists.
 
 ### D4 — Shifts get a tombstone too, from day one (2026-07-30)
 
@@ -508,8 +513,15 @@ UI/UX bar from the product definition is achievable here.
 > selected filter in Layer 1.
 >
 > **Formulas and outputs:**
-> - The headline shows gross per hour:
->   `round(total gross cents * 3600 / total duration seconds)`.
+> - The default headline shows average gross and hours per **worked week**.
+>   A worked week is a Sunday-Saturday calendar week containing at least one
+>   logged shift in the selected job scope. Divide total gross cents and total
+>   duration seconds by the number of unique worked weeks, rounding back to
+>   whole cents and seconds. All jobs counts an overlapping week once.
+> - An All time choice shows gross per hour:
+>   `round(total gross cents * 3600 / total duration seconds)`, total gross,
+>   and total duration. It does not repeat the full-history shift count in the
+>   headline.
 > - Each weekday uses the same gross-per-hour formula over that weekday's
 >   shifts:
 >   `round(total gross cents * 3600 / total duration seconds)`.
@@ -517,7 +529,7 @@ UI/UX bar from the product definition is achievable here.
 >   sums those shift-level gross values before deriving a rate.
 > - Rates are weighted by time. Never average the per-hour values of individual
 >   shifts, because a short shift would count as much as a long one.
-> - Every rate includes its shift count and total duration as sample context.
+> - Weekday rates retain shift count and total duration as sample context.
 > - Month and year rows are calendar periods derived from `shift_date`. Each
 >   shows gross, tips, total duration, and shift count. The current incomplete
 >   month or year remains visible and is labeled as being to date.
@@ -527,6 +539,9 @@ UI/UX bar from the product definition is achievable here.
 >
 > Exact calculation results remain integer cents and integer seconds under D8.
 > Formatting hours and money into strings remains a component concern.
+> Year is the default breakdown because it condenses multi-year imports. Year,
+> Month, and Weekday are mutually exclusive views; the screen does not stack
+> every historical row into one long page.
 >
 > **Alternatives:**
 > - Default to one job
@@ -534,6 +549,8 @@ UI/UX bar from the product definition is achievable here.
 > - Keep tips per hour as the headline
 > - Show both gross per hour and tips per hour in every weekday row
 > - Add a current-month, rolling-window, or custom-date default
+> - Average over every elapsed calendar week, including weeks with no shifts
+> - Render weekday, month, and year sections simultaneously
 >
 > **Why:** All jobs is the only non-arbitrary default and answers the first
 > question most users have: what the work they logged earned overall. The
@@ -549,10 +566,11 @@ UI/UX bar from the product definition is achievable here.
 > keeping a second hourly headline would add density without answering a new
 > primary question.
 >
-> Shift count and total time make the evidence behind a rate inspectable
-> without inventing a confidence score. Calendar months and years match the
-> language people use for earnings records and statements; a rolling period
-> would answer a different question and require another control.
+> Worked weeks avoid calling an unlogged or unemployed week a measured zero.
+> Including empty weeks would require an employment start/end date the app does
+> not store. The label says "worked week" so the denominator is visible rather
+> than implied. Calendar months and years still match the language people use
+> for earnings records and statements.
 >
 > **Known cost:** an all-jobs weekday rate can reflect the mix of jobs as much
 > as the weekday itself, and an all-history rate may become less representative
@@ -563,12 +581,12 @@ UI/UX bar from the product definition is achievable here.
 > ask for a separate tip-efficiency view, or a remembered job/date filter
 > becomes more useful than the predictable all-jobs/all-history default.
 
-### D11 — Use native peer tabs with route-owned SQLite reads (2026-08-01)
+### D11 — Use native peer tabs with route-owned SQLite reads (2026-08-01; revised 2026-08-03)
 
-> **Decision:** Make Log and Trends two static root tabs using Expo Router's
-> SDK 57 `NativeTabs`. Keep route files under `app/` thin and keep screen
-> composition under `src/screens/`. Do not add nested stacks until a tab has a
-> real child route.
+> **Decision:** Make Trends and Log two static root tabs using Expo Router's
+> SDK 57 `NativeTabs`, with Trends mapped to the index route and shown first.
+> Keep route files under `app/` thin and keep screen composition under
+> `src/screens/`. Do not add nested stacks until a tab has a real child route.
 >
 > Each screen owns its loading state and reads through the existing SQLite
 > data functions when it gains focus. SQLite remains the source of truth; do
@@ -594,6 +612,9 @@ UI/UX bar from the product definition is achievable here.
 > Their unstable API is contained in one layout file, the dependency is pinned
 > by the lockfile, and replacing that layout with JavaScript tabs would not
 > change route or screen code. Do not use deeper unstable escape hatches.
+> `disableTransparentOnScrollEdge` keeps the bar opaque when long React Native
+> lists do not report a reliable scroll edge; automatic content insets remain
+> enabled instead of guessing a tab-bar height.
 >
 > Route-owned reads reuse `listActiveJobs()` and `listShifts()` rather than
 > creating another query implementation. At a few thousand local rows, one
@@ -688,3 +709,43 @@ UI/UX bar from the product definition is achievable here.
 > **Revisit when:** a second real export needs a different adapter, users need
 > undo for large imports, or sync introduces a durable import identity that can
 > prevent cross-device duplication without guessing.
+
+### D14 — Keep overtime and taxes profile-driven (2026-08-03)
+
+> **Decision:** Do not change recorded gross with a universal overtime toggle
+> or flat tax percentage. Overtime begins as an opt-in job setting with the
+> employer's fixed workweek boundary and the user's known time-and-a-half
+> arrangement. Tax begins as the already-planned opt-in, federal-only W2
+> profile. Tax estimates consume overtime-adjusted wages only after both
+> profiles are configured.
+>
+> **Alternatives:**
+> - Apply 1.5x automatically after 40 hours in every Sunday-Saturday week
+> - Let the user enter one tax percentage and call the result take-home pay
+> - Add all state, local, tipped-credit, and 1099 rules in the first release
+>
+> **Why:** Federal overtime is based on a fixed recurring 168-hour workweek,
+> not an arbitrary calendar range, and covered nonexempt employees generally
+> receive at least 1.5 times their regular rate after 40 hours. State law can
+> impose a higher standard, and tipped employees using a tip credit have
+> additional overtime rules. The app currently stores a date and duration, not
+> the employer's workweek start time, eligibility, or tip-credit arrangement.
+> ([DOL Fact Sheet 23](https://www.dol.gov/agencies/whd/fact-sheets/23-flsa-overtime-pay),
+> [DOL Fact Sheet 15](https://www.dol.gov/agencies/whd/fact-sheets/15-tipped-employees-flsa))
+>
+> Federal withholding likewise depends on the tax year, filing status, pay
+> frequency, W-4 inputs, and other income/adjustments; a flat percentage would
+> be easy code and a false product claim. The 2026 withholding methods also
+> include current-law handling for qualified tips and overtime, so tax rules
+> need an explicit version rather than timeless constants.
+> ([IRS Publication 15-T](https://www.irs.gov/publications/p15t))
+>
+> **Known cost:** this makes overtime/tax a separate implementation phase and
+> requires configuration before showing net estimates. That friction is safer
+> than silently giving a service worker the wrong number.
+>
+> **Revisit when:** the first profile is specified. The smallest defensible
+> release is a clearly labeled estimate for a configured 40-hour, 1.5x job and
+> 2026 federal W2 taxes. State/local, 1099, non-midnight workweek boundaries,
+> varying-rate regular-pay rules, and tip-credit edge cases stay explicitly
+> unsupported until their required inputs and tests exist.

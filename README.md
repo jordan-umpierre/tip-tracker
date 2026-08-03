@@ -32,6 +32,13 @@ passed preview, confirmation, one-transaction import, totals refresh, and
 duplicate-warning checks in the Android emulator. The new iOS picker flow is
 bundle-verified but still needs a physical-iPhone runtime pass.
 
+**The August product revision is implemented.** Its home route, selectors,
+action visibility, tab-bar behavior, and remove-job confirmation passed in the
+Android emulator; archive preservation is schema-tested. Trends is now the
+home tab, Log keeps its job and CSV actions above the shift form, jobs can be
+removed without destroying history, and Trends defaults to a compact
+worked-week average with selectable all-time and year/month/weekday views.
+
 Done:
 
 - Product definition and MVP scope
@@ -45,24 +52,26 @@ Done:
 - Data-access layer ([`jobs.ts`](src/data/jobs.ts), [`shifts.ts`](src/data/shifts.ts)): create,
   list, update, and soft-delete
 - The log-a-shift screen ([`src/components/`](src/components/)): create and
-  switch among jobs, log a shift (rate inherited from the job but
-  overridable), see the list, edit a shift, and delete one with confirmation
+  switch among jobs, safely remove a job, log a shift (rate inherited from the
+  job but overridable), see the list, edit a shift, and delete one with
+  confirmation
 - Gross totals ([`src/lib/totals.ts`](src/lib/totals.ts)): hours, tips and
   gross pay over every logged shift, with the money rounding rule pinned by a
   test that runs on Node with no device
 - Expo Router navigation with native Log and Trends tabs ([`app/`](app/))
 - Trends ([`src/lib/trends.ts`](src/lib/trends.ts),
   [`TrendsScreen.tsx`](src/screens/TrendsScreen.tsx)): all jobs or one job,
-  weighted gross per hour, vertical weekday comparison, and month/year
-  summaries
+  weighted gross per hour, gross/hours per worked week, and one selectable
+  year, month, or weekday breakdown
 - Exact nine-column CSV import on the Log screen: choose one job, validate and
   preview every row, review overlaps, then append the whole file atomically
   ([D13](docs/decisions.md))
 
 Next:
 
-- Run the CSV picker/import acceptance pass on a physical iPhone, then decide
-  where optional backup and sync belongs before starting tax projections. See
+- Confirm the profile-driven overtime and federal-only W2 tax scope in D14,
+  then implement it as a separate money phase. A physical-iPhone regression
+  still covers CSV import and this product revision. See
   [docs/roadmap.md](docs/roadmap.md).
 
 ## Stack

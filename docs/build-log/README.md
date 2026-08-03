@@ -74,3 +74,6 @@ name — the number adds sequence without costing you the description.
 11. [11-duration-and-csv-import.md](11-duration-and-csv-import.md) — the
     version-2 integer-second migration and the first atomic, format-specific
     shift-history importer.
+12. [12-product-revision.md](12-product-revision.md) — Trends as home, safe job
+    removal, visible Log actions, worked-week summaries, and the overtime/tax
+    boundary exposed by the revision.
