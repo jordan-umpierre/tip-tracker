@@ -8,7 +8,16 @@ import { Job, listJobs } from '../data/jobs';
 import { listShifts, Shift } from '../data/shifts';
 import { localDateString } from '../lib/dates';
 import { formatCents, formatHours } from '../lib/format';
-import { calculateTrends, CalendarTrend, WeekdayTrend } from '../lib/trends';
+import {
+  calculateTrends,
+  CalendarTrend,
+  HeadlineTrend,
+  Trends,
+  WeekdayTrend,
+} from '../lib/trends';
+
+type SummaryMode = 'weekly' | 'allTime';
+type Breakdown = 'year' | 'month' | 'weekday';
 
 const MONTH_NAMES = [
   'January',
@@ -31,6 +40,8 @@ export default function TrendsScreen() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [summaryMode, setSummaryMode] = useState<SummaryMode>('weekly');
+  const [breakdown, setBreakdown] = useState<Breakdown>('year');
 
   const refresh = useCallback(async () => {
     try {
@@ -93,57 +104,188 @@ export default function TrendsScreen() {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={styles.content}
+      >
         <Text selectable style={styles.title}>Trends</Text>
-        <Text style={styles.intro}>All recorded history for the selected job scope.</Text>
+        <Text style={styles.intro}>Choose the summary and detail you want to see.</Text>
 
-        <Text style={styles.filterLabel}>Job</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filters}
-        >
-          <FilterChip
-            label="All jobs"
-            selected={selectedJobId === null}
-            onPress={() => setSelectedJobId(null)}
-          />
-          {jobs.map((job) => (
-            <FilterChip
-              key={job.id}
-              label={`${job.name}${job.archived_at ? ' (removed)' : ''}`}
-              selected={selectedJobId === job.id}
-              onPress={() => setSelectedJobId(job.id)}
-            />
-          ))}
-        </ScrollView>
-
-        <View style={styles.headlineCard}>
-          <Text style={styles.eyebrow}>Gross per hour</Text>
-          <Text selectable style={styles.headlineValue}>
-            {rateLabel(trends.headline.grossPerHourCents)}
-          </Text>
-          <Text style={[styles.context, styles.headlineContext]}>
-            {sampleLabel(trends.headline.shiftCount, trends.headline.durationSeconds)}
-          </Text>
-        </View>
-
-        <WeekdayBars weekdays={trends.weekdays} />
-        <CalendarSection
-          title="By month"
-          rows={trends.months}
-          currentPeriod={today.slice(0, 7)}
-          formatPeriod={formatMonth}
-        />
-        <CalendarSection
-          title="By year"
-          rows={trends.years}
-          currentPeriod={today.slice(0, 4)}
-          formatPeriod={(period) => period}
-        />
+        <JobFilters jobs={jobs} selectedJobId={selectedJobId} onChange={setSelectedJobId} />
+        <SummaryControls value={summaryMode} onChange={setSummaryMode} />
+        <HeadlineCard mode={summaryMode} headline={trends.headline} />
+        <BreakdownControls value={breakdown} onChange={setBreakdown} />
+        <BreakdownSection breakdown={breakdown} trends={trends} today={today} />
       </ScrollView>
       <StatusBar style="auto" />
     </SafeAreaView>
+  );
+}
+
+function JobFilters({
+  jobs,
+  selectedJobId,
+  onChange,
+}: {
+  jobs: Job[];
+  selectedJobId: string | null;
+  onChange: (jobId: string | null) => void;
+}) {
+  return (
+    <>
+      <Text style={styles.filterLabel}>Job</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filters}
+      >
+        <FilterChip
+          label="All jobs"
+          selected={selectedJobId === null}
+          onPress={() => onChange(null)}
+        />
+        {jobs.map((job) => (
+          <FilterChip
+            key={job.id}
+            label={`${job.name}${job.archived_at ? ' (removed)' : ''}`}
+            selected={selectedJobId === job.id}
+            onPress={() => onChange(job.id)}
+          />
+        ))}
+      </ScrollView>
+    </>
+  );
+}
+
+function SummaryControls({
+  value,
+  onChange,
+}: {
+  value: SummaryMode;
+  onChange: (mode: SummaryMode) => void;
+}) {
+  return (
+    <>
+      <Text style={styles.filterLabel}>Summary</Text>
+      <View style={styles.choiceRow}>
+        <FilterChip
+          label="Weekly average"
+          selected={value === 'weekly'}
+          onPress={() => onChange('weekly')}
+        />
+        <FilterChip
+          label="All time"
+          selected={value === 'allTime'}
+          onPress={() => onChange('allTime')}
+        />
+      </View>
+    </>
+  );
+}
+
+function BreakdownControls({
+  value,
+  onChange,
+}: {
+  value: Breakdown;
+  onChange: (breakdown: Breakdown) => void;
+}) {
+  return (
+    <>
+      <Text style={styles.filterLabel}>Breakdown</Text>
+      <View style={styles.choiceRow}>
+        <FilterChip label="Year" selected={value === 'year'} onPress={() => onChange('year')} />
+        <FilterChip label="Month" selected={value === 'month'} onPress={() => onChange('month')} />
+        <FilterChip
+          label="Weekday"
+          selected={value === 'weekday'}
+          onPress={() => onChange('weekday')}
+        />
+      </View>
+    </>
+  );
+}
+
+type HeadlineContent = {
+  eyebrow: string;
+  value: string;
+  context: string;
+  note?: string;
+};
+
+function weeklyHeadline(headline: HeadlineTrend): HeadlineContent {
+  const grossPerWeek = headline.grossPerWorkedWeekCents;
+  const durationPerWeek = headline.durationPerWorkedWeekSeconds;
+  if (grossPerWeek === null || durationPerWeek === null) {
+    return {
+      eyebrow: 'Average gross per worked week',
+      value: 'No shifts',
+      context: 'Log a shift to calculate an average.',
+    };
+  }
+
+  return {
+    eyebrow: 'Average gross per worked week',
+    value: `${formatCents(grossPerWeek)}/week`,
+    context: `${rateLabel(headline.grossPerHourCents)} · ${formatHours(durationPerWeek)}/week`,
+    note: 'Uses weeks with at least one logged shift.',
+  };
+}
+
+function allTimeHeadline(headline: HeadlineTrend): HeadlineContent {
+  return {
+    eyebrow: 'Gross per hour',
+    value: rateLabel(headline.grossPerHourCents),
+    context: headline.durationSeconds === 0
+      ? 'Log a shift to calculate gross earnings.'
+      : `${formatCents(headline.grossCents)} gross · ${formatHours(headline.durationSeconds)}`,
+  };
+}
+
+function HeadlineCard({ mode, headline }: { mode: SummaryMode; headline: HeadlineTrend }) {
+  const content = mode === 'weekly' ? weeklyHeadline(headline) : allTimeHeadline(headline);
+
+  return (
+    <View style={styles.headlineCard}>
+      <Text style={styles.eyebrow}>{content.eyebrow}</Text>
+      <Text selectable style={styles.headlineValue}>{content.value}</Text>
+      <Text style={[styles.context, styles.headlineContext]}>{content.context}</Text>
+      {content.note ? <Text style={styles.headlineNote}>{content.note}</Text> : null}
+    </View>
+  );
+}
+
+function BreakdownSection({
+  breakdown,
+  trends,
+  today,
+}: {
+  breakdown: Breakdown;
+  trends: Trends;
+  today: string;
+}) {
+  if (breakdown === 'weekday') {
+    return <WeekdayBars weekdays={trends.weekdays} />;
+  }
+
+  if (breakdown === 'month') {
+    return (
+      <CalendarSection
+        title="By month"
+        rows={trends.months}
+        currentPeriod={today.slice(0, 7)}
+        formatPeriod={formatMonth}
+      />
+    );
+  }
+
+  return (
+    <CalendarSection
+      title="By year"
+      rows={trends.years}
+      currentPeriod={today.slice(0, 4)}
+      formatPeriod={(period) => period}
+    />
   );
 }
 
@@ -280,6 +422,7 @@ const styles = StyleSheet.create({
   intro: { color: '#6b7280', fontSize: 15, marginTop: -14 },
   filterLabel: { color: '#374151', fontSize: 14, fontWeight: '600', marginBottom: -12 },
   filters: { gap: 8 },
+  choiceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   filterChip: {
     minHeight: 44,
     justifyContent: 'center',
@@ -306,6 +449,7 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   headlineContext: { color: '#dbeafe' },
+  headlineNote: { color: '#bfdbfe', fontSize: 12, marginTop: 6 },
   section: { gap: 12, borderRadius: 16, backgroundColor: '#fff', padding: 16 },
   sectionTitle: { color: '#111827', fontSize: 20, fontWeight: '700' },
   sectionNote: { color: '#6b7280', marginTop: -8 },

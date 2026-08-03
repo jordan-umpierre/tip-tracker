@@ -4,7 +4,7 @@ import type { Shift } from '../data/shifts';
 import { parseCalendarDate } from './dates.ts';
 import { calculateShiftGrossCents } from './totals.ts';
 
-export const WEEKDAYS = [
+const WEEKDAYS = [
   'Sunday',
   'Monday',
   'Tuesday',
@@ -16,8 +16,11 @@ export const WEEKDAYS = [
 
 export type HeadlineTrend = {
   grossPerHourCents: number | null;
-  shiftCount: number;
+  grossCents: number;
   durationSeconds: number;
+  workedWeekCount: number;
+  grossPerWorkedWeekCents: number | null;
+  durationPerWorkedWeekSeconds: number | null;
 };
 
 export type WeekdayTrend = {
@@ -78,16 +81,33 @@ function centsPerHour(cents: number, durationSeconds: number): number | null {
   return durationSeconds === 0 ? null : Math.round((cents * 3600) / durationSeconds);
 }
 
+function average(total: number, count: number): number | null {
+  return count === 0 ? null : Math.round(total / count);
+}
+
+function weekStartKey(date: NonNullable<ReturnType<typeof parseCalendarDate>>): string {
+  // Trends use Sunday-Saturday calendar weeks. Constructing in UTC keeps a
+  // date-only shift stable across timezones and lets Date cross month/year
+  // boundaries for us.
+  const sunday = new Date(Date.UTC(date.year, date.month - 1, date.day - date.weekdayIndex));
+  return sunday.toISOString().slice(0, 10);
+}
+
+function shiftMatchesJob(shift: Shift, jobId: string | null): boolean {
+  return jobId === null || shift.job_id === jobId;
+}
+
 export function calculateTrends(shifts: Shift[], jobId: string | null = null): Trends {
   const allTotals = emptyTotals();
   const weekdayTotals = WEEKDAYS.map(() => emptyTotals());
   const monthTotals = new Map<string, TrendTotals>();
   const yearTotals = new Map<string, TrendTotals>();
+  const workedWeeks = new Set<string>();
 
   for (const shift of shifts) {
     // Null is the explicit "All jobs" scope. A job id applies to every output
     // below because the shift is skipped before any bucket is updated.
-    if (jobId !== null && shift.job_id !== jobId) {
+    if (!shiftMatchesJob(shift, jobId)) {
       continue;
     }
 
@@ -105,13 +125,19 @@ export function calculateTrends(shifts: Shift[], jobId: string | null = null): T
     addShift(weekdayTotals[date.weekdayIndex], shift, grossCents);
     addShift(totalsForPeriod(monthTotals, monthPeriod), shift, grossCents);
     addShift(totalsForPeriod(yearTotals, yearPeriod), shift, grossCents);
+    workedWeeks.add(weekStartKey(date));
   }
+
+  const workedWeekCount = workedWeeks.size;
 
   return {
     headline: {
       grossPerHourCents: centsPerHour(allTotals.grossCents, allTotals.durationSeconds),
-      shiftCount: allTotals.shiftCount,
+      grossCents: allTotals.grossCents,
       durationSeconds: allTotals.durationSeconds,
+      workedWeekCount,
+      grossPerWorkedWeekCents: average(allTotals.grossCents, workedWeekCount),
+      durationPerWorkedWeekSeconds: average(allTotals.durationSeconds, workedWeekCount),
     },
     weekdays: WEEKDAYS.map((weekday, index) => ({
       weekday,

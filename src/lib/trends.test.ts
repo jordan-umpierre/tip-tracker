@@ -1,3 +1,4 @@
+// fallow-ignore-file unused-file -- the pre-commit hook executes this file directly.
 // Run from the repo root with: node src/lib/trends.test.ts
 //
 // No test runner for the same reason as totals.test.ts: Node and node:assert
@@ -31,8 +32,11 @@ function shift(
 const empty = calculateTrends([]);
 assert.deepEqual(empty.headline, {
   grossPerHourCents: null,
-  shiftCount: 0,
+  grossCents: 0,
   durationSeconds: 0,
+  workedWeekCount: 0,
+  grossPerWorkedWeekCents: null,
+  durationPerWorkedWeekSeconds: null,
 });
 assert.equal(empty.weekdays.length, 7);
 assert.ok(empty.weekdays.every((day) => day.grossPerHourCents === null));
@@ -50,8 +54,11 @@ const scopedShifts = [
 const jobATrends = calculateTrends(scopedShifts, 'job-a');
 assert.deepEqual(jobATrends.headline, {
   grossPerHourCents: 1300,
-  shiftCount: 2,
+  grossCents: 5200,
   durationSeconds: 240 * 60,
+  workedWeekCount: 2,
+  grossPerWorkedWeekCents: 2600,
+  durationPerWorkedWeekSeconds: 120 * 60,
 });
 assert.deepEqual(jobATrends.weekdays[1], {
   weekday: 'Monday',
@@ -95,6 +102,9 @@ assert.deepEqual(jobATrends.years, [
 // pair proves the scope is applied to the whole result, not only the headline.
 const allJobTrends = calculateTrends(scopedShifts);
 assert.equal(allJobTrends.headline.grossPerHourCents, 2640);
+assert.equal(allJobTrends.headline.workedWeekCount, 2);
+assert.equal(allJobTrends.headline.grossPerWorkedWeekCents, 6600);
+assert.equal(allJobTrends.headline.durationPerWorkedWeekSeconds, 150 * 60);
 assert.deepEqual(allJobTrends.weekdays[2], {
   weekday: 'Tuesday',
   grossPerHourCents: 8000,
@@ -110,14 +120,28 @@ const roundingTrends = calculateTrends([
   shift('round-2', 'job-a', '2026-07-13', 30 * 60, 0, 1501),
 ]);
 assert.equal(roundingTrends.headline.grossPerHourCents, 1502);
+assert.equal(roundingTrends.headline.grossPerWorkedWeekCents, 751);
 assert.equal(roundingTrends.weekdays[1].grossPerHourCents, 1502);
 assert.equal(roundingTrends.months[0].grossCents, 1502);
+
+// Weekly averages round back to the app's stored units: whole cents and whole
+// seconds. Multiple shifts in one week count as one worked week.
+const averageRoundingTrends = calculateTrends([
+  shift('week-1-a', 'job-a', '2026-07-05', 3600, 100, 0),
+  shift('week-1-b', 'job-a', '2026-07-06', 3600, 101, 0),
+  shift('week-2', 'job-a', '2026-07-12', 3601, 100, 0),
+]);
+assert.equal(averageRoundingTrends.headline.workedWeekCount, 2);
+assert.equal(averageRoundingTrends.headline.grossPerWorkedWeekCents, 151);
+assert.equal(averageRoundingTrends.headline.durationPerWorkedWeekSeconds, 5401);
 
 // Month and year keys cross cleanly and stay newest first.
 const boundaryTrends = calculateTrends([
   shift('december', 'job-a', '2026-12-31', 60 * 60, 100, 1000),
   shift('january', 'job-a', '2027-01-01', 120 * 60, 200, 1000),
+  shift('next-week', 'job-a', '2027-01-03', 60 * 60, 100, 1000),
 ]);
+assert.equal(boundaryTrends.headline.workedWeekCount, 2);
 assert.deepEqual(
   boundaryTrends.months.map((month) => month.period),
   ['2027-01', '2026-12']
@@ -134,4 +158,4 @@ assert.throws(
   /Invalid shift date: 2026-02-30/
 );
 
-console.log('trends OK (18 checks)');
+console.log('trends OK (26 checks)');
