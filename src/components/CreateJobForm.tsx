@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { createJob } from '../data/jobs';
 
 type Props = {
@@ -27,18 +27,21 @@ export default function CreateJobForm({ onJobCreated }: Props) {
   // jobs.ts) is async -- it has to await a SQLite write.
   async function handleSubmit() {
     // TextInput always hands you a string, even for something that's
-    // conceptually a number, so hourlyRate is "12.00" as text right up
-    // until this point. parseFloat turns it into an actual number.
-    //
-    // parseFloat over Number() here on purpose: Number('') is 0, which
-    // looks like a valid rate. parseFloat('') is NaN, which is easier to
-    // catch as "nothing real was typed yet."
-    const rate = parseFloat(hourlyRate);
+    // conceptually a number. Number(), paired with the empty-string check,
+    // rejects pasted text such as "12 dollars" instead of silently accepting
+    // its numeric prefix.
+    const rate = Number(hourlyRate);
 
-    // Bail out on obviously bad input rather than calling createJob with
-    // garbage. No visible error message yet -- that's a real gap, noted
-    // below, not something to solve inside this first pass.
-    if (name.trim() === '' || Number.isNaN(rate) || rate < 0) {
+    if (
+      name.trim() === '' ||
+      hourlyRate.trim() === '' ||
+      !Number.isFinite(rate) ||
+      rate < 0
+    ) {
+      Alert.alert(
+        'Check job details',
+        'Enter a job name and an hourly rate that is zero or greater.'
+      );
       return;
     }
 
@@ -50,8 +53,8 @@ export default function CreateJobForm({ onJobCreated }: Props) {
 
     await createJob(name.trim(), hourlyRateCents);
 
-    // Clear the form back to empty, then tell the parent a job now exists
-    // so it can stop showing this form and show the shift-logging one.
+    // Clear the form, then let the parent refresh its job list. The parent
+    // also decides whether this first-job or additional-job form should close.
     setName('');
     setHourlyRate('');
     onJobCreated();
