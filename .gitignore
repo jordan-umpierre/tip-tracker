@@ -36,6 +36,10 @@ expo-env.d.ts
 # Metro
 .metro-health-check*
 
+# Local agent tooling
+.fallow/
+.playwright-cli/
+
 # debug
 npm-debug.*
 yarn-debug.*

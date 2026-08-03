@@ -160,8 +160,8 @@ hooks_path=$(git config --get core.hooksPath 2>/dev/null || true)
 # Two files carry a "Last updated" date that a later reader relies on:
 #
 #   docs/roadmap.md          -- what happened last and what's next. The single
-#                               source of truth a cold agent reads (see the
-#                               Cold agent handoff section in CLAUDE.md).
+#                               tracked source of truth a cold agent reads
+#                               (see docs/README.md and AGENTS.md).
 #   docs/build-log/README.md -- the index over the commit-by-commit log.
 #
 # If real work is staged for commit and either date isn't today, whoever reads
