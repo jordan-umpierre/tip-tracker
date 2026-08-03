@@ -1,7 +1,7 @@
 import { useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CreateJobForm from '../components/CreateJobForm';
 import ImportCsvForm from '../components/ImportCsvForm';
@@ -9,13 +9,15 @@ import LogShiftForm from '../components/LogShiftForm';
 import ShiftList from '../components/ShiftList';
 import ShiftTotals from '../components/ShiftTotals';
 import { getDb } from '../data/db';
-import { Job, listActiveJobs } from '../data/jobs';
+import { archiveJob, Job, listActiveJobs, listJobs } from '../data/jobs';
 import { listShifts, Shift } from '../data/shifts';
+import { formatCents } from '../lib/format';
 
 export default function LogScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [allJobs, setAllJobs] = useState<Job[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
   const [addingJob, setAddingJob] = useState(false);
@@ -26,8 +28,13 @@ export default function LogScreen() {
     try {
       setError(null);
       await getDb();
-      const [activeJobs, allShifts] = await Promise.all([listActiveJobs(), listShifts()]);
+      const [activeJobs, everyJob, allShifts] = await Promise.all([
+        listActiveJobs(),
+        listJobs(),
+        listShifts(),
+      ]);
       setJobs(activeJobs);
+      setAllJobs(everyJob);
       setShifts(allShifts);
     } catch (cause) {
       console.error('Could not load the Log screen.', cause);
@@ -66,32 +73,26 @@ export default function LogScreen() {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
-      {jobs.length === 0 ? (
-        // A shift's job_id is required, so creating the first job is the only
-        // useful action until at least one job exists.
-        <CreateJobForm onJobCreated={refresh} />
-      ) : (
-        // The form, totals, and rows share one FlatList. That leaves the list
-        // usable on a small phone and gives the decimal keyboard empty space
-        // and drag gestures that dismiss it.
-        <ShiftList
-          shifts={shifts}
-          jobs={jobs}
-          onShiftDeleted={refresh}
-          onShiftPress={setEditingShift}
-          header={
-            <LogHeader
-              jobs={jobs}
-              shifts={shifts}
-              editingShift={editingShift}
-              addingJob={addingJob}
-              refresh={refresh}
-              setAddingJob={setAddingJob}
-              setEditingShift={setEditingShift}
-            />
-          }
-        />
-      )}
+      {/* Keep history visible after the last active job is removed. The form,
+          totals, and rows share this one virtualized scroller. */}
+      <ShiftList
+        shifts={shifts}
+        jobs={allJobs}
+        onShiftDeleted={refresh}
+        onShiftPress={setEditingShift}
+        header={
+          <LogHeader
+            jobs={jobs}
+            allJobs={allJobs}
+            shifts={shifts}
+            editingShift={editingShift}
+            addingJob={addingJob}
+            refresh={refresh}
+            setAddingJob={setAddingJob}
+            setEditingShift={setEditingShift}
+          />
+        }
+      />
       <StatusBar style="auto" />
     </SafeAreaView>
   );
@@ -102,6 +103,7 @@ export default function LogScreen() {
 // fallow-ignore-next-line complexity -- Native device checks cover these visible header states.
 function LogHeader({
   jobs,
+  allJobs,
   shifts,
   editingShift,
   addingJob,
@@ -110,6 +112,7 @@ function LogHeader({
   setEditingShift,
 }: {
   jobs: Job[];
+  allJobs: Job[];
   shifts: Shift[];
   editingShift: Shift | null;
   addingJob: boolean;
@@ -117,40 +120,116 @@ function LogHeader({
   setAddingJob: (value: boolean | ((current: boolean) => boolean)) => void;
   setEditingShift: (shift: Shift | null) => void;
 }) {
+  const editingJob = editingShift
+    ? allJobs.find((job) => job.id === editingShift.job_id)
+    : undefined;
+  const formJobs = editingJob && !jobs.some((job) => job.id === editingJob.id)
+    ? [...jobs, editingJob]
+    : jobs;
+
+  function handleRemoveJob(job: Job) {
+    const shiftCount = shifts.filter((shift) => shift.job_id === job.id).length;
+    const historyText = shiftCount === 0
+      ? 'No shifts are attached to it.'
+      : `${shiftCount} ${shiftCount === 1 ? 'shift' : 'shifts'} and their trend history will stay.`;
+
+    Alert.alert(
+      `Remove ${job.name}?`,
+      `You won't be able to log or import new shifts for this job. ${historyText}`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove job',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await archiveJob(job.id);
+              if (editingShift?.job_id === job.id) setEditingShift(null);
+              await refresh();
+            } catch (cause) {
+              console.error('Could not remove the job.', cause);
+              Alert.alert('Job not removed', 'Nothing changed. Try again.');
+            }
+          },
+        },
+      ]
+    );
+  }
+
   return (
     <>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ expanded: addingJob }}
-        style={styles.addJobButton}
-        onPress={() => setAddingJob((current) => !current)}
-      >
-        <Text style={styles.addJobButtonText}>
-          {addingJob ? 'Cancel adding job' : 'Add another job'}
-        </Text>
-      </Pressable>
-      {addingJob ? (
+      {jobs.length === 0 ? (
         <CreateJobForm
           onJobCreated={() => {
             setAddingJob(false);
             void refresh();
           }}
         />
-      ) : null}
+      ) : (
+        <>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ expanded: addingJob }}
+            style={styles.manageJobsButton}
+            onPress={() => setAddingJob((current) => !current)}
+          >
+            <Text style={styles.manageJobsButtonText}>
+              {addingJob ? 'Close job manager' : 'Add or remove jobs'}
+            </Text>
+          </Pressable>
+          {addingJob ? (
+            <View style={styles.jobManager}>
+              <CreateJobForm
+                onJobCreated={() => {
+                  setAddingJob(false);
+                  void refresh();
+                }}
+              />
+              <Text style={styles.jobManagerTitle}>Current jobs</Text>
+              {jobs.map((job) => (
+                <View key={job.id} style={styles.jobRow}>
+                  <View style={styles.jobText}>
+                    <Text style={styles.jobName}>{job.name}</Text>
+                    <Text style={styles.jobRate}>
+                      {formatCents(job.hourly_rate_cents)}/hr
+                    </Text>
+                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove ${job.name}`}
+                    hitSlop={8}
+                    style={styles.removeJobButton}
+                    onPress={() => handleRemoveJob(job)}
+                  >
+                    <Text style={styles.removeJobText}>Remove</Text>
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          ) : null}
+          <ImportCsvForm
+            key={jobs.map((job) => job.id).join(':')}
+            jobs={jobs}
+            existingShifts={shifts}
+            onImported={refresh}
+          />
+        </>
+      )}
       {/* A new key remounts the prop-seeded form when edit targets change, so
-          it cannot retain the previous shift's fields. */}
-      <LogShiftForm
-        key={editingShift?.id ?? 'new'}
-        jobs={jobs}
-        editingShift={editingShift}
-        onShiftSaved={() => {
-          setEditingShift(null);
-          void refresh();
-        }}
-        onCancelEdit={() => setEditingShift(null)}
-      />
+          it cannot retain the previous shift's fields or an archived job. */}
+      {formJobs.length > 0 ? (
+        <LogShiftForm
+          key={`${editingShift?.id ?? 'new'}:${formJobs.map((job) => job.id).join(':')}`}
+          jobs={formJobs}
+          editingShift={editingShift}
+          onShiftSaved={() => {
+            setEditingShift(null);
+            void refresh();
+          }}
+          onCancelEdit={() => setEditingShift(null)}
+        />
+      ) : null}
       <ShiftTotals shifts={shifts} />
-      <ImportCsvForm jobs={jobs} existingShifts={shifts} onImported={refresh} />
     </>
   );
 }
@@ -184,16 +263,43 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
   },
-  addJobButton: {
+  manageJobsButton: {
     minHeight: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderWidth: 1,
+    borderColor: '#2563eb',
+    borderRadius: 8,
+    margin: 16,
+    marginBottom: 0,
     paddingHorizontal: 16,
   },
-  addJobButtonText: {
+  manageJobsButtonText: {
     color: '#2563eb',
     fontWeight: '600',
   },
+  jobManager: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    paddingBottom: 8,
+  },
+  jobManagerTitle: {
+    color: '#111827',
+    fontSize: 16,
+    fontWeight: '700',
+    paddingHorizontal: 16,
+    paddingBottom: 4,
+  },
+  jobRow: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+  },
+  jobText: { flex: 1 },
+  jobName: { color: '#111827', fontWeight: '600' },
+  jobRate: { color: '#6b7280', marginTop: 2 },
+  removeJobButton: { minHeight: 44, justifyContent: 'center', paddingLeft: 16 },
+  removeJobText: { color: '#dc2626', fontWeight: '600' },
 });

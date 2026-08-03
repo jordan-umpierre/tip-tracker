@@ -60,6 +60,7 @@ export default function ShiftList({ shifts, jobs, onShiftDeleted, onShiftPress, 
       style={styles.list}
       data={shifts}
       keyExtractor={(shift) => shift.id}
+      contentInsetAdjustmentBehavior="automatic"
       // Two ways out of the keyboard, because the number fields use
       // keyboardType="decimal-pad" and iOS gives that pad no return key --
       // so there was previously no way to dismiss it except tapping the date

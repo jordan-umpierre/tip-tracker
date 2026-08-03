@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getDb } from '../data/db';
-import { Job, listActiveJobs } from '../data/jobs';
+import { Job, listJobs } from '../data/jobs';
 import { listShifts, Shift } from '../data/shifts';
 import { localDateString } from '../lib/dates';
 import { formatCents, formatHours } from '../lib/format';
@@ -36,13 +36,15 @@ export default function TrendsScreen() {
     try {
       setError(null);
       await getDb();
-      const [activeJobs, allShifts] = await Promise.all([listActiveJobs(), listShifts()]);
-      setJobs(activeJobs);
+      const [allJobs, allShifts] = await Promise.all([listJobs(), listShifts()]);
+      const jobIdsWithHistory = new Set(allShifts.map((shift) => shift.job_id));
+      const visibleJobs = allJobs.filter(
+        (job) => job.archived_at === null || jobIdsWithHistory.has(job.id)
+      );
+      setJobs(visibleJobs);
       setShifts(allShifts);
-      // An archived job disappears from the filter. Returning to All jobs is
-      // clearer than leaving an invisible selection active.
       setSelectedJobId((current) =>
-        current !== null && !activeJobs.some((job) => job.id === current) ? null : current
+        current !== null && !visibleJobs.some((job) => job.id === current) ? null : current
       );
     } catch (cause) {
       console.error('Could not load the Trends screen.', cause);
@@ -109,7 +111,7 @@ export default function TrendsScreen() {
           {jobs.map((job) => (
             <FilterChip
               key={job.id}
-              label={job.name}
+              label={`${job.name}${job.archived_at ? ' (removed)' : ''}`}
               selected={selectedJobId === job.id}
               onPress={() => setSelectedJobId(job.id)}
             />

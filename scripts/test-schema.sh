@@ -104,6 +104,17 @@ accepts "a shift with zero tips" \
 accepts "a soft-deleted shift" \
   "INSERT INTO shifts ($shift_cols) VALUES ('shift-4', 'job-1', '2026-07-27', 18000, 2000, 1200, NULL, '$now', '$now', '$now');"
 
+accepts "archiving a job that has shifts" \
+  "UPDATE jobs SET archived_at = '$now', updated_at = '$now' WHERE id = 'job-1';"
+
+archive_result=$(sql "SELECT (SELECT COUNT(*) FROM jobs WHERE id = 'job-1' AND archived_at IS NULL) || '|' || (SELECT COUNT(*) FROM shifts WHERE job_id = 'job-1');")
+if [ "$archive_result" = "0|4" ]; then
+  passed=$((passed + 1))
+else
+  printf 'FAIL  archiving a job did not hide it and preserve all shifts: %s\n' "$archive_result"
+  failed=$((failed + 1))
+fi
+
 # --- Things that must be refused ------------------------------------------
 
 rejects "a job with no name" \

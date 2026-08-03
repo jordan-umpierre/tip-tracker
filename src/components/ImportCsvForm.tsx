@@ -487,10 +487,22 @@ function importSuccessText(count: number, jobName: string): string {
 }
 
 const styles = StyleSheet.create({
-  container: { borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },
-  toggleButton: { minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+  container: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    padding: 16,
+  },
+  toggleButton: {
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#2563eb',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+  },
   toggleText: { color: '#2563eb', fontWeight: '600' },
-  content: { gap: 12, backgroundColor: '#f8fafc', padding: 16 },
+  content: { gap: 12, borderRadius: 12, backgroundColor: '#f8fafc', marginTop: 12, padding: 16 },
   title: { color: '#111827', fontSize: 18, fontWeight: '700' },
   explanation: { color: '#4b5563', lineHeight: 20 },
   label: { color: '#374151', fontWeight: '600' },
