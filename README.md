@@ -17,12 +17,13 @@ layout, and gross-total flows were confirmed on a physical iPhone. The later
 additional-job entry point and its validation/default-rate behavior have now
 also passed their physical-iPhone recheck.
 
-**Layer 1 Trends is implemented and bundles for iOS and Android.** Its first
+**Layer 1 Trends is implemented and runtime-verified on iOS and Android.** Its first
 physical-iPhone pass confirmed the calculations and exposed four bounded
 corrections: headline-card contrast, the missing additional-job entry point, a
 more useful gross-per-hour headline, and vertical weekday bars. All four are
-built and passed their physical-iPhone recheck. Android still needs runtime
-verification on a real device or emulator before release.
+built and passed their physical-iPhone recheck. The same Log and Trends
+acceptance checklist then passed in an Android emulator, closing the Layer 1
+cross-platform gate.
 
 Done:
 
@@ -50,7 +51,8 @@ Done:
 
 Next:
 
-- Verify Layer 1 on Android before choosing the next product layer. See
+- Preserve imported hundredths-of-an-hour exactly with integer-second duration
+  storage, then add the supplied nine-column CSV import flow. See
   [docs/roadmap.md](docs/roadmap.md).
 
 ## Stack

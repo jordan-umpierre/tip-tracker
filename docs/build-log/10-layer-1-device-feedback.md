@@ -137,3 +137,15 @@ audit passed for the three documentation files. Whole-repository Fallow still
 reports its existing six reachability/dependency findings, one small duplicate,
 and seven estimated complexity findings in application code; none came from
 this device-result update, so no unrelated refactor was mixed into it.
+
+## Android-emulator acceptance pass (2026-08-03)
+
+The user ran the roadmap's matching Android checklist in an emulator and
+reported that it passed. That covers Log validation, inherited rates, editing,
+deletion, keyboard and back behavior, plus Trends filters, calculations, all
+seven weekday bars, exact values, sample context, scrolling, safe areas, and
+both native tabs.
+
+This is user-observed emulator evidence, not physical-Android evidence and not
+an inference from a successful bundle. Together with the physical-iPhone pass,
+it closes the Layer 1 cross-platform acceptance gate.

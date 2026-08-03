@@ -9,17 +9,19 @@ Last updated: 2026-08-03
 
 ## NEXT
 
-**Verify Layer 1 on Android before choosing the next product layer.**
+**Preserve exact imported durations, then add CSV shift import.**
 
-1. Open the current `main` branch on a physical Android device or emulator.
-2. On Log, create a test job and shift. Confirm validation alerts, the inherited
-   hourly rate, editing, deletion, keyboard behavior, and Android back behavior.
-3. On Trends, switch between All jobs and the test job. Confirm the weighted
-   gross-per-hour headline and the underlying shift agree.
-4. Confirm all seven weekday bars, exact rates, sample context, scrolling, safe
-   areas, and both native tabs render and behave correctly.
-5. Record the result before calling Layer 1 cross-platform verified.
-6. After the Android pass, decide whether optional cloud backup/sync is Layer
+1. Migrate canonical shift duration from integer minutes to integer seconds.
+   Existing rows convert exactly with `minutes * 60`; hundredths of an hour
+   convert exactly with `hundredths * 36`.
+2. Prove the version-1-to-version-2 migration preserves every non-duration
+   field, tombstone, and relationship while changing only the duration unit.
+3. Add a Log-screen import flow for the supplied nine-column CSV contract:
+   choose one saved job, pick and validate a file, preview the result, then
+   insert all accepted rows in one transaction.
+4. Keep the first importer format-specific. Add another adapter only after a
+   real export with a different contract exists.
+5. After data portability, decide whether optional cloud backup/sync is Layer
    1.5 or part of Layer 2 before beginning tax projections.
 
 ---
@@ -343,3 +345,10 @@ Trends scope is complete.
     proportional weekday bars with exact values and sample context, scrolling,
     safe areas, and both tabs. This closes Layer 1's iPhone acceptance gate;
     Android runtime behavior remains unverified and is now `NEXT`
+42. Completed the Layer 1 Android-emulator acceptance pass. The user confirmed
+    the prescribed Log and Trends checklist passed without reporting a runtime
+    defect. Combined with the physical-iPhone result, Layer 1 is now verified
+    across both target platforms. The next product need is importing the user's
+    existing nine-column shift history without rounding away its hundredths of
+    an hour, so exact duration preservation and CSV import replace platform
+    verification in `NEXT`
