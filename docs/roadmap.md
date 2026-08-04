@@ -9,24 +9,20 @@ Last updated: 2026-08-04
 
 ## NEXT
 
-**Overtime is in progress. Schema version 3 is written and test-verified but
-deliberately uncommitted, waiting on one launch against a real device.**
+**Overtime is in progress. Schema version 3 is committed and device-verified.
+Next is wiring its columns through the data layer.**
 
 Two product decisions were made on 2026-08-04 and are already recorded, so they
 do not need re-deciding: overtime adjusts the gross shown on screen rather than
 appearing as a second number beside it (D14, revised), and shift times plus the
 employer's workweek are stored rather than assuming a midnight boundary (D18).
 
-**Do this first.** The working tree has `src/data/migrations/2-to-3.sql`, an
-updated `schema.sql`, a rewritten migration runner in `db.ts`, and extended
-`test-schema.sh` and `test-migration.sh`. All checks pass — 36 schema checks, a
-1-to-3 chain test, and a fresh-versus-migrated parity check, each shown to fail
-when broken. What has not happened is running it against a real version-2
-database: the developer's phone holds 845 shifts and opening the app migrates
-them. Launch the app, confirm it opens and the year totals still read
-133 / 227 / 162 / 223 / 100, then commit. If it fails, the migration is inside
-one transaction and rolls back, so the database is intact and the app throws on
-launch instead.
+`330876a` added `src/data/migrations/2-to-3.sql`, updated `schema.sql`, fixed
+the migration runner in `db.ts`, and extended `test-schema.sh` and
+`test-migration.sh`. The 36 schema checks, 1-to-3 chain test, and
+fresh-versus-migrated parity check pass. A physical iPhone then migrated the
+real version-2 database with 845 shifts; the app opened and its five year totals
+remained 133 / 227 / 162 / 223 / 100.
 
 The runner rewrite is a bug fix, not just plumbing: it applied a single file
 and then stamped the newest version number, which was correct only while there
@@ -35,7 +31,8 @@ received `1-to-2.sql` and a version-3 marker.
 
 **Then, in order:**
 
-1. Data layer — `shifts.ts` and `jobs.ts` read and write the new columns.
+1. **Do this now:** data layer — `shifts.ts` and `jobs.ts` read and write the
+   new columns.
 2. The Log form — optional start and end time inputs.
 3. Overtime calculation in `src/lib`, pure and asserted: 40 hours per the job's
    configured workweek, 1.5x the shift's own rate, shifts without times counted
@@ -619,3 +616,11 @@ Trends scope is complete.
     cannot hold a gesture through the noise of a real hand. Two instances make
     it a pattern worth checking for rather than a coincidence, and no assertion
     in this repo can reach either.
+62. Added schema version 3 in `330876a`: optional local start/end times on
+    shifts and opt-in overtime plus workweek boundary settings on jobs. The
+    migration runner now applies every pending migration in order rather than
+    applying one file and stamping the newest version. Automated checks cover
+    36 schema behaviors, version-1-to-3 chaining, rollback, preservation, and
+    fresh-versus-migrated structural parity. A physical iPhone migrated the
+    real version-2 database containing 845 shifts; the app opened and the five
+    year totals remained 133 / 227 / 162 / 223 / 100.

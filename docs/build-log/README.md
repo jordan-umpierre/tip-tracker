@@ -86,3 +86,6 @@ name — the number adds sequence without costing you the description.
 15. [15-calendar-and-row-actions.md](15-calendar-and-row-actions.md) — the Log
     screen's controls moved within reach, a calendar date picker built rather
     than depended on (D17), and Edit added to the swiped shift row.
+16. [16-overtime.md](16-overtime.md) — schema version 3 stores the timing inputs
+    required for overtime and fixes chained migrations before the data layer
+    begins consuming them.
