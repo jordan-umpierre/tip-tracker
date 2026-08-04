@@ -1078,8 +1078,9 @@ UI/UX bar from the product definition is achievable here.
 > will accept it, because the alternative is worse. Validity is enforced by
 > triggers rather than `CHECK` constraints, because SQLite cannot `ALTER` a
 > `CHECK` onto an existing table — so `schema.sql` uses triggers too, to keep a
-> freshly created database and a migrated one identical. That equivalence is
-> checked by hand, not by a script.
+> freshly created database and a migrated one identical. `test-migration.sh`
+> compares their resolved column order and triggers, since SQLite preserves
+> source DDL text differently for fresh tables and `ALTER`-added columns.
 >
 > The 845 existing shifts can never be placed exactly against a non-midnight
 > boundary. Anyone who configures one is getting the midnight approximation for
