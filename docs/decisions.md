@@ -832,3 +832,48 @@ UI/UX bar from the product definition is achievable here.
 > **Revisit when:** a shift search or a job filter lands on the Log. Either one
 > changes what "the newest group" should default to, and a filtered result set
 > probably wants every matching group open instead.
+
+### D16 — Export in the app's own CSV format, not the import contract (2026-08-03)
+
+> **Decision:** Exported CSVs use their own columns — `Date`, `Job`, `Hours`,
+> `Duration Seconds`, `Hourly Rate`, `Tips`, `Gross`, `Note` — rather than the
+> nine-column contract D13 defined for import. Duration appears twice: `Hours`
+> to two decimals for people and spreadsheets, `Duration Seconds` as the exact
+> stored value. Rows are oldest first, tie-broken by id, so two exports of the
+> same data are byte-identical. Files are written wherever the user chooses via
+> `Directory.pickDirectoryAsync`, named `tip-tracker-shifts-<date>.csv`.
+>
+> **Alternatives:**
+> - Emit the nine-column import contract so exports can be re-imported
+> - Emit only `Hours`, dropping the exact seconds
+> - Add `expo-sharing` and open the system share sheet instead of a picker
+> - Use React Native's built-in `Share` with a file URI
+> - Export JSON instead of CSV
+>
+> **Why:** the import contract stores `Hours` to two decimals, which is
+> 36-second granularity. A shift stored as 27300 seconds — 455 minutes, the
+> shape every row from the pre-D12 minutes column has — is 7.5833… hours and
+> rounds to 7.58, losing 30 seconds on the way out. Export is the first half of
+> the backup story the roadmap places before public tax projections, and a
+> backup that silently rounds the data it is protecting is not one. Keeping the
+> exact seconds costs one extra column.
+>
+> Round-tripping was the real thing given up, and it is worth being clear that
+> it was a choice: an exported file cannot currently be re-imported, because
+> the importer only accepts D13's contract. Restoring from an export needs an
+> importer for this format, which does not exist yet.
+>
+> `Directory.pickDirectoryAsync` over the sharing alternatives because
+> `expo-file-system` is already a dependency for the import picker, so this
+> adds none. React Native's built-in `Share` was rejected on portability: it
+> carries a file URI on iOS but ignores it on Android, where it only shares
+> text. CSV over JSON because the file's job is to open in a spreadsheet.
+>
+> **Known cost:** two duration columns is redundancy a reader has to have
+> explained, and nothing enforces that they agree — a future edit could write
+> one and not the other. The export also has no importer, so "export" currently
+> means "get your data out", not "restore your data".
+>
+> **Revisit when:** restore is built. That is the point to decide whether this
+> format grows an importer or whether both sides move to one shared contract,
+> and D13's contract should be re-examined at the same time.
