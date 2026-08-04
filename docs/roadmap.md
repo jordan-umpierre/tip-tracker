@@ -9,8 +9,8 @@ Last updated: 2026-08-04
 
 ## NEXT
 
-**Overtime is in progress. Schema version 3 is committed and device-verified.
-Next is wiring its columns through the data layer.**
+**Overtime is in progress. Schema version 3 and its data-layer wiring are
+committed. Next is adding optional start and end times to the Log form.**
 
 Two product decisions were made on 2026-08-04 and are already recorded, so they
 do not need re-deciding: overtime adjusts the gross shown on screen rather than
@@ -31,9 +31,10 @@ received `1-to-2.sql` and a version-3 marker.
 
 **Then, in order:**
 
-1. **Do this now:** data layer — `shifts.ts` and `jobs.ts` read and write the
-   new columns.
-2. The Log form — optional start and end time inputs.
+1. ~~Data layer — `shifts.ts` and `jobs.ts` expose the new columns, and shift
+   writes accept optional times.~~ Done in `7e917f4`. The job settings writer
+   stays with step 4, where it will have a caller instead of being dead code.
+2. **Do this now:** the Log form — optional start and end time inputs.
 3. Overtime calculation in `src/lib`, pure and asserted: 40 hours per the job's
    configured workweek, 1.5x the shift's own rate, shifts without times counted
    wholly against their logged date.
@@ -624,3 +625,8 @@ Trends scope is complete.
     fresh-versus-migrated structural parity. A physical iPhone migrated the
     real version-2 database containing 845 shifts; the app opened and the five
     year totals remained 133 / 227 / 162 / 223 / 100.
+63. Wired schema version 3 into the existing data layer in `7e917f4`. Job reads
+    now include the overtime and workweek fields, and shift reads, creates, and
+    updates include optional times. Current callers default both times to null;
+    the unused job-settings writer was deliberately left for the Manage UI
+    commit that will call it.

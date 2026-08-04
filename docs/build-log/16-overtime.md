@@ -20,3 +20,15 @@ columns added with `ALTER TABLE`.
 The final gate ran on a physical iPhone with the real version-2 database. All
 845 shifts migrated, the app opened, and its five year totals remained
 133 / 227 / 162 / 223 / 100.
+
+## `7e917f4` — feat: expose overtime fields in data layer (2026-08-04)
+
+The existing `Job` and `Shift` row types and their explicit `SELECT` lists now
+include the version-3 columns. Shift creation and editing accept optional times;
+both default to null so the unchanged form keeps its existing behavior until
+the next commit adds inputs.
+
+An overtime-settings update function was written and then removed before the
+commit because it had no caller until the later Manage UI step. Fallow caught
+the dead export. Adding it beside its first caller keeps this layer from owning
+an API based only on a future screen.
