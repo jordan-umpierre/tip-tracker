@@ -425,3 +425,20 @@ Trends scope is complete.
     the same D5 per-shift gross that Trends uses. TypeScript, the tracked hook,
     and all six direct-run test files pass; neither change has run on a
     physical device.
+49. Compacted the Log screen on request, in `561bbd7`, `2e134d0`, and
+    `4825557`. The tab no longer opens onto seven input boxes: the shift form
+    sits behind one filled "Log a shift" button and the job manager and CSV
+    importer behind a "Manage data" toggle, so the default state of the screen
+    is the history it exists to show. Tapping a row still opens the form
+    directly. The history went from one level of month sections to a
+    year > month > week tree with only the newest branch open, which puts the
+    current week on screen with no taps and turns five years into a handful of
+    rows. The tree is flattened into one array of typed rows so it still
+    renders through a single virtualized `FlatList`; nested scrollers would
+    have cost the virtualization that keeps 845 shifts cheap. The Sunday
+    week-start rule D10 pins moved into `dates.ts` first, since Trends and the
+    Log now both group by week and two copies would drift apart silently. D15
+    is revised for the level change, the split of a month-straddling week, and
+    the loss of sticky headers. TypeScript, the tracked hook, the schema and
+    migration checks, and all six direct-run test files pass; none of it has
+    run on a physical device.
