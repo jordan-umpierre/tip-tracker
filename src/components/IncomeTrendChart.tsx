@@ -120,11 +120,21 @@ export default function IncomeTrendChart({
   const panResponder = useMemo(
     () =>
       PanResponder.create({
-        // Wait for horizontal intent so a vertical drag still scrolls Trends.
-        onStartShouldSetPanResponder: () => false,
+        // Claim the touch as soon as a finger lands so a plain tap jumps
+        // straight to that point, instead of only responding once a drag
+        // starts. Still worth keeping the move check below: if the scroll view
+        // steals a touch, a later horizontal drag can take it back.
+        onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: (_, gesture) =>
           Math.abs(gesture.dx) > 4 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
+        onPanResponderGrant: (event) => selectPointAt(event.nativeEvent.locationX),
         onPanResponderMove: (event) => selectPointAt(event.nativeEvent.locationX),
+        // Claiming on touch-down would otherwise trap vertical scrolling that
+        // happens to start on the chart. Saying yes lets the surrounding scroll
+        // view take the gesture back, and clearing the point on the way out
+        // stops a scroll from leaving a stray selection behind.
+        onPanResponderTerminationRequest: () => true,
+        onPanResponderTerminate: () => setSelectedIndex(null),
       }),
     [selectPointAt]
   );
