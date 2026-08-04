@@ -10,7 +10,7 @@
 // and one that starts on Saturday and so needs the full six rows. Those are the
 // three ways a month grid goes wrong.
 import assert from 'node:assert/strict';
-import { buildMonthGrid, shiftMonth } from './monthGrid.ts';
+import { buildMonthGrid, monthFromIndex, monthIndex, shiftMonth } from './monthGrid.ts';
 
 // February 2026 starts on a Sunday and has 28 days -- the shortest a month can
 // possibly lay out, four rows of content. It still comes back six rows tall,
@@ -82,4 +82,40 @@ assert.deepEqual(shiftMonth(2026, 8, -1), { year: 2026, month: 7 }, 'back within
 assert.deepEqual(shiftMonth(2026, 12, 1), { year: 2027, month: 1 }, 'December rolls into January');
 assert.deepEqual(shiftMonth(2026, 1, -1), { year: 2025, month: 12 }, 'January rolls back to December');
 
-console.log('month grid OK (30 checks)');
+
+
+// Month indices. The picker positions each month by one of these, so the two
+// directions have to be exact inverses or a pane lands a month off.
+assert.equal(monthIndex(2026, 1) + 1, monthIndex(2026, 2), 'consecutive months are one apart');
+assert.equal(
+  monthIndex(2027, 1) - monthIndex(2026, 12),
+  1,
+  'December to January crosses a year by one'
+);
+assert.equal(
+  monthIndex(2026, 8) - monthIndex(2025, 8),
+  12,
+  'the same month a year apart is twelve'
+);
+
+// Round-tripping every month of a decade, since an off-by-one here shows up as
+// the calendar quietly displaying the wrong month.
+for (let year = 2020; year <= 2030; year += 1) {
+  for (let month = 1; month <= 12; month += 1) {
+    assert.deepEqual(
+      monthFromIndex(monthIndex(year, month)),
+      { year, month },
+      `${year}-${month} survives a round trip`
+    );
+  }
+}
+
+// shiftMonth and monthIndex have to agree, since the picker uses one to render
+// and the other to position.
+assert.deepEqual(
+  monthFromIndex(monthIndex(2026, 12) + 1),
+  shiftMonth(2026, 12, 1),
+  'stepping by index matches stepping by month'
+);
+
+console.log('month grid OK (168 checks)');

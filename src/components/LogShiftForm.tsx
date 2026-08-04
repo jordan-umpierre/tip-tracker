@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import CalendarPicker from './CalendarPicker';
@@ -65,6 +66,25 @@ export default function LogShiftForm({
     [existingShifts]
   );
 
+  const [selectedJobId, setSelectedJobId] = useState(editingShift?.job_id ?? jobs[0]?.id ?? '');
+  const [shiftDate, setShiftDate] = useState(editingShift?.shift_date ?? todayIsoDate());
+  // These three used to be a raw division, which is how the edit form ended up
+  // showing 7.583333333333333 for a 455-minute shift. The helpers pick a
+  // precision that converts back to the identical stored integer, per D6 --
+  // the tempting fix of matching the list's "7.6h" would quietly rewrite
+  // the stored seconds.
+  const [hours, setHours] = useState(
+    editingShift ? hoursInputValue(editingShift.duration_seconds) : ''
+  );
+  const [tips, setTips] = useState(editingShift ? moneyInputValue(editingShift.tips_cents) : '');
+  const [hourlyRate, setHourlyRate] = useState(() => {
+    if (editingShift) {
+      return moneyInputValue(editingShift.hourly_rate_cents);
+    }
+    return jobs[0] ? moneyInputValue(jobs[0].hourly_rate_cents) : '';
+  });
+  const [note, setNote] = useState(editingShift?.note ?? '');
+
   function handleDateSelected(date: string) {
     setPickingDate(false);
 
@@ -79,6 +99,10 @@ export default function LogShiftForm({
       setShiftDate(date);
       return;
     }
+
+    // A warning buzz rather than the selection tick a normal day gets, so the
+    // hand knows something needs reading before the eyes get there.
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
 
     // Doubles are legitimate -- two shifts on one day is a real thing that
     // happens, and the data already contains one -- so this informs rather
@@ -100,25 +124,6 @@ export default function LogShiftForm({
       buttons
     );
   }
-
-  const [selectedJobId, setSelectedJobId] = useState(editingShift?.job_id ?? jobs[0]?.id ?? '');
-  const [shiftDate, setShiftDate] = useState(editingShift?.shift_date ?? todayIsoDate());
-  // These three used to be a raw division, which is how the edit form ended up
-  // showing 7.583333333333333 for a 455-minute shift. The helpers pick a
-  // precision that converts back to the identical stored integer, per D6 --
-  // the tempting fix of matching the list's "7.6h" would quietly rewrite
-  // the stored seconds.
-  const [hours, setHours] = useState(
-    editingShift ? hoursInputValue(editingShift.duration_seconds) : ''
-  );
-  const [tips, setTips] = useState(editingShift ? moneyInputValue(editingShift.tips_cents) : '');
-  const [hourlyRate, setHourlyRate] = useState(() => {
-    if (editingShift) {
-      return moneyInputValue(editingShift.hourly_rate_cents);
-    }
-    return jobs[0] ? moneyInputValue(jobs[0].hourly_rate_cents) : '';
-  });
-  const [note, setNote] = useState(editingShift?.note ?? '');
 
   function handleSelectJob(job: Job) {
     setSelectedJobId(job.id);

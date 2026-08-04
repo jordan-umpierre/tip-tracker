@@ -65,3 +65,18 @@ export function shiftMonth(
   const moved = new Date(year, month - 1 + delta, 1);
   return { year: moved.getFullYear(), month: moved.getMonth() + 1 };
 }
+
+// A month as a single integer, counting months since year 0. Two of these
+// subtract to give the distance between months, which is what lets the picker
+// lay each month out at a fixed position instead of re-centring after every
+// page -- a re-centre has to move the strip and swap its contents at the same
+// moment, and those two do not reliably reach the screen in the same frame.
+export function monthIndex(year: number, month: number): number {
+  return year * 12 + (month - 1);
+}
+
+export function monthFromIndex(index: number): { year: number; month: number } {
+  // Floor rather than truncation so this still holds for negative indices,
+  // which trunc would round the wrong way either side of zero.
+  return { year: Math.floor(index / 12), month: (index % 12) + 1 };
+}
