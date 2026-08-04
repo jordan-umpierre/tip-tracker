@@ -367,3 +367,40 @@ visible UI, or measured reads become a problem.
 `App.tsx` was correctly a wiring file while it was the app root. Expo Router
 makes the route layout the root, so keeping the responsibility but renaming the
 file `LogScreen.tsx` makes the new ownership explicit. See D11.
+
+### 2026-08-04 — "What would a real software dev do about the canceled-export toast?"
+
+Fix it, but not because of the red toast. LogBox is dev-only, so no user would
+ever have seen it. Nothing was shipping broken.
+
+The reason to fix it is what the wrong severity costs later. `console.error` is
+the only error sink today, so miscategorizing a cancel is invisible. Add crash
+reporting before release — Sentry, Crashlytics, whichever — and every user who
+backs out of the picker generates a reported error. Then one of two things
+happens: the reports fill with false positives, or you learn to ignore your own
+error reports. The second is how real incidents get missed, and it is a habit,
+not a bug, so it is expensive to undo.
+
+The judgment is not "is this wrong" but "what does correcting it cost now
+versus what does leaving it cost later." Six lines and no new test is on the
+cheap side of that line. A two-hundred-line refactor would not have been, and
+leaving it would have been the right call instead. YAGNI is a real argument
+here; it just loses on the numbers.
+
+The alert was the smaller half of the same mistake: the user tapped Cancel, so
+telling them nothing happened is a modal they must dismiss to confirm a choice
+they made on purpose. Silence is the correct response to someone backing out.
+
+The part worth more than the code, though, was the decision doc. D16 stated
+something factually untrue about the platform, written from an assumption
+nobody had tested, because that code path had never run. A reader has no way to
+know it is wrong. Leaving that is worse than the logging bug — and amending it
+with the evidence is a better story than having been right the first time,
+because it shows the assumption being caught by a real verification pass rather
+than never being questioned.
+
+No test was added on purpose. A test could only assert that two copied string
+constants match themselves. The real risk is an Expo upgrade renaming a code,
+which no local assertion can observe, so it is a comment at the constant and a
+line in D16's revisit condition instead. A check that cannot fail is not a
+check. See the revised D16.
