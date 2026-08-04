@@ -750,34 +750,47 @@ UI/UX bar from the product definition is achievable here.
 > varying-rate regular-pay rules, and tip-credit edge cases stay explicitly
 > unsupported until their required inputs and tests exist.
 
-### D15 — Collapse the shift history into month sections (2026-08-03)
+### D15 — Collapse the shift history into a year/month/week tree (2026-08-03; revised 2026-08-03)
 
-> **Decision:** The Log lists shifts under sticky month headers carrying that
-> month's gross and shift count. Every month except the newest starts
-> collapsed. A collapsed month is a `SectionList` section with an empty `data`
-> array, and expansion state stores only the months the user has tapped,
-> falling back to "index 0 is open".
+> **Decision:** The Log nests shifts under year, then month, then week rows,
+> each carrying its own gross and shift count. Only the newest branch is open:
+> newest year, newest month inside it, newest week inside that. The tree is
+> flattened into one array of typed rows and rendered through a single
+> `FlatList`. Expansion state stores only the groups the user has tapped,
+> falling back to "index 0 at each level is open".
 >
 > **Alternatives:**
 > - Keep the flat, fully expanded list and rely on virtualization alone
 > - Month sections with sticky headers but nothing collapsed
+> - Month sections, collapsed, one level deep (what shipped first, 2026-08-03)
 > - A month stepper showing exactly one month at a time, with no full scroll
 > - Infinite scroll paging in older shifts as the user reaches the bottom
+> - Nested `FlatList`s, one per level
 >
 > **Why:** virtualization solved the rendering cost of 845 rows but not the
 > navigation cost. Every row looked alike and nothing said where in five years
-> of history the scroll had landed. Sticky headers fix orientation; collapsing
-> fixes distance, turning "scroll past 800 rows to reach 2022" into roughly 50
-> headers and one tap. The stepper was rejected because it removes the ability
-> to scan across months at all, and comparing a slow month against the one
-> before it is a normal thing to want. Paging was rejected as the same infinite
-> scroll with extra machinery.
+> of history the scroll had landed. One level of collapsing fixed the distance
+> between months but not within them: an open month of thirty shifts is still a
+> long list, and it was still the first thing on the tab. Three levels put the
+> current week on screen and nothing else, while any older week stays two taps
+> away. The stepper was rejected because it removes the ability to scan across
+> months at all, and comparing a slow month against the one before it is a
+> normal thing to want. Paging was rejected as the same infinite scroll with
+> extra machinery. Nested lists were rejected outright: scrollers inside
+> scrollers fight over the same gesture and the inner one loses virtualization,
+> which is the thing making a long history cheap.
 >
-> **Known cost:** a collapsed month hides its rows from search-by-scrolling,
-> and there is no expand-all. Month subtotals also duplicate a calculation the
-> Trends tab already presents, so both have to keep using the same D5 per-shift
-> gross or they will disagree in front of the user.
+> **Known cost:** collapsed groups hide their rows from search-by-scrolling,
+> and there is no expand-all — worse now than at one level, since a shift can
+> be three closed groups deep. Sticky headers were lost in the move off
+> `SectionList`; they were solving orientation mid-scroll, which a
+> collapsed-by-default tree does not have enough scroll to need. A week
+> crossing a month boundary is split so that each month's rows add up to its
+> own header, which means one calendar week can appear twice under different
+> months. Group subtotals also duplicate a calculation the Trends tab presents,
+> so both have to keep using the same D5 per-shift gross or they will disagree
+> in front of the user.
 >
 > **Revisit when:** a shift search or a job filter lands on the Log. Either one
-> changes what "the newest month" should default to, and a filtered result set
-> probably wants every matching month open instead.
+> changes what "the newest group" should default to, and a filtered result set
+> probably wants every matching group open instead.
