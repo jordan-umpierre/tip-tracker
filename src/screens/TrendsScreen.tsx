@@ -391,10 +391,11 @@ function WeekdayBars({ weekdays }: { weekdays: WeekdayTrend[] }) {
                 <View style={[styles.verticalBarFill, { height }]} />
               </View>
               <Text style={styles.weekdayName}>{day.weekday.slice(0, 3)}</Text>
-              {/* Two lines so "167 shifts" wraps instead of shrinking. Hours
-                  used to sit here too, but a wrapped count ate the second line
-                  and silently truncated them on most columns. They stay in the
-                  accessibility label above, where there is no width limit. */}
+              {/* Always two lines, broken explicitly -- see
+                  stackedShiftCountLabel. Hours used to sit here too, but the
+                  count ate the second line and silently truncated them on most
+                  columns. They stay in the accessibility label above, where
+                  there is no width limit. */}
               <Text
                 selectable
                 adjustsFontSizeToFit
@@ -402,7 +403,7 @@ function WeekdayBars({ weekdays }: { weekdays: WeekdayTrend[] }) {
                 numberOfLines={2}
                 style={styles.weekdayContext}
               >
-                {shiftCountLabel(day.shiftCount)}
+                {stackedShiftCountLabel(day.shiftCount)}
               </Text>
             </View>
           );
@@ -451,6 +452,15 @@ function rateLabel(cents: number | null): string {
 
 function shiftCountLabel(count: number): string {
   return `${count} ${count === 1 ? 'shift' : 'shifts'}`;
+}
+
+// The same thing broken across two lines on purpose. Under the weekday bars
+// the count wrapped only when it was too wide to fit, so "167 shifts" took two
+// lines and "6 shifts" took one, and that column's caption sat higher than its
+// neighbours. Putting the break in rather than letting width decide it keeps
+// every column the same height whatever the number is.
+function stackedShiftCountLabel(count: number): string {
+  return `${count}\n${count === 1 ? 'shift' : 'shifts'}`;
 }
 
 function sampleLabel(shiftCount: number, durationSeconds: number): string {
