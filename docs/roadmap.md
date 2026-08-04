@@ -442,3 +442,7 @@ Trends scope is complete.
     the loss of sticky headers. TypeScript, the tracked hook, the schema and
     migration checks, and all six direct-run test files pass; none of it has
     run on a physical device.
+50. Made All time the default Trends summary and moved it left of Weekly
+    average, in `9958a4f`. D10 is revised for the swap, and the same revision
+    backfills YTD and the date-range window labels into D10's chart bullet,
+    which had been describing the pre-`b771c03` screen for several commits.
