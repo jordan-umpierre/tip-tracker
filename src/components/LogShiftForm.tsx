@@ -217,7 +217,9 @@ export default function LogShiftForm({ jobs, editingShift, onShiftSaved, onCance
         <Text style={styles.buttonText}>{isEditing ? 'Save changes' : 'Log shift'}</Text>
       </Pressable>
 
-      {isEditing && onCancelEdit ? (
+      {/* Cancel is not just for editing any more: the form is hidden behind a
+          button now, so a new entry needs a way back out too. */}
+      {onCancelEdit ? (
         <Pressable style={styles.cancelButton} onPress={onCancelEdit}>
           <Text style={styles.cancelButtonText}>Cancel</Text>
         </Pressable>

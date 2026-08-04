@@ -21,6 +21,11 @@ export default function LogScreen() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
   const [addingJob, setAddingJob] = useState(false);
+  // The form and the data tools both start closed. This screen is mostly a
+  // history to read, and opening it onto seven input boxes made a glance at
+  // last week's shifts feel like being handed paperwork.
+  const [loggingShift, setLoggingShift] = useState(false);
+  const [managingData, setManagingData] = useState(false);
 
   // SQLite is the source of truth. Re-query after every write and whenever
   // this tab regains focus, rather than maintaining a second shared cache.
@@ -87,9 +92,13 @@ export default function LogScreen() {
             shifts={shifts}
             editingShift={editingShift}
             addingJob={addingJob}
+            loggingShift={loggingShift}
+            managingData={managingData}
             refresh={refresh}
             setAddingJob={setAddingJob}
             setEditingShift={setEditingShift}
+            setLoggingShift={setLoggingShift}
+            setManagingData={setManagingData}
           />
         }
       />
@@ -107,18 +116,26 @@ function LogHeader({
   shifts,
   editingShift,
   addingJob,
+  loggingShift,
+  managingData,
   refresh,
   setAddingJob,
   setEditingShift,
+  setLoggingShift,
+  setManagingData,
 }: {
   jobs: Job[];
   allJobs: Job[];
   shifts: Shift[];
   editingShift: Shift | null;
   addingJob: boolean;
+  loggingShift: boolean;
+  managingData: boolean;
   refresh: () => Promise<void>;
   setAddingJob: (value: boolean | ((current: boolean) => boolean)) => void;
   setEditingShift: (shift: Shift | null) => void;
+  setLoggingShift: (value: boolean) => void;
+  setManagingData: (value: boolean | ((current: boolean) => boolean)) => void;
 }) {
   const editingJob = editingShift
     ? allJobs.find((job) => job.id === editingShift.job_id)
@@ -126,6 +143,10 @@ function LogHeader({
   const formJobs = editingJob && !jobs.some((job) => job.id === editingJob.id)
     ? [...jobs, editingJob]
     : jobs;
+
+  // Editing opens the form whether or not the Log a shift button was used, so
+  // tapping a row still lands straight in the fields for that shift.
+  const formOpen = loggingShift || editingShift !== null;
 
   function handleRemoveJob(job: Job) {
     const shiftCount = shifts.filter((shift) => shift.job_id === job.id).length;
@@ -167,69 +188,99 @@ function LogHeader({
             void refresh();
           }}
         />
-      ) : (
+      ) : formOpen ? (
         <LogShiftForm
           key={`${editingShift?.id ?? 'new'}:${formJobs.map((job) => job.id).join(':')}`}
           jobs={formJobs}
           editingShift={editingShift}
           onShiftSaved={() => {
             setEditingShift(null);
+            setLoggingShift(false);
             void refresh();
           }}
-          onCancelEdit={() => setEditingShift(null)}
+          onCancelEdit={() => {
+            setEditingShift(null);
+            setLoggingShift(false);
+          }}
         />
+      ) : (
+        // Tapping a shift row sets editingShift, which opens the form above on
+        // its own. This button only covers the new-entry case.
+        <Pressable
+          accessibilityRole="button"
+          style={styles.logShiftButton}
+          onPress={() => setLoggingShift(true)}
+        >
+          <Text style={styles.logShiftButtonText}>Log a shift</Text>
+        </Pressable>
       )}
       <ShiftTotals shifts={shifts} />
 
       {jobs.length > 0 ? (
         <>
-          <Text style={styles.manageDataTitle}>Manage data</Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityState={{ expanded: addingJob }}
-            style={styles.manageJobsButton}
-            onPress={() => setAddingJob((current) => !current)}
+            accessibilityState={{ expanded: managingData }}
+            style={styles.manageDataButton}
+            onPress={() => setManagingData((current) => !current)}
           >
-            <Text style={styles.manageJobsButtonText}>
-              {addingJob ? 'Close job manager' : 'Add or remove jobs'}
+            <Text style={styles.manageDataButtonText}>
+              {managingData ? 'Hide data tools' : 'Manage data'}
             </Text>
           </Pressable>
-          {addingJob ? (
-            <View style={styles.jobManager}>
-              <CreateJobForm
-                onJobCreated={() => {
-                  setAddingJob(false);
-                  void refresh();
-                }}
-              />
-              <Text style={styles.jobManagerTitle}>Current jobs</Text>
-              {jobs.map((job) => (
-                <View key={job.id} style={styles.jobRow}>
-                  <View style={styles.jobText}>
-                    <Text style={styles.jobName}>{job.name}</Text>
-                    <Text style={styles.jobRate}>
-                      {formatCents(job.hourly_rate_cents)}/hr
-                    </Text>
-                  </View>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Remove ${job.name}`}
-                    hitSlop={8}
-                    style={styles.removeJobButton}
-                    onPress={() => handleRemoveJob(job)}
-                  >
-                    <Text style={styles.removeJobText}>Remove</Text>
-                  </Pressable>
+          {/* Jobs and CSV import are both occasional. Behind one toggle they
+              cost a single row instead of standing between the totals and the
+              history every time the tab opens. */}
+          {managingData ? (
+            <>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ expanded: addingJob }}
+                style={styles.manageJobsButton}
+                onPress={() => setAddingJob((current) => !current)}
+              >
+                <Text style={styles.manageJobsButtonText}>
+                  {addingJob ? 'Close job manager' : 'Add or remove jobs'}
+                </Text>
+              </Pressable>
+              {addingJob ? (
+                <View style={styles.jobManager}>
+                  <CreateJobForm
+                    onJobCreated={() => {
+                      setAddingJob(false);
+                      void refresh();
+                    }}
+                  />
+                  <Text style={styles.jobManagerTitle}>Current jobs</Text>
+                  {jobs.map((job) => (
+                    <View key={job.id} style={styles.jobRow}>
+                      <View style={styles.jobText}>
+                        <Text style={styles.jobName}>{job.name}</Text>
+                        <Text style={styles.jobRate}>
+                          {formatCents(job.hourly_rate_cents)}/hr
+                        </Text>
+                      </View>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Remove ${job.name}`}
+                        hitSlop={8}
+                        style={styles.removeJobButton}
+                        onPress={() => handleRemoveJob(job)}
+                      >
+                        <Text style={styles.removeJobText}>Remove</Text>
+                      </Pressable>
+                    </View>
+                  ))}
                 </View>
-              ))}
-            </View>
+              ) : null}
+              <ImportCsvForm
+                key={jobs.map((job) => job.id).join(':')}
+                jobs={jobs}
+                existingShifts={shifts}
+                onImported={refresh}
+              />
+            </>
           ) : null}
-          <ImportCsvForm
-            key={jobs.map((job) => job.id).join(':')}
-            jobs={jobs}
-            existingShifts={shifts}
-            onImported={refresh}
-          />
         </>
       ) : null}
       <Text style={styles.historyTitle}>Logged shifts</Text>
@@ -266,12 +317,31 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
   },
-  manageDataTitle: {
-    color: '#111827',
-    fontSize: 18,
+  // The one filled button on the screen. Logging a shift is the reason the tab
+  // exists, so it should be the thing the eye lands on when the form is closed.
+  logShiftButton: {
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+    backgroundColor: '#2563eb',
+    margin: 16,
+    marginBottom: 0,
+  },
+  logShiftButtonText: {
+    color: '#fff',
+    fontSize: 16,
     fontWeight: '700',
+  },
+  manageDataButton: {
+    minHeight: 44,
+    justifyContent: 'center',
     paddingHorizontal: 16,
     paddingTop: 20,
+  },
+  manageDataButtonText: {
+    color: '#2563eb',
+    fontWeight: '600',
   },
   historyTitle: {
     color: '#111827',
