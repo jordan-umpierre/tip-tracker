@@ -499,16 +499,22 @@ UI/UX bar from the product definition is achievable here.
 ### D10 — Define Trends as scoped, weighted calendar summaries (2026-07-31; revised 2026-08-03)
 
 > **Decision:** Trends defaults to all jobs and offers one job filter that
-> applies to the entire screen. Headline and weekday rates use all recorded
-> non-deleted shifts in that scope. Do not add a rolling window or persist the
-> selected filter in Layer 1.
+> applies to the entire screen. The summary card is scoped to the chart's
+> selected range; the weekday, month, and year breakdown uses all recorded
+> non-deleted shifts in the job scope. Do not persist the selected filter or
+> range in Layer 1.
 >
 > **Formulas and outputs:**
-> - The default headline is **All time**: gross per hour,
+> - Both summaries cover exactly the shifts the chart drew: every shift whose
+>   `shift_date` falls between the series' start date and its anchor date,
+>   inclusive, then narrowed to the job scope. The chart and the card therefore
+>   cannot describe different sets, which is asserted per range by summing the
+>   series points and comparing.
+> - The default summary is **Per hour**: gross per hour,
 >   `round(total gross cents * 3600 / total duration seconds)`, total gross,
 >   and total duration. It does not repeat the full-history shift count in the
 >   headline.
-> - A Weekly average choice shows average gross and hours per **worked week**.
+> - A **Per week** choice shows average gross and hours per **worked week**.
 >   A worked week is a Sunday-Saturday calendar week containing at least one
 >   logged shift in the selected job scope. Divide total gross cents and total
 >   duration seconds by the number of unique worked weeks, rounding back to
@@ -545,9 +551,11 @@ UI/UX bar from the product definition is achievable here.
 >
 > Exact calculation results remain integer cents and integer seconds under D8.
 > Formatting hours and money into strings remains a component concern.
-> Year is the default breakdown because it condenses multi-year imports. Year,
-> Month, and Weekday are mutually exclusive views; the screen does not stack
-> every historical row into one long page.
+> Weekday is the default breakdown because it is the only view that compares
+> like periods against each other rather than listing history in order, which
+> the chart above already does better. Weekday, Month, and Year are mutually
+> exclusive views, ordered default-first and widening to the right; the screen
+> does not stack every historical row into one long page.
 >
 > **Alternatives:**
 > - Default to one job
@@ -557,13 +565,25 @@ UI/UX bar from the product definition is achievable here.
 > - Add a current-month, rolling-window, or custom-date default
 > - Average over every elapsed calendar week, including weeks with no shifts
 > - Render weekday, month, and year sections simultaneously
+> - Keep the summary on all history regardless of the selected chart range
+>   (what shipped through 2026-08-03)
+> - Scope the breakdown to the chart range as well, for one scope per screen
 >
 > **Why:** All jobs is the only non-arbitrary default and answers the first
 > question most users have: what the work they logged earned overall. The
 > visible job filter supplies the analytically cleaner comparison when jobs
-> have different wages or tipping patterns. One scope controls the whole
-> screen so headline, weekday, month, and year figures cannot silently describe
-> different subsets.
+> have different wages or tipping patterns. The job scope still controls the
+> whole screen, so no figure on it can silently describe a different job than
+> the one selected.
+>
+> The date scope is deliberately not uniform, which this decision originally
+> forbade. Changing the chart range while the number under it stayed fixed made
+> the range buttons look broken, so the summary follows the range. Applying the
+> same range to the breakdown was rejected on what it produces: under 1W, the
+> Month and Year views collapse to a single row and the weekday bars drop to
+> whichever days that week happened to include, which is a worse chart than
+> the all-history one it replaced. The card names its own window on every
+> render, so the two scopes are stated rather than inferred.
 >
 > Gross per hour is both the headline and weekday metric because the product
 > question is what the user's time actually earned after hourly wages and tips
@@ -589,6 +609,11 @@ UI/UX bar from the product definition is achievable here.
 > as the weekday itself, and an all-history rate may become less representative
 > as working conditions change. The explicit scope label, job filter, and
 > sample context make those limits visible but do not remove them.
+>
+> The summary and the breakdown now answer over different date ranges on one
+> screen. The window label in the card is the only thing distinguishing them,
+> and a user who does not read it can compare a 1W rate against an all-history
+> weekday chart and think they are the same measurement.
 >
 > **Revisit when:** real use shows old shifts obscuring current patterns, users
 > ask for a separate tip-efficiency view, or a remembered job/date filter
