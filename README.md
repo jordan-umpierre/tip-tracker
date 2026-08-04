@@ -29,15 +29,21 @@ cross-platform gate.
 schema stores duration as integer seconds, preserving both existing whole
 minutes and imported hundredths of an hour exactly. The supplied 845-row file
 passed preview, confirmation, one-transaction import, totals refresh, and
-duplicate-warning checks in the Android emulator. The new iOS picker flow is
-bundle-verified but still needs a physical-iPhone runtime pass.
+duplicate-warning checks in the Android emulator, and the iOS picker flow
+passed its physical-iPhone pass on 2026-08-04.
 
 **The August product revision is implemented.** Trends is the home tab and now
 opens with an interactive gross-income graph, exact touch-selected values, and
-1W/1M/3M/1Y/All ranges. Log keeps job and CSV management below the form and
-totals but above history; row deletion stays concealed until a left swipe, with
-long-press and screen-reader alternatives. Those flows, the opaque tab bar,
-and remove-job confirmation passed in Android; preservation is schema-tested.
+1W/1M/3M/1Y/All ranges. Log opens to a fully collapsed year/month/week history
+with the Log a shift button and data tools beneath it, within reach of a thumb;
+a left swipe on a row reveals Edit and Delete, with tap, long-press and
+screen-reader alternatives. Those flows, the opaque tab bar, and remove-job
+confirmation passed in Android; preservation is schema-tested.
+
+**Everything above is verified on a physical iPhone as of 2026-08-04**, which
+also produced the CSV export, a calendar date picker for the shift date field,
+and haptic feedback. Android's last cold run predates that work — see the
+roadmap's NEXT section, which puts an Android pass before the next feature.
 
 Done:
 
@@ -67,6 +73,13 @@ Done:
 - Exact nine-column CSV import on the Log screen: choose one job, validate and
   preview every row, review overlaps, then append the whole file atomically
   ([D13](docs/decisions.md))
+- CSV export of every logged shift to a folder the user picks, in the app's own
+  lossless format rather than the import contract ([D16](docs/decisions.md))
+- A calendar picker for the shift date ([`CalendarPicker.tsx`](src/components/CalendarPicker.tsx),
+  [`monthGrid.ts`](src/lib/monthGrid.ts)), built rather than depended on
+  ([D17](docs/decisions.md)): days that already have a shift are dotted,
+  months page by animated swipe or arrows, and the header opens a month and
+  year chooser. Typing a date still works and is still the primary path
 
 Next:
 
