@@ -254,3 +254,35 @@ Horizontal drag inspects the nearest point. The same gesture does not also page
 between periods because the two outcomes conflict; the visible range buttons
 change scale. Add period navigation only when users need an older week or month
 at its original resolution, not merely because the reference app has arrows.
+
+### 2026-08-03 — "If someone imported a CSV like mine but with real Start Time and End Time values, would the app process that data accurately?"
+
+No, and deliberately so: it refuses the file rather than importing it wrong.
+
+`parseShiftRecord` accepts `Start Time` and `End Time` only when they are empty
+or the literal text `no data`. Anything else produces an error per column, and
+any error at all means `ImportCsvForm` shows the invalid-file state with no
+import button — so nothing is saved. Verified by running the parser directly:
+
+- Both rows carrying real times → 0 rows accepted, 4 errors ("Start Time
+  contains a real time, which this importer cannot preserve yet").
+- Blank or `no data` in both columns → 2 rows accepted, 0 errors.
+- One good row, one row with times → 1 row accepted but 2 errors, and because
+  errors block the whole file, that single good row does not import either.
+
+The reason is the data model, not the parser. `shifts` stores `shift_date` and
+`duration_seconds` and has no column for when a shift started or ended, so
+importing those rows would mean silently discarding the times while claiming the
+import succeeded. Refusing states the limitation instead of hiding it.
+
+What it costs: a user whose spreadsheet does track times cannot import at all,
+even though the wage, hours, and tips in their file are perfectly usable. The
+current workaround is clearing those two columns before importing, which is real
+friction and a reasonable thing to fix later by accepting the columns and
+recording the loss in the preview instead of rejecting.
+
+This is also a prerequisite for something already planned. D14 notes overtime
+cannot claim accuracy without knowing an employer's fixed workweek boundary, and
+a midnight-to-midnight assumption is exactly what stored shift times would
+replace. Whenever times get stored, this importer rule is the first thing that
+should change.
