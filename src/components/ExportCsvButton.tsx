@@ -11,6 +11,32 @@ type Props = {
   jobs: Job[];
 };
 
+// Backing out of the system picker throws, same as a real failure does, but it
+// arrives with a code that says which one it was. The two platforms name their
+// exception differently, so both codes are listed:
+//   iOS     FilePickingCancelledException -> ERR_FILE_PICKING_CANCELLED
+//   Android PickerCancelledException      -> ERR_PICKER_CANCELLED
+// Verified against expo-file-system 57 on device, 2026-08-04. An Expo upgrade
+// could rename these, and the failure mode is silent -- a renamed code would
+// make cancels start logging as errors again, which is the noise this removes,
+// not a broken export. See D16.
+const PICKER_CANCELLED_CODES = new Set([
+  'ERR_FILE_PICKING_CANCELLED',
+  'ERR_PICKER_CANCELLED',
+]);
+
+// `cause` is `unknown` in a catch block, so this checks the shape before
+// reading `.code` rather than trusting that what was thrown is an Error.
+function isPickerCancelled(cause: unknown): boolean {
+  return (
+    typeof cause === 'object' &&
+    cause !== null &&
+    'code' in cause &&
+    typeof cause.code === 'string' &&
+    PICKER_CANCELLED_CODES.has(cause.code)
+  );
+}
+
 export default function ExportCsvButton({ shifts, jobs }: Props) {
   const [exporting, setExporting] = useState(false);
 
@@ -41,10 +67,18 @@ export default function ExportCsvButton({ shifts, jobs }: Props) {
         `${shifts.length} ${shifts.length === 1 ? 'shift' : 'shifts'} written to ${fileName}.`
       );
     } catch (cause) {
-      // A canceled picker and a real write failure arrive the same way here,
-      // so the message has to be true of both. It says what is certain --
-      // nothing was written -- instead of claiming an error that may not have
-      // happened. The cause is logged for the case where it is one.
+      // Tapping Cancel is a normal choice, not a failure. Returning quietly
+      // keeps it out of the error log -- once crash reporting exists, every
+      // cancel would otherwise arrive as a reported error -- and spares the
+      // user a modal confirming something they just did on purpose.
+      if (isPickerCancelled(cause)) {
+        return;
+      }
+
+      // Anything else genuinely failed. The message still only claims what is
+      // certain, that no file was written, because the throw could have come
+      // from the pick, the create, or the write, and the caller cannot tell
+      // how far it got.
       console.error('Could not export shifts.', cause);
       Alert.alert('Nothing exported', 'No file was written. Nothing on this device changed.');
     } finally {
