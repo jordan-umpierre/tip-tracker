@@ -480,3 +480,9 @@ Trends scope is complete.
     into one rounded panel sharing that gutter, and a flexible footer takes the
     leftover height so the panel reaches the bottom, collapsing to nothing once
     the rows overflow. Not yet seen on a device.
+54. Reverted `33352ad` in `6d323b3` and replaced it with `187d3e6`. The inset
+    panel and full-height filler solved a problem that had not been raised: the
+    request was for the compacted Log screen to sit lower on the page, not for
+    the rows to be inset or the grey to run to the bottom. The replacement is a
+    larger top margin on the closed-state Log a shift button, which moves the
+    whole compacted screen down and leaves the open-form state untouched.
