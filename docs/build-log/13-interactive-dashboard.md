@@ -112,3 +112,19 @@ a header disagreeing with Trends would be visible to the user.
 
 TypeScript, the tracked hook, and all six direct-run test files pass. Neither
 commit has run on a physical device.
+
+## `5f95282` — fix: give every weekday bar the same baseline (2026-08-03)
+
+Removing hours from the weekday labels exposed a layout bug that the truncation
+had been hiding. The label under each column wraps at a different number of
+lines depending on its text: "27 shifts" takes two, "6 shifts" takes one. The
+bar track above it is `flex: 1` inside a fixed-height chart, so a column with a
+shorter label handed the spare line back to its own bar. Saturday rendered
+taller than its rate justified and sat on a lower baseline than the six columns
+beside it, which is disqualifying for a chart whose whole job is comparing
+those rates.
+
+The label now has a fixed height of two lines regardless of what it contains,
+so every track resolves to the same height. Worth noting for any future column
+added below a flexible bar: anything of variable height under a `flex: 1`
+sibling silently changes that sibling's size.
