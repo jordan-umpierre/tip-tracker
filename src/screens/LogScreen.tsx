@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CreateJobForm from '../components/CreateJobForm';
+import ExportCsvButton from '../components/ExportCsvButton';
 import ImportCsvForm from '../components/ImportCsvForm';
 import LogShiftForm from '../components/LogShiftForm';
 import ShiftList from '../components/ShiftList';
@@ -277,6 +278,10 @@ function LogHeader({
                 existingShifts={shifts}
                 onImported={refresh}
               />
+              {/* Export takes every shift regardless of job, so it gets the
+                  full job list rather than the active one -- a shift belonging
+                  to a removed job still needs its name in the file. */}
+              <ExportCsvButton shifts={shifts} jobs={allJobs} />
             </>
           ) : null}
         </>
