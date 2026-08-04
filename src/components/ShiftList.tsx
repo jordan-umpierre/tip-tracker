@@ -33,6 +33,11 @@ const MONTH_NAMES = [
 
 const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+// How far below centered the short-history layout sits, in points. See the
+// `content` style for why the padding is twice this and what it costs on a
+// long history.
+const CONTENT_NUDGE_DOWN = 56;
+
 type Props = {
   shifts: Shift[];
   jobs: Job[];
@@ -49,12 +54,47 @@ type Props = {
   // the entire reason to use a FlatList. Handing the header to the list is the
   // standard way out of that.
   header?: ReactElement;
+
+  // Rendered below the rows, in the same scroller. This is where the Log a
+  // shift button and the data tools live, so that on a cold open -- every group
+  // collapsed, which is the default -- they sit near the bottom of the screen
+  // within reach of a thumb rather than up by the status bar.
+  //
+  // The cost of a footer rather than a bar pinned to the screen: it is below
+  // the rows, not above the tab bar, so expanding a year until the content
+  // outgrows the screen puts it a scroll away. Pinning it would always be in
+  // reach, but it would cover rows and could not hold the expanding form.
+  footer?: ReactElement;
 };
 
-export default function ShiftList({ shifts, jobs, onShiftDeleted, onShiftPress, header }: Props) {
+export default function ShiftList({
+  shifts,
+  jobs,
+  onShiftDeleted,
+  onShiftPress,
+  header,
+  footer,
+}: Props) {
   // Shifts only store job_id, not the job's name. Build the lookup once per
   // render instead of scanning the jobs array for every row.
   const jobNameById = new Map(jobs.map((job) => [job.id, job.name]));
+
+  // The short-history layout is centered and then nudged down, so the controls
+  // below the rows sit near the thumb. The nudge is padding, and padding does
+  // not stop applying when the content outgrows the screen the way
+  // justifyContent does -- expanding a year left a band of blank space above
+  // the first row, and pushed an open form down off the bottom.
+  //
+  // So it is applied only while the content actually fits. Both numbers come
+  // from the list: onLayout for the viewport, onContentSizeChange for the
+  // content.
+  const [viewportHeight, setViewportHeight] = useState(0);
+  const [naturalContentHeight, setNaturalContentHeight] = useState(0);
+
+  const nudgeContentDown =
+    viewportHeight > 0 &&
+    naturalContentHeight > 0 &&
+    naturalContentHeight + CONTENT_NUDGE_DOWN * 2 <= viewportHeight;
 
   // Only groups the user has actually tapped land in here; everything else is
   // shut. See flattenShifts for why nothing seeds this.
@@ -126,8 +166,18 @@ export default function ShiftList({ shifts, jobs, onShiftDeleted, onShiftPress, 
       // rows are taller than that, there is no spare height for justifyContent
       // to distribute and this stops having any effect. So an expanded history
       // still starts at the top and scrolls normally.
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, nudgeContentDown && styles.contentNudged]}
+      onLayout={(event) => setViewportHeight(event.nativeEvent.layout.height)}
+      // The measured content already includes whatever nudge is currently
+      // applied, so it is subtracted back out before being stored. Without
+      // that, applying the nudge would make the content "not fit", which would
+      // remove the nudge, which would make it fit again -- a layout that
+      // flickers between two states forever.
+      onContentSizeChange={(_, height) =>
+        setNaturalContentHeight(height - (nudgeContentDown ? CONTENT_NUDGE_DOWN * 2 : 0))
+      }
       ListHeaderComponent={header}
+      ListFooterComponent={footer}
       ListEmptyComponent={
         <View style={styles.empty}>
           <Text style={styles.emptyText}>No shifts logged yet.</Text>
@@ -320,8 +370,25 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
+    // Centers the whole screen while it is short enough to fit. Once the rows
+    // are taller than the viewport there is no spare height to distribute and
+    // this stops having any effect on its own, so a long history starts at the
+    // top and scrolls normally.
     flexGrow: 1,
     justifyContent: 'center',
+    // The controls are the last thing in the scroller now, so without this the
+    // bottom one sits flush against the tab bar when scrolled to the end.
+    // Nothing needed it while the rows were last.
+    paddingBottom: 24,
+  },
+  // Applied only while the content fits -- see nudgeContentDown above.
+  //
+  // Padding on a centered container moves content down by half of what is
+  // added: the top inset pushes it down, and the centering hands half of that
+  // back by shrinking the space below. So the visible shift is
+  // CONTENT_NUDGE_DOWN and the padding is twice it.
+  contentNudged: {
+    paddingTop: CONTENT_NUDGE_DOWN * 2,
   },
   empty: {
     padding: 16,

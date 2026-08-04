@@ -85,8 +85,9 @@ export default function LogScreen() {
         jobs={allJobs}
         onShiftDeleted={refresh}
         onShiftPress={setEditingShift}
-        header={
-          <LogHeader
+        header={<Text style={styles.historyTitle}>Logged shifts</Text>}
+        footer={
+          <LogControls
             jobs={jobs}
             allJobs={allJobs}
             shifts={shifts}
@@ -107,10 +108,15 @@ export default function LogScreen() {
   );
 }
 
-// These branches are the visible add/edit/import states of one screen header;
-// splitting the two ternaries into helper functions only hides the UI flow.
-// fallow-ignore-next-line complexity -- Native device checks cover these visible header states.
-function LogHeader({
+// These branches are the visible add/edit/import states of the screen's
+// controls; splitting the two ternaries into helper functions only hides the
+// UI flow.
+//
+// They render below the rows rather than above them so that on a cold open --
+// every group collapsed, per D15 -- Log a shift sits low on the screen where a
+// thumb reaches it, instead of at the top by the status bar.
+// fallow-ignore-next-line complexity -- Native device checks cover these visible control states.
+function LogControls({
   jobs,
   allJobs,
   shifts,
@@ -286,7 +292,6 @@ function LogHeader({
           ) : null}
         </>
       ) : null}
-      <Text style={styles.historyTitle}>Logged shifts</Text>
     </>
   );
 }
