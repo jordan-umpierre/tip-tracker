@@ -242,3 +242,61 @@ interview." That's what pushed three things that could have been skipped —
 `totals.ts` as a pure module rather than more functions in `shifts.ts`, a real
 test for the money math, and pulling `format.ts` out at the third copy rather
 than the fifth. See D5 for the rounding decision itself.
+
+### 2026-08-04 — "Isn't it just easier to use react-native-calendars? Is that what a real dev would do?"
+
+Asked while deciding how to build the calendar date picker, and the honest
+answer is yes: on a normal project most senior developers would install it
+without much thought. "Don't rebuild a solved problem" is the right default,
+and calendars have genuinely unpleasant edges — locale, week start, right to
+left, month arithmetic, swipe.
+
+What changed the answer here was not taste, it was three checkable facts:
+
+- It declares **no peer dependencies at all**, so npm cannot warn about
+  incompatibility and the package makes no claim about which React or React
+  Native it supports.
+- Its dependency list includes `xdate` (a date library effectively unmaintained
+  since around 2014), `prop-types`, `recyclerlistview`, and
+  `react-native-swipe-gestures`, which predates
+  `react-native-gesture-handler`. Seven transitive dependencies for a month
+  grid.
+- Last published five months before this was asked, against a stack running
+  React 19.2 and React Native 0.86 — well into New Architecture territory,
+  which is exactly where the old gesture and list libraries break.
+
+The useful move at that point is not to argue from a dependency list. It is to
+**spike it**: install it, wire it to real data, run it on the device, and find
+out. Ten minutes buys a fact instead of two opinions.
+
+Worth separating the two questions that were getting mixed together. "Is this
+library good?" is not the question. "Is this library good *on my stack, for my
+requirements*?" is, and only the second one has an answer worth acting on.
+
+### 2026-08-04 — "The spike mostly worked. What would someone with real world experience do now?"
+
+The spike rendered, dotted the days that already had shifts, and selected
+correctly. Only the month swipe failed — `react-native-swipe-gestures` does not
+survive the New Architecture. Arrows still worked, so the calendar was usable.
+
+In a normal commercial job most teams would ship that and move on. A missing
+swipe is a small gap, nobody gets credit for hand-rolling a calendar, and
+there are deadlines. That is the honest industry default.
+
+What flipped it was one specific signal, and it is worth keeping as a general
+rule: **a dependency whose own dependency is provably non-functional on your
+platform version is evidence the package is not tested against your stack.**
+That is not an aesthetic complaint. It predicts the *next* React Native
+upgrade, not just this one, and stale dependencies are a tax paid at every
+upgrade by whoever maintains the app — here, one person.
+
+The second half is that building was unusually cheap in this specific case. The
+hard parts of a calendar were all absent: English only, Sunday already pinned by
+D10, one date, no ranges, no localization. What was left was a grid, and a grid
+is one pure function that Node can assert — which the library's version of that
+logic never could be, under the direct-run test pattern this repo uses.
+
+So the rule is not "prefer building." It is: price the library against *your*
+requirements, and notice when you are about to pay for ninety percent of
+something you will not use. The reasoning is kept in D17, including the
+condition that would reverse it.

@@ -17,10 +17,10 @@ mapping from old name to new is in
 
 | File | Covers |
 |---|---|
-| [architecture.md](architecture.md) | SQLite vs Postgres, Expo vs bare React Native, why there's no backend in MVP, why UI shouldn't wait on one, when UI code deserves its own component files |
-| [product-and-data-model.md](product-and-data-model.md) | MVP vs later, why historical shifts keep their own rate, the shifts tombstone, where the YAGNI line actually sits |
+| [architecture.md](architecture.md) | SQLite vs Postgres, Expo vs bare React Native, why there's no backend in MVP, why UI shouldn't wait on one, when UI code deserves its own component files, when a dev-only defect is worth fixing, what makes a heuristic defensible |
+| [product-and-data-model.md](product-and-data-model.md) | MVP vs later, why historical shifts keep their own rate, the shifts tombstone, where the YAGNI line actually sits, why an export is not yet a cheap artifact to overwrite |
 | [docs-and-process.md](docs-and-process.md) | keeping docs from going stale, cross-agent handoffs, the first code review of the repo, whether the codebase reads as real engineering, test-count philosophy |
-| [tooling.md](tooling.md) | SQL syntax from nothing, running and breaking the schema tests, GUI vs CLI for SQLite, wiring `schema.sql` into `expo-sqlite`, `expo-crypto`, Expo Go lagging behind Expo's SDKs, writing `reduce` by hand |
+| [tooling.md](tooling.md) | SQL syntax from nothing, running and breaking the schema tests, GUI vs CLI for SQLite, wiring `schema.sql` into `expo-sqlite`, `expo-crypto`, Expo Go lagging behind Expo's SDKs, writing `reduce` by hand, judging a dependency against your own stack, spiking one before arguing about it |
 
 ---
 

@@ -286,3 +286,34 @@ cannot claim accuracy without knowing an employer's fixed workweek boundary, and
 a midnight-to-midnight assumption is exactly what stored shift times would
 replace. Whenever times get stored, this importer rule is the first thing that
 should change.
+
+### 2026-08-04 — "Forget what D16 says. What would a real engineer do about the export filename collision?"
+
+Asked after the second export of a day failed: `createFile` refuses an existing
+path rather than replacing it, and the name only carried the date.
+
+Two real options. Overwrite the day's file, or put the time in the name so
+exports accumulate.
+
+The instinct that makes overwrite look obvious is that an exported CSV is a
+*derived artifact*. The app is the source of truth (D1), so the file can be
+regenerated at any time, which normally makes replacing one free. That
+reasoning is sound and it is also the trap: it quietly assumes the app is still
+there.
+
+There is no restore path yet. An exported file cannot be re-imported, because
+the importer only accepts D13's contract. So until restore exists these files
+are the only copy of the data that survives losing the phone, and a name
+collision should cost some clutter rather than a backup. Once restore is built
+that inverts and overwrite becomes the better answer — which is why it is
+written into D16's revisit condition rather than just rejected.
+
+The second reason had nothing to do with product. Timestamping changes one pure
+function that already had a test; overwriting changes the write path, which is
+code Node cannot reach, on the one path where being wrong destroys a file
+instead of failing to create one. Given the same session had already shipped
+two fixes that failed because they were reasoned about rather than run, putting
+the change in the half that can be asserted was worth something on its own.
+
+The general shape: "this is cheap to lose" is a claim about the *system*, not
+the file. Check whether the thing that makes it cheap actually exists yet.
