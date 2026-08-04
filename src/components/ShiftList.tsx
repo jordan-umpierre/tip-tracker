@@ -2,16 +2,16 @@ import { ReactElement, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
+  FlatList,
   PanResponder,
   Pressable,
-  SectionList,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { parseCalendarDate } from '../lib/dates';
 import { formatCents, formatHours } from '../lib/format';
-import { groupShiftsByMonth } from '../lib/shiftGroups';
+import { flattenShifts, groupShifts, ShiftGroupRow } from '../lib/shiftGroups';
 import { calculateShiftGrossCents } from '../lib/totals';
 import { Job } from '../data/jobs';
 import { deleteShift, Shift } from '../data/shifts';
@@ -56,24 +56,20 @@ export default function ShiftList({ shifts, jobs, onShiftDeleted, onShiftPress, 
   // render instead of scanning the jobs array for every row.
   const jobNameById = new Map(jobs.map((job) => [job.id, job.name]));
 
-  // Only months the user has actually tapped land in here. Everything else
-  // falls back to "newest month open, the rest closed", which means the default
-  // follows the data instead of needing an effect to re-seed itself whenever
-  // the list reloads after a log, an edit, or an import.
-  const [toggledMonths, setToggledMonths] = useState<Record<string, boolean>>({});
-  const months = useMemo(() => groupShiftsByMonth(shifts), [shifts]);
+  // Only groups the user has actually tapped land in here; the rest default to
+  // open-if-newest. See flattenShifts for why the default is derived rather
+  // than stored.
+  const [toggled, setToggled] = useState<Record<string, boolean>>({});
+  const years = useMemo(() => groupShifts(shifts), [shifts]);
+  // The tree is flattened back into one list of rows, so a three-level history
+  // still renders through a single virtualized FlatList. Nesting scrollers or
+  // mapping the whole tree into Views would give up virtualization, which is
+  // the thing keeping 845 shifts cheap.
+  const rows = useMemo(() => flattenShifts(years, toggled), [years, toggled]);
 
-  function toggleMonth(period: string, expanded: boolean) {
-    setToggledMonths((current) => ({ ...current, [period]: !expanded }));
+  function toggleGroup(row: ShiftGroupRow) {
+    setToggled((current) => ({ ...current, [row.key]: !row.expanded }));
   }
-
-  // A collapsed section is one with no data rows. The header still renders, so
-  // collapsing costs nothing extra and SectionList keeps virtualizing the rows
-  // that remain -- which is the whole reason this is not a plain map().
-  const sections = months.map((month, index) => {
-    const expanded = toggledMonths[month.period] ?? index === 0;
-    return { ...month, expanded, data: expanded ? month.shifts : [] };
-  });
 
   // Alert.alert is React Native's built-in native confirmation dialog --
   // no extra dependency for something this common. Delete is destructive
@@ -94,11 +90,9 @@ export default function ShiftList({ shifts, jobs, onShiftDeleted, onShiftPress, 
     ]);
   }
 
-  // SectionList instead of mapping shifts.map(...) inside a View: it only
-  // renders the rows currently on screen rather than every row in the array,
-  // which matters once there are hundreds or thousands of shifts. Sections
-  // came later, when an imported history turned the flat list into a scroll
-  // with no landmarks in it.
+  // FlatList instead of mapping rows into Views: it only renders what is
+  // currently on screen rather than every row in the array, which matters once
+  // there are hundreds or thousands of shifts.
   //
   // The empty state is ListEmptyComponent rather than an early return. An
   // early return here used to be fine, but now that the form arrives as
@@ -106,14 +100,10 @@ export default function ShiftList({ shifts, jobs, onShiftDeleted, onShiftPress, 
   // off screen for anyone who hasn't logged a shift yet -- which is everyone,
   // the first time they open the app.
   return (
-    <SectionList
+    <FlatList
       style={styles.list}
-      sections={sections}
-      keyExtractor={(shift) => shift.id}
-      // Android defaults this off. The header is what tells you where you are
-      // mid-scroll, so it is worth having on both platforms rather than
-      // accepting whichever default each one ships.
-      stickySectionHeadersEnabled
+      data={rows}
+      keyExtractor={(row) => row.key}
       contentInsetAdjustmentBehavior="automatic"
       // Two ways out of the keyboard, because the number fields use
       // keyboardType="decimal-pad" and iOS gives that pad no return key --
@@ -135,69 +125,62 @@ export default function ShiftList({ shifts, jobs, onShiftDeleted, onShiftPress, 
           <Text style={styles.emptyText}>No shifts logged yet.</Text>
         </View>
       }
-      renderSectionHeader={({ section }) => (
-        <MonthHeader
-          expanded={section.expanded}
-          grossCents={section.grossCents}
-          period={section.period}
-          shiftCount={section.shiftCount}
-          onPress={() => toggleMonth(section.period, section.expanded)}
-        />
-      )}
-      renderItem={({ item }) => (
-        <SwipeableShiftRow
-          jobName={jobNameById.get(item.job_id) ?? 'Unknown job'}
-          shift={item}
-          onDelete={() => handleDeletePress(item)}
-          onPress={() => onShiftPress(item)}
-        />
-      )}
+      renderItem={({ item }) =>
+        item.kind === 'shift' ? (
+          <SwipeableShiftRow
+            jobName={jobNameById.get(item.shift.job_id) ?? 'Unknown job'}
+            shift={item.shift}
+            onDelete={() => handleDeletePress(item.shift)}
+            onPress={() => onShiftPress(item.shift)}
+          />
+        ) : (
+          <GroupRow row={item} onPress={() => toggleGroup(item)} />
+        )
+      }
     />
   );
 }
 
-function MonthHeader({
-  expanded,
-  grossCents,
-  period,
-  shiftCount,
-  onPress,
-}: {
-  expanded: boolean;
-  grossCents: number;
-  period: string;
-  shiftCount: number;
-  onPress: () => void;
-}) {
+function GroupRow({ row, onPress }: { row: ShiftGroupRow; onPress: () => void }) {
+  const group = GROUP_STYLES[row.kind];
+
   return (
     <Pressable
-      accessibilityHint={expanded ? 'Collapses this month.' : 'Expands this month.'}
+      accessibilityHint={row.expanded ? 'Collapses this group.' : 'Expands this group.'}
       accessibilityRole="button"
       // Screen readers announce expanded/collapsed from this, so the triangle
       // is not the only thing carrying that state.
-      accessibilityState={{ expanded }}
-      style={styles.monthHeader}
+      accessibilityState={{ expanded: row.expanded }}
+      style={[styles.groupRow, group.row]}
       onPress={onPress}
     >
-      <Text style={styles.monthChevron}>{expanded ? '▾' : '▸'}</Text>
-      <Text style={styles.monthName}>{formatMonth(period)}</Text>
-      <Text selectable style={styles.monthGross}>
-        {formatCents(grossCents)}
+      <Text style={styles.groupChevron}>{row.expanded ? '▾' : '▸'}</Text>
+      <Text numberOfLines={1} style={[styles.groupLabel, group.label]}>
+        {formatGroupLabel(row)}
       </Text>
-      <Text style={styles.monthCount}>
-        {shiftCount} {shiftCount === 1 ? 'shift' : 'shifts'}
+      <Text selectable style={[styles.groupGross, group.label]}>
+        {formatCents(row.grossCents)}
       </Text>
+      <Text style={styles.groupCount}>{row.shiftCount}</Text>
     </Pressable>
   );
 }
 
-function formatMonth(period: string): string {
-  const month = MONTH_NAMES[Number(period.slice(5, 7)) - 1];
-  return month ? `${month} ${period.slice(0, 4)}` : period;
+// Each level only names the part its parent has not already said: the year row
+// carries the year, so a month underneath it is just "August", and a week
+// under that is just its start date.
+function formatGroupLabel(row: ShiftGroupRow): string {
+  if (row.kind === 'year') return row.period;
+  if (row.kind === 'month') return MONTH_NAMES[Number(row.period.slice(5, 7)) - 1] ?? row.period;
+
+  const date = parseCalendarDate(row.period);
+  return date
+    ? `Week of ${MONTH_NAMES[date.month - 1].slice(0, 3)} ${date.day}`
+    : row.period;
 }
 
-// The month header above a row already says the month and the year, so the row
-// only needs the day. The weekday goes with it because which day of the week a
+// The group rows above already say the year and the month, so a shift only
+// needs the day. The weekday goes with it because which day of the week a
 // shift fell on is the thing a service worker actually recognises it by.
 function formatRowDate(shiftDate: string): string {
   const date = parseCalendarDate(shiftDate);
@@ -345,41 +328,45 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
-  monthHeader: {
+  groupRow: {
     minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
-    // Opaque, not transparent: these headers stick to the top of the list while
-    // the rows scroll under them.
-    backgroundColor: '#f3f4f6',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingRight: 12,
   },
-  monthChevron: {
+  groupChevron: {
     width: 12,
     color: '#6b7280',
     fontSize: 12,
   },
-  monthName: {
+  groupLabel: {
     flex: 1,
     color: '#111827',
-    fontWeight: '700',
   },
-  monthGross: {
+  groupGross: {
     color: '#111827',
-    fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
-  monthCount: {
-    width: 66,
+  // A bare count, since the column is always shift counts and the word costs a
+  // third of the row's width to say so seven times over.
+  groupCount: {
+    width: 34,
     color: '#6b7280',
     fontSize: 12,
     fontVariant: ['tabular-nums'],
     textAlign: 'right',
   },
+  // Depth reads as indentation plus weight: each level is lighter and further
+  // in than its parent, so the nesting is visible without drawing lines.
+  yearRow: { backgroundColor: '#e5e7eb', paddingLeft: 12 },
+  yearLabel: { fontSize: 16, fontWeight: '700' },
+  monthRow: { backgroundColor: '#f3f4f6', paddingLeft: 26 },
+  monthLabel: { fontSize: 15, fontWeight: '600' },
+  weekRow: { minHeight: 38, backgroundColor: '#f9fafb', paddingLeft: 40 },
+  weekLabel: { color: '#374151', fontSize: 13, fontWeight: '500' },
   rowText: {
     flex: 1,
   },
@@ -424,3 +411,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#dc2626',
   },
 });
+
+// Declared after `styles` because it reads from it: a const referencing another
+// const higher in the file would blow up at import time, not at render.
+const GROUP_STYLES = {
+  year: { row: styles.yearRow, label: styles.yearLabel },
+  month: { row: styles.monthRow, label: styles.monthLabel },
+  week: { row: styles.weekRow, label: styles.weekLabel },
+} as const;
