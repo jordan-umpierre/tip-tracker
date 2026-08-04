@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { MONTH_NAMES, parseCalendarDate, WEEKDAY_NAMES } from '../lib/dates';
 import { formatCents, formatHours } from '../lib/format';
-import { flattenShifts, groupShifts, ShiftGroupRow } from '../lib/shiftGroups';
+import { flattenShifts, groupShifts, ShiftGroupRow, ShiftListRow } from '../lib/shiftGroups';
 import { calculateShiftGrossCents } from '../lib/totals';
 import { Job } from '../data/jobs';
 import { deleteShift, Shift } from '../data/shifts';
@@ -75,6 +75,22 @@ export default function ShiftList({
   const [viewportHeight, setViewportHeight] = useState(0);
   const [naturalContentHeight, setNaturalContentHeight] = useState(0);
 
+  // Opening a shift for editing renders the form in the footer, below every
+  // row. Without scrolling there the user taps Edit and nothing appears to
+  // happen, because the thing that changed is off the bottom of the screen.
+  //
+  // The scroll cannot happen in the same breath as the tap: the form does not
+  // exist yet, so there is nothing to scroll to. Instead the intent is
+  // recorded and acted on the next time the content changes size, which is
+  // exactly the moment the form has laid out.
+  const listRef = useRef<FlatList<ShiftListRow>>(null);
+  const scrollToFormPending = useRef(false);
+
+  function openShift(shift: Shift) {
+    scrollToFormPending.current = true;
+    onShiftPress(shift);
+  }
+
   const nudgeContentDown =
     viewportHeight > 0 &&
     naturalContentHeight > 0 &&
@@ -124,6 +140,7 @@ export default function ShiftList({
   // the first time they open the app.
   return (
     <FlatList
+      ref={listRef}
       style={styles.list}
       data={rows}
       keyExtractor={(row) => row.key}
@@ -157,9 +174,18 @@ export default function ShiftList({
       // that, applying the nudge would make the content "not fit", which would
       // remove the nudge, which would make it fit again -- a layout that
       // flickers between two states forever.
-      onContentSizeChange={(_, height) =>
-        setNaturalContentHeight(height - (nudgeContentDown ? CONTENT_NUDGE_DOWN * 2 : 0))
-      }
+      onContentSizeChange={(_, height) => {
+        setNaturalContentHeight(height - (nudgeContentDown ? CONTENT_NUDGE_DOWN * 2 : 0));
+        if (scrollToFormPending.current) {
+          scrollToFormPending.current = false;
+          // One frame later, not now. Inside onContentSizeChange the new size
+          // has been measured but not yet committed to the underlying scroll
+          // view, so scrollToEnd computes against the old extent and does
+          // nothing. A plain ScrollView tolerates the synchronous call, which
+          // is why the pattern looks like it should work here.
+          requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
+        }
+      }}
       ListHeaderComponent={header}
       ListFooterComponent={footer}
       ListEmptyComponent={
@@ -173,7 +199,7 @@ export default function ShiftList({
             jobName={jobNameById.get(item.shift.job_id) ?? 'Unknown job'}
             shift={item.shift}
             onDelete={() => handleDeletePress(item.shift)}
-            onPress={() => onShiftPress(item.shift)}
+            onPress={() => openShift(item.shift)}
           />
         ) : (
           <GroupRow row={item} onPress={() => toggleGroup(item)} />
@@ -233,7 +259,18 @@ function formatRowDate(shiftDate: string): string {
   return `${WEEKDAY_NAMES[date.weekdayIndex]} ${date.day}`;
 }
 
-const DELETE_ACTION_WIDTH = 88;
+// One action's width. Two are revealed -- Edit and Delete -- so the row slides
+// by twice this. Tapping a row still opens it for editing; the swipe action is
+// a second route to the same thing, for people who have already started the
+// gesture and would rather not close it to tap.
+const ACTION_WIDTH = 72;
+const REVEAL_WIDTH = ACTION_WIDTH * 2;
+
+// How far the row has to be dragged before releasing opens it rather than
+// springing shut. A third rather than a half: with two actions the full travel
+// is 144pt, and needing to drag 72 of them before the row would even stay open
+// made the gesture feel like it had to be done exactly right.
+const OPEN_AT = REVEAL_WIDTH / 3;
 
 function SwipeableShiftRow({
   jobName,
@@ -262,11 +299,21 @@ function SwipeableShiftRow({
     () =>
       PanResponder.create({
         // Only claim a clearly horizontal gesture. Vertical drags stay with
-        // FlatList, so concealing Delete does not make the history harder to scroll.
+        // FlatList, so revealing the actions does not make the history harder
+        // to scroll.
+        //
+        // The horizontal component has to beat the vertical one, but only by
+        // a little: requiring dx to be strictly greater than dy meant a swipe
+        // with any drift in it was read as a scroll and the row did not move.
         onMoveShouldSetPanResponder: (_, gesture) =>
-          Math.abs(gesture.dx) > 6 &&
-          Math.abs(gesture.dx) > Math.abs(gesture.dy) &&
+          Math.abs(gesture.dx) > 4 &&
+          Math.abs(gesture.dx) > Math.abs(gesture.dy) * 0.6 &&
           (gesture.dx < 0 || dragStart.current < 0),
+        // Once this row owns the gesture it keeps it. Without this the
+        // FlatList could take the gesture back as soon as the finger drifted
+        // vertically -- which is what made a drag collapse halfway through if
+        // it wandered towards another row.
+        onPanResponderTerminationRequest: () => false,
         onPanResponderGrant: () => {
           translateX.stopAnimation((value) => {
             dragStart.current = value;
@@ -274,19 +321,20 @@ function SwipeableShiftRow({
         },
         onPanResponderMove: (_, gesture) => {
           translateX.setValue(Math.max(
-            -DELETE_ACTION_WIDTH,
+            -REVEAL_WIDTH,
             Math.min(0, dragStart.current + gesture.dx)
           ));
         },
         onPanResponderRelease: (_, gesture) => {
           const position = Math.max(
-            -DELETE_ACTION_WIDTH,
+            -REVEAL_WIDTH,
             Math.min(0, dragStart.current + gesture.dx)
           );
+          // A flick opens it regardless of distance; otherwise a third of the
+          // travel is enough. A flick back closes it from anywhere.
           const open =
-            gesture.vx < -0.3 ||
-            (Math.abs(gesture.vx) < 0.3 && position <= -DELETE_ACTION_WIDTH / 2);
-          animateTo(open ? -DELETE_ACTION_WIDTH : 0);
+            gesture.vx < -0.3 || (Math.abs(gesture.vx) < 0.3 && position <= -OPEN_AT);
+          animateTo(open ? -REVEAL_WIDTH : 0);
         },
         onPanResponderTerminate: () => {
           animateTo(0);
@@ -300,17 +348,32 @@ function SwipeableShiftRow({
     onDelete();
   }
 
+  // Closes the revealed actions before opening the form, so the row is not
+  // still slid open underneath when the user comes back from editing.
+  function handleEdit() {
+    animateTo(0);
+    onPress();
+  }
+
   return (
     <View style={styles.swipeable}>
-      <Pressable
+      {/* Behind the row, revealed as it slides. Hidden from assistive tech
+          because both actions are already reachable without the gesture: the
+          row itself opens the editor, and Delete is an accessibility action on
+          it. */}
+      <View
         accessible={false}
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
-        style={styles.deleteAction}
-        onPress={handleDelete}
+        style={styles.rowActions}
       >
-        <Text style={styles.deleteText}>Delete</Text>
-      </Pressable>
+        <Pressable style={[styles.rowAction, styles.editAction]} onPress={handleEdit}>
+          <Text style={styles.actionText}>Edit</Text>
+        </Pressable>
+        <Pressable style={[styles.rowAction, styles.deleteAction]} onPress={handleDelete}>
+          <Text style={styles.actionText}>Delete</Text>
+        </Pressable>
+      </View>
       <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
         <Pressable
           accessibilityRole="button"
@@ -459,18 +522,26 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginTop: 2,
   },
-  deleteText: {
+  actionText: {
     color: '#fff',
     fontWeight: '600',
   },
-  deleteAction: {
+  rowActions: {
     position: 'absolute',
     top: 0,
     right: 0,
     bottom: 0,
-    width: 88,
+    flexDirection: 'row',
+  },
+  rowAction: {
+    width: ACTION_WIDTH,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  editAction: {
+    backgroundColor: '#2563eb',
+  },
+  deleteAction: {
     backgroundColor: '#dc2626',
   },
 });
