@@ -20,7 +20,9 @@ Last updated: 2026-08-03
    withholding. Do not substitute one flat percentage; state/local, 1099, and
    tipped-credit edge cases remain explicit later scope.
 3. Run the CSV import plus the complete dashboard revision on a physical
-   iPhone. Android now passes the graph ranges and scrub interaction, chart
+   iPhone, including the YTD range, the new date-range window labels, and the
+   weekday bars at their widest shift counts. Android now passes the graph
+   ranges and scrub interaction, chart
    vertical scrolling, lower Log management controls, concealed swipe-delete,
    long-press/accessibility delete paths, and native confirmation. The iOS
    bundle passes, but that is not a VoiceOver or gesture claim.
@@ -393,3 +395,17 @@ Trends scope is complete.
     hook, TypeScript, Expo dependency check, Fallow changed-file audit, fresh
     iOS/Android exports, and Android cold-runtime interactions pass. Physical-
     iPhone CSV, gesture, and VoiceOver verification remains in `NEXT`.
+47. Refined the shipped dashboard from device feedback, in `b771c03` and
+    `6de533f`. Trends gained a YTD range covering January through the newest
+    shift's month, the only range anchored to a calendar boundary rather than
+    rolling backwards. Every range now names its window as a date range
+    ("Jul 28 – Aug 3, 2026") instead of describing the calculation that
+    produced it ("7 days ending Aug 3, 2026"); `TrendSeries` carries
+    `startDate` so the window's start stays knowledge of `trends.ts` rather
+    than something the chart re-derives. The weekday bars stopped silently
+    truncating: their two-line sample label lost the hours on every column
+    whose shift count wrapped, so only Saturday appeared to show hours. Hours
+    were removed rather than the label widened, since the bar already encodes
+    dollars per hour; screen readers still speak them. TypeScript, the tracked
+    hook, the schema and migration checks, and all five direct-run test files
+    pass. Neither change has run on a physical device.
