@@ -495,6 +495,12 @@ const styles = StyleSheet.create({
   weekdayName: { color: '#374151', fontSize: 11, fontWeight: '600' },
   weekdayContext: {
     width: '100%',
+    // Two lines' worth, always, whether the text needs them or not. The bar
+    // track above is flex: 1, so a column whose label happens to fit on one
+    // line would otherwise donate the spare line to its bar -- which made a
+    // short "6 shifts" render taller and lower than the wrapped ones beside
+    // it, comparing rates against a baseline that was not shared.
+    height: 24,
     color: '#6b7280',
     fontSize: 10,
     fontVariant: ['tabular-nums'],
