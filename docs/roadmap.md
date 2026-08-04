@@ -486,3 +486,10 @@ Trends scope is complete.
     the rows to be inset or the grey to run to the bottom. The replacement is a
     larger top margin on the closed-state Log a shift button, which moves the
     whole compacted screen down and leaves the open-form state untouched.
+55. Landed the Log screen layout request on the third attempt, in `169bf52`.
+    `flexGrow: 1` plus `justifyContent: 'center'` on the list's content
+    container centers the whole screen vertically while it is short enough to
+    fit, and stops applying on its own once the rows outgrow the viewport. The
+    fixed top margin from `187d3e6` is removed. The two earlier attempts, the
+    inset panel and the top margin, both addressed problems that had not been
+    raised.
