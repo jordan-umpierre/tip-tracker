@@ -273,3 +273,21 @@ TypeScript, the tracked hook, and all seven direct-run test files pass. None of
 this has run on a physical device, and the export in particular has never had a
 real file written by it — the picker and the write are exactly the parts
 assertions cannot reach.
+
+## `33352ad` — feat: inset the shift history into one panel that fills the screen (2026-08-03)
+
+Device screenshot with every year collapsed: the history ran edge to edge while
+the Log a shift button and Manage data both sat in a 16pt gutter, and the rows
+stopped partway down the screen against plain white.
+
+Rows are now wrapped individually in a card style sharing that gutter, with only
+the first row rounded at the top, so the stack reads as one inset panel. A
+`ListFooterComponent` with `flex: 1`, under a `contentContainerStyle` of
+`flexGrow: 1`, takes whatever height is left and closes the panel's bottom
+corners. It collapses to zero as soon as the rows overflow, so a long history
+behaves exactly as before.
+
+The footer uses the panel's base tone rather than copying whichever row happens
+to be last. Rows tint lighter the deeper they sit in the tree, so a neutral base
+reads as the surface they are stacked on; matching the last row instead would
+make the empty space look like one more row of unexplained height.
