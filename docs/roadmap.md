@@ -9,8 +9,8 @@ Last updated: 2026-08-04
 
 ## NEXT
 
-**Overtime is in progress. Schema version 3 and its data-layer wiring are
-committed. Next is adding optional start and end times to the Log form.**
+**Overtime is in progress. Schema version 3, its data-layer wiring, and native
+shift-time entry are committed. Next is the pure overtime calculation.**
 
 Two product decisions were made on 2026-08-04 and are already recorded, so they
 do not need re-deciding: overtime adjusts the gross shown on screen rather than
@@ -34,8 +34,11 @@ received `1-to-2.sql` and a version-3 marker.
 1. ~~Data layer — `shifts.ts` and `jobs.ts` expose the new columns, and shift
    writes accept optional times.~~ Done in `7e917f4`. The job settings writer
    stays with step 4, where it will have a caller instead of being dead code.
-2. **Do this now:** the Log form — optional start and end time inputs.
-3. Overtime calculation in `src/lib`, pure and asserted: 40 hours per the job's
+2. ~~The Log form — optional start and end time inputs.~~ Done in `bbc4046`
+   with the native platform picker, derived hours, and blank tips as zero.
+   Android's picker lifecycle still belongs to the deferred Android pass; its
+   library recommends the imperative dialog API there.
+3. **Do this now:** overtime calculation in `src/lib`, pure and asserted: 40 hours per the job's
    configured workweek, 1.5x the shift's own rate, shifts without times counted
    wholly against their logged date.
 4. Per-job overtime settings UI, opt-in, inside Manage data.
@@ -630,3 +633,10 @@ Trends scope is complete.
     updates include optional times. Current callers default both times to null;
     the unused job-settings writer was deliberately left for the Manage UI
     commit that will call it.
+64. Added native shift-time entry in `bbc4046`. On iPhone, tapping either time
+    opens the Apple spinner in 12-hour form while storage remains `HH:MM`.
+    Hours derive from the two times when blank, explicit hours still represent
+    paid time that differs from elapsed time, and blank tips store zero. The
+    flow passed on a physical iPhone. Android support comes from the same native
+    module but remains unverified; its documented imperative dialog path is
+    deferred with the rest of the Android pass.

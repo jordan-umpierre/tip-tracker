@@ -32,3 +32,22 @@ An overtime-settings update function was written and then removed before the
 commit because it had no caller until the later Manage UI step. Fallow caught
 the dead export. Adding it beside its first caller keeps this layer from owning
 an API based only on a future screen.
+
+## `bbc4046` — feat: add native shift time picker (2026-08-04)
+
+The first text-field version exposed SQLite's 24-hour storage format and made
+the user repeat hours and tips. Device testing rejected it: `9` to `5` became a
+20-hour shift, blank tips were treated as invalid, and editing a time left the
+old derived hours in charge.
+
+The replacement uses `@react-native-community/datetimepicker`, installed at
+Expo SDK 57's compatible version. iPhone gets the native AM/PM spinner. Both
+times with blank hours derive elapsed duration, including an overnight wrap;
+an hours value the user edits still wins for unpaid breaks. Blank tips store
+zero. Changing a time clears an untouched hours value, and optional times can
+be cleared together.
+
+TypeScript, 23 date/time assertions, the full hook, and Fallow's changed-file
+audit pass. The complete flow passed on a physical iPhone. The package also
+backs Android with its native time-picker dialog, but Android remains deferred
+and unverified; its maintainers recommend the imperative dialog API there.
