@@ -748,7 +748,7 @@ UI/UX bar from the product definition is achievable here.
 > undo for large imports, or sync introduces a durable import identity that can
 > prevent cross-device duplication without guessing.
 
-### D14 — Keep overtime and taxes profile-driven (2026-08-03)
+### D14 — Keep overtime and taxes profile-driven (2026-08-03; revised 2026-08-04)
 
 > **Decision:** Do not change recorded gross with a universal overtime toggle
 > or flat tax percentage. Overtime begins as an opt-in job setting with the
@@ -782,11 +782,27 @@ UI/UX bar from the product definition is achievable here.
 > requires configuration before showing net estimates. That friction is safer
 > than silently giving a service worker the wrong number.
 >
+> **Revised 2026-08-04 — where the overtime number appears.** Once a job is
+> configured, the gross shown on Log and Trends is the overtime-adjusted one,
+> carrying an explicit estimate label, rather than an adjusted figure sitting
+> beside an unadjusted one. Two numbers for the same week was the alternative
+> and it was rejected as the more confusing of the two: a user comparing them
+> has no way to know which is the one their employer will pay.
+>
+> The prohibition this decision opens with still holds and is narrower than it
+> first reads. It rules out a *universal* toggle, not display. What stays true
+> either way: `shifts` rows keep their own recorded values untouched, so
+> nothing stored is ever an estimate, and **the CSV export keeps exporting
+> recorded gross rather than adjusted**. An export is a backup of what
+> happened; if a misconfigured workweek leaked into it, the backup would be
+> wrong with nothing on the file to say so.
+>
 > **Revisit when:** the first profile is specified. The smallest defensible
 > release is a clearly labeled estimate for a configured 40-hour, 1.5x job and
-> 2026 federal W2 taxes. State/local, 1099, non-midnight workweek boundaries,
-> varying-rate regular-pay rules, and tip-credit edge cases stay explicitly
-> unsupported until their required inputs and tests exist.
+> 2026 federal W2 taxes. State/local, 1099, varying-rate regular-pay rules, and
+> tip-credit edge cases stay explicitly unsupported until their required inputs
+> and tests exist. Non-midnight workweek boundaries were in that list until
+> D18 stored the inputs they need.
 
 ### D15 — Collapse the shift history into a year/month/week tree (2026-08-03; revised 2026-08-03)
 
@@ -1020,3 +1036,55 @@ UI/UX bar from the product definition is achievable here.
 > calendar surface. Any of those changes the arithmetic above, and at that point
 > a maintained library is worth re-pricing — checking first, as here, whether its
 > gesture dependencies work on the React Native of the day.
+
+### D18 — Store shift times and the employer's workweek (2026-08-04)
+
+> **Decision:** Schema version 3. `shifts` gains optional `start_time` and
+> `end_time` as local `HH:MM`; `jobs` gains `overtime_enabled`,
+> `workweek_start_weekday` and `workweek_start_time`. Times do not define how
+> long a shift was — `duration_seconds` stays authoritative — they only place a
+> shift against a workweek boundary. A shift with no times counts wholly
+> against its logged date, which is the midnight-boundary behaviour, and the
+> estimate says so.
+>
+> **Alternatives:**
+> - Support only a weekday boundary at midnight, storing no times at all
+> - Support only Sunday at midnight, reusing `weekStartString` with no new setting
+> - Make times `NOT NULL` and backfill the existing rows
+> - Derive `duration_seconds` from the two times instead of storing both
+>
+> **Why:** federal rules define a workweek as a recurring 168-hour period that
+> may begin on any day *at any hour*, so a boundary of "Tuesday at 6am" is
+> normal and cannot be evaluated from a date alone. D14 had listed non-midnight
+> boundaries as unsupported precisely because the inputs did not exist; this
+> stores them. It also unblocks the CSV importer, which currently refuses any
+> file carrying real Start Time or End Time values because there was nowhere to
+> put them (D13).
+>
+> Optional rather than `NOT NULL` because 845 shifts already exist with no
+> times and no way to recover them. A `NOT NULL` column would have forced a
+> fabricated value into real history, which is the opposite of what the
+> "history stores its own values" convention protects.
+>
+> Keeping `duration_seconds` authoritative rather than deriving it is the other
+> half. Clock times are rounded to the minute and a shift's recorded length is
+> not; deriving would let a rounded time silently rewrite a stored duration,
+> and D6 already exists because that class of quiet rewrite happened once. It
+> also makes `end_time` earlier than `start_time` a legal, meaningful state —
+> an overnight shift — rather than a contradiction to resolve.
+>
+> **Known cost:** two facts about the same shift that nothing forces to agree.
+> A four-hour duration can sit beside times eight hours apart and the database
+> will accept it, because the alternative is worse. Validity is enforced by
+> triggers rather than `CHECK` constraints, because SQLite cannot `ALTER` a
+> `CHECK` onto an existing table — so `schema.sql` uses triggers too, to keep a
+> freshly created database and a migrated one identical. That equivalence is
+> checked by hand, not by a script.
+>
+> The 845 existing shifts can never be placed exactly against a non-midnight
+> boundary. Anyone who configures one is getting the midnight approximation for
+> all of their history and exact placement only for shifts logged afterwards.
+>
+> **Revisit when:** a user reports overtime that disagrees with their pay stub.
+> The first suspects are an overnight shift attributed to the wrong workweek,
+> or a boundary configured against history that predates times.

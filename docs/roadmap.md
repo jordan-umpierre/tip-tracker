@@ -9,38 +9,49 @@ Last updated: 2026-08-04
 
 ## NEXT
 
-**The device pass is finished. Next is D14's first overtime slice, below.**
+**Overtime is in progress. Schema version 3 is written and test-verified but
+deliberately uncommitted, waiting on one launch against a real device.**
 
-All three verification steps are done and the 2026-08-03 UI session is now
-confirmed on hardware. It cost more than a pass/fail check: eight defects
-across the three steps, plus a round of Log screen UI work that was not on this
-list. Every one of them was in code that typechecked and passed every test.
+Two product decisions were made on 2026-08-04 and are already recorded, so they
+do not need re-deciding: overtime adjusts the gross shown on screen rather than
+appearing as a second number beside it (D14, revised), and shift times plus the
+employer's workweek are stored rather than assuming a midnight boundary (D18).
 
-Two of those defects were the same bug in different components — a pan
-responder that never refuses termination, so a gesture died whenever a finger
-drifted. Check any new gesture surface for it; no assertion in this repo can.
+**Do this first.** The working tree has `src/data/migrations/2-to-3.sql`, an
+updated `schema.sql`, a rewritten migration runner in `db.ts`, and extended
+`test-schema.sh` and `test-migration.sh`. All checks pass — 36 schema checks, a
+1-to-3 chain test, and a fresh-versus-migrated parity check, each shown to fail
+when broken. What has not happened is running it against a real version-2
+database: the developer's phone holds 845 shifts and opening the app migrates
+them. Launch the app, confirm it opens and the year totals still read
+133 / 227 / 162 / 223 / 100, then commit. If it fails, the migration is inside
+one transaction and rolls back, so the database is intact and the app throws on
+launch instead.
 
-1. ~~**Verify the CSV export end to end.**~~ Done 2026-08-04. A canceled picker
-   logged as an error, and the date-only filename made the second export of any
-   day fail. See the revised D16.
-2. ~~**Verify the Log screen.**~~ Done 2026-08-04, and it turned into a round of
-   UI work rather than a check. The controls moved below the history so the
-   primary action sits within a thumb's reach, the date field gained a calendar
-   picker built rather than depended on (D17), and a swiped row now offers Edit
-   as well as Delete.
-3. ~~**Verify Trends.**~~ Done 2026-08-04. Ranges, labels, the summary card
-   following the range, the job filter, and the weekday bars deliberately not
-   following the range (D10) all behaved. Three fixes: the weekday captions did
-   not share a baseline, `MONTH_NAMES` had a third copy, and the chart lost a
-   scrub to a vertical drift.
+The runner rewrite is a bug fix, not just plumbing: it applied a single file
+and then stamped the newest version number, which was correct only while there
+was exactly one hop. A version-1 database upgrading to version 3 would have
+received `1-to-2.sql` and a version-3 marker.
 
-4. **Then** confirm D14's first overtime slice: opt-in per job, a configured
-   fixed workweek, 40-hour threshold, 1.5x base wage, explicit estimate label.
-   The open sub-decision is whether a weekday-at-midnight boundary is enough or
-   shift times must be stored first. Storing them also unblocks the CSV
-   importer, which currently refuses any file carrying real Start Time or End
-   Time values because `shifts` has nowhere to put them — see
-   [learning/product-and-data-model.md](learning/product-and-data-model.md).
+**Then, in order:**
+
+1. Data layer — `shifts.ts` and `jobs.ts` read and write the new columns.
+2. The Log form — optional start and end time inputs.
+3. Overtime calculation in `src/lib`, pure and asserted: 40 hours per the job's
+   configured workweek, 1.5x the shift's own rate, shifts without times counted
+   wholly against their logged date.
+4. Per-job overtime settings UI, opt-in, inside Manage data.
+5. Show the adjusted gross with an explicit estimate label. The CSV export must
+   keep exporting recorded gross, not adjusted — see the revised D14.
+6. Teach the CSV importer the Start Time and End Time columns it currently
+   refuses (D13).
+7. Add times to the CSV export.
+
+Android is still unverified against everything since 2026-08-03 and was
+deferred deliberately, not forgotten.
+
+**After overtime:**
+
 5. Confirm the first tax slice: opt-in 2026 federal W2 estimates using filing
    status, pay frequency, W-4 inputs, other income/adjustments, and actual
    withholding. Do not substitute one flat percentage; state/local, 1099, and
