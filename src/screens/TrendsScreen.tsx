@@ -49,7 +49,7 @@ export default function TrendsScreen() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [chartRange, setChartRange] = useState<TrendChartRange>('quarter');
   const [summaryMode, setSummaryMode] = useState<SummaryMode>('allTime');
-  const [breakdown, setBreakdown] = useState<Breakdown>('year');
+  const [breakdown, setBreakdown] = useState<Breakdown>('weekday');
 
   const refresh = useCallback(async () => {
     try {
@@ -214,14 +214,16 @@ function BreakdownControls({
   return (
     <>
       <Text style={styles.filterLabel}>Breakdown</Text>
+      {/* Ordered like the summary chips: default first, then widening periods
+          to the right. */}
       <View style={styles.choiceRow}>
-        <FilterChip label="Year" selected={value === 'year'} onPress={() => onChange('year')} />
-        <FilterChip label="Month" selected={value === 'month'} onPress={() => onChange('month')} />
         <FilterChip
           label="Weekday"
           selected={value === 'weekday'}
           onPress={() => onChange('weekday')}
         />
+        <FilterChip label="Month" selected={value === 'month'} onPress={() => onChange('month')} />
+        <FilterChip label="Year" selected={value === 'year'} onPress={() => onChange('year')} />
       </View>
     </>
   );
