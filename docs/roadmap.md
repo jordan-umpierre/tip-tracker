@@ -493,3 +493,14 @@ Trends scope is complete.
     fixed top margin from `187d3e6` is removed. The two earlier attempts, the
     inset panel and the top margin, both addressed problems that had not been
     raised.
+56. Made every shift group start collapsed, in `a05593f`. The Log tab now opens
+    to one row per year; the previous newest-branch-open default reintroduced
+    the scrolling the tree removed and left the screen too tall for `169bf52`'s
+    centering to do anything. D15 amended, including that every shift is now
+    three closed groups deep from a cold open. Also answered and logged a
+    question about the CSV importer in `docs/learning/product-and-data-model.md`:
+    a file carrying real Start Time or End Time values is refused outright,
+    verified by running the parser, because `shifts` has no column for either
+    and importing would mean silently discarding them. That refusal is the
+    first thing to revisit when D14's overtime work forces shift times to be
+    stored.
