@@ -128,3 +128,51 @@ The label now has a fixed height of two lines regardless of what it contains,
 so every track resolves to the same height. Worth noting for any future column
 added below a flexible bar: anything of variable height under a `flex: 1`
 sibling silently changes that sibling's size.
+
+## `561bbd7` — refactor: move the Sunday week-start rule into dates.ts (2026-08-03)
+
+Trends kept the Sunday-Saturday week boundary D10 pins as a private helper. The
+Log needed the same rule to group by week, and two copies would drift apart with
+nothing failing — a change to one would move shifts between groups on the other
+screen. `dates.ts` already owns the stored date format, so the week boundary
+moved beside it as `weekStartString`, with direct assertions added on the way:
+a Sunday is its own start, and the start reaches back across a month, a year,
+and a leap day rather than clamping to the 1st.
+
+## `2e134d0` — feat: nest the shift history by year, month, and week (2026-08-03)
+
+One level of month sections fixed the distance between months but not within
+them. An open month of thirty shifts is still a long list, and it was still the
+first thing on the tab.
+
+The history is now a year > month > week tree, each level carrying its own gross
+and shift count, with only the newest branch open: newest year, newest month
+inside it, newest week inside that. The current week is on screen with no taps
+and five years of history is a handful of rows.
+
+`groupShifts` builds the tree and `flattenShifts` turns it plus the expansion
+map back into one array of typed rows, so the whole thing still renders through
+a single virtualized `FlatList`. Nested lists were never an option: scrollers
+inside scrollers fight over the gesture and the inner one loses virtualization.
+A week crossing a month boundary belongs to both months, holding only that
+month's shifts in each, so a month's rows always add up to its own header; the
+two halves share a week start but get distinct keys so collapsing one leaves the
+other alone. Assertions cover ordering across a year boundary, the straddling
+week, the untouched default, collapsing a year, and expanding an older group
+without closing the newest. D15 is revised to record the level change and what
+sticky headers cost.
+
+## `4825557` — feat: open the log form and data tools from buttons (2026-08-03)
+
+The tab opened onto seven input boxes and a CSV importer before any history was
+visible. The form now sits behind one filled "Log a shift" button and the job
+manager and importer behind a "Manage data" toggle, so the default state of the
+screen is the history it exists to show.
+
+Tapping a shift row still opens the form directly, since editing sets the same
+state the button does. `LogShiftForm`'s Cancel stopped being gated on editing:
+with the form always on screen a new entry never needed a way out, and behind a
+button it does.
+
+TypeScript, the tracked hook, the schema and migration checks, and all six
+direct-run test files pass. None of these three have run on a physical device.
