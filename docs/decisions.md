@@ -839,7 +839,7 @@ UI/UX bar from the product definition is achievable here.
 > changes what "the newest group" should default to, and a filtered result set
 > probably wants every matching group open instead.
 
-### D16 — Export in the app's own CSV format, not the import contract (2026-08-03)
+### D16 — Export in the app's own CSV format, not the import contract (2026-08-03; revised 2026-08-04)
 
 > **Decision:** Exported CSVs use their own columns — `Date`, `Job`, `Hours`,
 > `Duration Seconds`, `Hourly Rate`, `Tips`, `Gross`, `Note` — rather than the
@@ -847,7 +847,9 @@ UI/UX bar from the product definition is achievable here.
 > to two decimals for people and spreadsheets, `Duration Seconds` as the exact
 > stored value. Rows are oldest first, tie-broken by id, so two exports of the
 > same data are byte-identical. Files are written wherever the user chooses via
-> `Directory.pickDirectoryAsync`, named `tip-tracker-shifts-<date>.csv`.
+> `Directory.pickDirectoryAsync`, named `tip-tracker-shifts-<date>.csv`. A
+> canceled picker is detected by its error code and returns silently; only a
+> genuine failure logs and alerts.
 >
 > **Alternatives:**
 > - Emit the nine-column import contract so exports can be re-imported
@@ -855,6 +857,8 @@ UI/UX bar from the product definition is achievable here.
 > - Add `expo-sharing` and open the system share sheet instead of a picker
 > - Use React Native's built-in `Share` with a file URI
 > - Export JSON instead of CSV
+> - Treat every throw from the export path alike, cancel included (shipped
+>   2026-08-03, replaced 2026-08-04)
 >
 > **Why:** the import contract stores `Hours` to two decimals, which is
 > 36-second granularity. A shift stored as 27300 seconds — 455 minutes, the
@@ -875,11 +879,35 @@ UI/UX bar from the product definition is achievable here.
 > carries a file URI on iOS but ignores it on Android, where it only shares
 > text. CSV over JSON because the file's job is to open in a spreadsheet.
 >
+> The cancel handling is a correction, and the original reasoning was wrong on
+> a fact nobody had checked. This first shipped claiming a canceled pick and a
+> failed write were indistinguishable to the caller, so both logged at
+> `console.error` and both raised the same alert. The 2026-08-04 device pass
+> showed otherwise: the cancel surfaced a red LogBox toast, and reading
+> `expo-file-system` 57 found a dedicated exception on each platform —
+> `FilePickingCancelledException` on iOS, `PickerCancelledException` on Android,
+> reaching JS as `ERR_FILE_PICKING_CANCELLED` and `ERR_PICKER_CANCELLED`. The
+> assumption had never been tested because that code path had never run.
+>
+> Correcting it matters more than the toast, which is dev-only and would never
+> reach a user. Logging a deliberate user choice at error severity means that
+> once crash reporting exists, every cancel arrives as a reported error — and
+> the failure mode there is not noise, it is learning to ignore your own error
+> reports. The alert was the second half: it asked the user to dismiss a modal
+> confirming something they had just chosen on purpose.
+>
 > **Known cost:** two duration columns is redundancy a reader has to have
 > explained, and nothing enforces that they agree — a future edit could write
 > one and not the other. The export also has no importer, so "export" currently
 > means "get your data out", not "restore your data".
 >
+> The two cancel codes are copied constants, and an Expo upgrade renaming
+> either would break the check silently — cancels would go back to logging as
+> errors. No test can catch that, since a test would only assert the constants
+> match themselves. It surfaces as returning noise rather than a broken export,
+> which is why it is left as a comment in the code rather than machinery.
+>
 > **Revisit when:** restore is built. That is the point to decide whether this
 > format grows an importer or whether both sides move to one shared contract,
-> and D13's contract should be re-examined at the same time.
+> and D13's contract should be re-examined at the same time. Re-check the two
+> cancel codes on any `expo-file-system` major upgrade.

@@ -269,6 +269,11 @@ A canceled picker and a failed write are indistinguishable to the caller, so the
 alert states only what is certain of both: no file was written, nothing on the
 device changed.
 
+> **Superseded 2026-08-04.** That first sentence is wrong, and this entry is
+> left standing because the log records what was believed at the time. Each
+> platform throws a distinct coded exception on cancel; the device pass in
+> `14-device-verification.md` found it. See the revised D16.
+
 TypeScript, the tracked hook, and all seven direct-run test files pass. None of
 this has run on a physical device, and the export in particular has never had a
 real file written by it — the picker and the write are exactly the parts
