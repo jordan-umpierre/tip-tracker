@@ -7,7 +7,7 @@ import IncomeTrendChart, { rangeLabel } from '../components/IncomeTrendChart';
 import { getDb } from '../data/db';
 import { Job, listJobs } from '../data/jobs';
 import { listShifts, Shift } from '../data/shifts';
-import { localDateString } from '../lib/dates';
+import { localDateString, MONTH_NAMES } from '../lib/dates';
 import { formatCents, formatHours } from '../lib/format';
 import {
   calculateTrends,
@@ -22,21 +22,6 @@ import {
 
 type SummaryMode = 'weekly' | 'allTime';
 type Breakdown = 'year' | 'month' | 'weekday';
-
-const MONTH_NAMES = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-];
 
 // This route-level component coordinates loading and the screen's independent
 // controls. Its calculation branches are tested below the UI and its flows are
