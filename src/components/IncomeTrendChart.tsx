@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityActionEvent,
   LayoutChangeEvent,
@@ -117,6 +117,14 @@ export default function IncomeTrendChart({
     [chartWidth, series.points.length]
   );
 
+  // Whether this gesture has become a real scrub. A touch starts as neither a
+  // scrub nor a scroll: the chart claims it immediately so a tap lands, and
+  // hands it to the scroll view if it turns out to be vertical. Once the finger
+  // has travelled horizontally the question is settled, and the gesture stops
+  // being available to the scroller -- otherwise drifting up or down mid-drag
+  // handed the scrub away and dropped the selection.
+  const scrubbing = useRef(false);
+
   const panResponder = useMemo(
     () =>
       PanResponder.create({
@@ -127,14 +135,26 @@ export default function IncomeTrendChart({
         onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: (_, gesture) =>
           Math.abs(gesture.dx) > 4 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
-        onPanResponderGrant: (event) => selectPointAt(event.nativeEvent.locationX),
-        onPanResponderMove: (event) => selectPointAt(event.nativeEvent.locationX),
+        onPanResponderGrant: (event) => {
+          scrubbing.current = false;
+          selectPointAt(event.nativeEvent.locationX);
+        },
+        onPanResponderMove: (event, gesture) => {
+          // Deliberately generous. Fingers are not straight lines, and the
+          // point of this is that a scrub survives the wobble.
+          if (Math.abs(gesture.dx) > 6) scrubbing.current = true;
+          selectPointAt(event.nativeEvent.locationX);
+        },
         // Claiming on touch-down would otherwise trap vertical scrolling that
-        // happens to start on the chart. Saying yes lets the surrounding scroll
-        // view take the gesture back, and clearing the point on the way out
-        // stops a scroll from leaving a stray selection behind.
-        onPanResponderTerminationRequest: () => true,
+        // happens to start on the chart, so a gesture that has not become a
+        // scrub is still surrendered, and clearing the point on the way out
+        // stops a scroll from leaving a stray selection behind. A gesture that
+        // has become a scrub is kept until the finger lifts.
+        onPanResponderTerminationRequest: () => !scrubbing.current,
         onPanResponderTerminate: () => setSelectedIndex(null),
+        onPanResponderRelease: () => {
+          scrubbing.current = false;
+        },
       }),
     [selectPointAt]
   );
