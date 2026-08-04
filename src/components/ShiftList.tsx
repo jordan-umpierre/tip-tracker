@@ -56,9 +56,8 @@ export default function ShiftList({ shifts, jobs, onShiftDeleted, onShiftPress, 
   // render instead of scanning the jobs array for every row.
   const jobNameById = new Map(jobs.map((job) => [job.id, job.name]));
 
-  // Only groups the user has actually tapped land in here; the rest default to
-  // open-if-newest. See flattenShifts for why the default is derived rather
-  // than stored.
+  // Only groups the user has actually tapped land in here; everything else is
+  // shut. See flattenShifts for why nothing seeds this.
   const [toggled, setToggled] = useState<Record<string, boolean>>({});
   const years = useMemo(() => groupShifts(shifts), [shifts]);
   // The tree is flattened back into one list of rows, so a three-level history

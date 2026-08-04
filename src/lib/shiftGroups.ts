@@ -116,16 +116,14 @@ export type ShiftGroupRow = ShiftGroup & {
 
 export type ShiftListRow = ShiftGroupRow | { kind: 'shift'; key: string; shift: Shift };
 
-// Only groups the user has actually tapped appear in `toggled`. Everything else
-// falls back to "the newest one at each level is open", which puts the most
-// recent shifts on screen with no taps while every older group stays one row
-// tall. Deriving the default from position rather than storing it means the
-// list re-seeds itself correctly after a log, an edit, or an import.
+// Everything starts closed, so opening the Log tab shows one row per year and
+// nothing else. Only groups the user has actually tapped appear in `toggled`,
+// which means the list needs no effect to re-seed itself after a log, an edit,
+// or an import: anything untouched is simply shut.
 function groupRow(
   kind: ShiftGroupRow['kind'],
   group: ShiftGroup,
-  toggled: Record<string, boolean>,
-  index: number
+  toggled: Record<string, boolean>
 ): ShiftGroupRow {
   return {
     kind,
@@ -133,7 +131,7 @@ function groupRow(
     period: group.period,
     shiftCount: group.shiftCount,
     grossCents: group.grossCents,
-    expanded: toggled[group.key] ?? index === 0,
+    expanded: toggled[group.key] === true,
   };
 }
 
@@ -143,27 +141,27 @@ export function flattenShifts(
 ): ShiftListRow[] {
   const rows: ShiftListRow[] = [];
 
-  years.forEach((year, yearIndex) => {
-    const yearRow = groupRow('year', year, toggled, yearIndex);
+  for (const year of years) {
+    const yearRow = groupRow('year', year, toggled);
     rows.push(yearRow);
-    if (!yearRow.expanded) return;
+    if (!yearRow.expanded) continue;
 
-    year.months.forEach((month, monthIndex) => {
-      const monthRow = groupRow('month', month, toggled, monthIndex);
+    for (const month of year.months) {
+      const monthRow = groupRow('month', month, toggled);
       rows.push(monthRow);
-      if (!monthRow.expanded) return;
+      if (!monthRow.expanded) continue;
 
-      month.weeks.forEach((week, weekIndex) => {
-        const weekRow = groupRow('week', week, toggled, weekIndex);
+      for (const week of month.weeks) {
+        const weekRow = groupRow('week', week, toggled);
         rows.push(weekRow);
-        if (!weekRow.expanded) return;
+        if (!weekRow.expanded) continue;
 
         for (const shift of week.shifts) {
           rows.push({ kind: 'shift', key: shift.id, shift });
         }
-      });
-    });
-  });
+      }
+    }
+  }
 
   return rows;
 }

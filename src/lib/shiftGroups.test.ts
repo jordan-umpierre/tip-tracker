@@ -72,36 +72,50 @@ assert.equal(august.weeks[0].period, july.weeks[0].period);
 assert.notEqual(august.weeks[0].key, july.weeks[0].key);
 assert.equal(august.grossCents, august.weeks[0].grossCents);
 
-// Untouched, the newest year, month, and week are open and everything else is
-// one row tall, so recent shifts need no taps.
+// Untouched, everything is shut: one row per year and nothing else, however
+// many shifts are underneath.
 assert.deepEqual(
   flattenShifts(grouped, {}).map((row) => [row.kind, row.key]),
+  [['year', '2026'], ['year', '2025']]
+);
+
+// Opening a group reveals its children shut, one level at a time.
+assert.deepEqual(
+  flattenShifts(grouped, { '2026': true }).map((row) => row.key),
+  ['2026', '2026-01', '2025']
+);
+assert.deepEqual(
+  flattenShifts(grouped, { '2026': true, '2026-01': true }).map((row) => row.key),
+  ['2026', '2026-01', '2026-01:2026-01-25', '2026-01:2026-01-11', '2026-01:2025-12-28', '2025']
+);
+
+// A shift only appears once its year, month, and week are all open. An open
+// group inside a shut ancestor stays hidden rather than leaking rows.
+assert.deepEqual(
+  flattenShifts(grouped, { '2026-01': true, '2026-01:2026-01-25': true }).map((row) => row.key),
+  ['2026', '2025']
+);
+assert.deepEqual(
+  flattenShifts(grouped, {
+    '2026': true,
+    '2026-01': true,
+    '2026-01:2026-01-25': true,
+  }).map((row) => row.key),
   [
-    ['year', '2026'],
-    ['month', '2026-01'],
-    ['week', '2026-01:2026-01-25'],
-    ['shift', 'late-january'],
-    ['week', '2026-01:2026-01-11'],
-    ['week', '2026-01:2025-12-28'],
-    ['year', '2025'],
+    '2026',
+    '2026-01',
+    '2026-01:2026-01-25',
+    'late-january',
+    '2026-01:2026-01-11',
+    '2026-01:2025-12-28',
+    '2025',
   ]
 );
 
-// Collapsing a year hides everything under it, including groups the default
-// would have opened.
-assert.deepEqual(
-  flattenShifts(grouped, { '2026': false }).map((row) => row.key),
-  ['2026', '2025']
-);
-
-// Expanding an older group opens it without closing the newest one.
-const expandedOlder = flattenShifts(grouped, {
-  '2026-01:2026-01-11': true,
-  '2025': true,
-}).map((row) => row.key);
-assert.ok(expandedOlder.includes('mid-january'));
-assert.ok(expandedOlder.includes('late-january'));
-assert.ok(expandedOlder.includes('new-years-eve'));
+// Two branches can be open at once; opening one does not close another.
+const twoOpen = flattenShifts(grouped, { '2026': true, '2025': true }).map((row) => row.key);
+assert.ok(twoOpen.includes('2026-01'));
+assert.ok(twoOpen.includes('2025-12'));
 
 assert.throws(
   () => groupShifts([shift('bad-date', '2026-02-30', 3600, 0, 1000)]),
