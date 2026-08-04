@@ -119,6 +119,15 @@ export default function ShiftList({ shifts, jobs, onShiftDeleted, onShiftPress, 
       // Dragging the list closes the keyboard too, which is what the rest of
       // iOS does and costs nothing here now that the screen is one scroller.
       keyboardDismissMode="on-drag"
+      // Centers the whole screen vertically while it is short enough to fit --
+      // groups collapsed, form closed -- so the content sits in the middle with
+      // space above and below instead of stacked against the status bar.
+      //
+      // flexGrow makes the content area at least as tall as the list; once the
+      // rows are taller than that, there is no spare height for justifyContent
+      // to distribute and this stops having any effect. So an expanded history
+      // still starts at the top and scrolls normally.
+      contentContainerStyle={styles.content}
       ListHeaderComponent={header}
       ListEmptyComponent={
         <View style={styles.empty}>
@@ -310,6 +319,10 @@ function SwipeableShiftRow({
 const styles = StyleSheet.create({
   list: {
     flex: 1,
+  },
+  content: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   empty: {
     padding: 16,
