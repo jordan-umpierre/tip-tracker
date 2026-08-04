@@ -459,3 +459,18 @@ Trends scope is complete.
     one row under 1W. D10 is amended for both, including the cost of running
     two date scopes on one screen. Breakdown order is Weekday, Month, Year,
     default-first and widening rightward. All checks pass; not yet on a device.
+52. Compacted the Log screen further and added CSV export, in `fc9e4d8`,
+    `53e4764`, and `976bedd`. The lifetime Hours/Tips/Gross strip is gone —
+    Trends' All range and the history's own year rows both show those figures
+    better, and nothing on the Log screen acted on it; `ShiftTotals.tsx` and
+    `calculateTotals` went with it rather than sitting dead, with their D5
+    rounding assertions kept and re-pointed at `calculateShiftGrossCents`.
+    Manage data now holds an export button under the importer, writing every
+    shift to a location the user picks via `Directory.pickDirectoryAsync` — no
+    new dependency, since `expo-file-system` was already here. D16 records why
+    the export uses its own columns rather than D13's import contract: that
+    contract rounds Hours to 36-second granularity and would quietly lose
+    seconds from every pre-D12 row. The cost is stated there too — an exported
+    file has no importer yet, so this is "get your data out", not "restore".
+    All seven direct-run test files pass. The export's picker and file write
+    are the parts assertions cannot reach and have never run for real.
