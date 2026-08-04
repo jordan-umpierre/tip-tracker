@@ -1086,6 +1086,15 @@ UI/UX bar from the product definition is achievable here.
 > boundary. Anyone who configures one is getting the midnight approximation for
 > all of their history and exact placement only for shifts logged afterwards.
 >
+> **Revised 2026-08-04 — minimize repeated entry.** With both times present
+> and hours blank, the form derives elapsed duration and wraps overnight. An
+> entered hours value still wins so unpaid breaks can differ from elapsed time.
+> Blank tips mean zero. Tapping either time opens the platform's native time
+> picker; iOS uses its 12-hour spinner while SQLite still receives normalized
+> `HH:MM`. Edit mode leaves derived hours blank so changing either time
+> recalculates, but preserves an entered duration when it differs from elapsed
+> time until the user changes a time.
+>
 > **Revisit when:** a user reports overtime that disagrees with their pay stub.
 > The first suspects are an overnight shift attributed to the wrong workweek,
 > or a boundary configured against history that predates times.

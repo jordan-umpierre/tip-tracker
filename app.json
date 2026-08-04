@@ -26,7 +26,8 @@
       "expo-sqlite",
       "expo-asset",
       "expo-router",
-      "expo-status-bar"
+      "expo-status-bar",
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true

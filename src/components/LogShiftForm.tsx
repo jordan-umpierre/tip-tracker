@@ -1,10 +1,11 @@
 import * as Haptics from 'expo-haptics';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import CalendarPicker from './CalendarPicker';
 import { Job } from '../data/jobs';
 import { createShift, Shift, updateShift } from '../data/shifts';
-import { localDateString, parseCalendarDate } from '../lib/dates';
+import { durationSecondsBetween, localDateString, parseCalendarDate, timeInputValue } from '../lib/dates';
 import { hoursInputValue, moneyInputValue } from '../lib/format';
 
 type Props = {
@@ -46,6 +47,7 @@ function todayIsoDate(): string {
   return localDateString(new Date());
 }
 
+// fallow-ignore-next-line complexity -- One native form owns one set of fields and submission state.
 export default function LogShiftForm({
   jobs,
   editingShift,
@@ -68,14 +70,25 @@ export default function LogShiftForm({
 
   const [selectedJobId, setSelectedJobId] = useState(editingShift?.job_id ?? jobs[0]?.id ?? '');
   const [shiftDate, setShiftDate] = useState(editingShift?.shift_date ?? todayIsoDate());
+  const [startTime, setStartTime] = useState<string | null>(editingShift?.start_time ?? null);
+  const [endTime, setEndTime] = useState<string | null>(editingShift?.end_time ?? null);
+  const [pickingTime, setPickingTime] = useState<'start' | 'end' | null>(null);
   // These three used to be a raw division, which is how the edit form ended up
   // showing 7.583333333333333 for a 455-minute shift. The helpers pick a
   // precision that converts back to the identical stored integer, per D6 --
   // the tempting fix of matching the list's "7.6h" would quietly rewrite
   // the stored seconds.
-  const [hours, setHours] = useState(
-    editingShift ? hoursInputValue(editingShift.duration_seconds) : ''
-  );
+  // fallow-ignore-next-line complexity -- Stored-vs-derived edit behavior is one initialization rule.
+  const [hours, setHours] = useState(() => {
+    if (!editingShift) return '';
+    const elapsed = editingShift.start_time && editingShift.end_time
+      ? durationSecondsBetween(editingShift.start_time, editingShift.end_time)
+      : null;
+    return elapsed === editingShift.duration_seconds
+      ? ''
+      : hoursInputValue(editingShift.duration_seconds);
+  });
+  const [hoursTouched, setHoursTouched] = useState(false);
   const [tips, setTips] = useState(editingShift ? moneyInputValue(editingShift.tips_cents) : '');
   const [hourlyRate, setHourlyRate] = useState(() => {
     if (editingShift) {
@@ -85,6 +98,7 @@ export default function LogShiftForm({
   });
   const [note, setNote] = useState(editingShift?.note ?? '');
 
+  // fallow-ignore-next-line complexity -- Each branch is a distinct visible date-conflict choice.
   function handleDateSelected(date: string) {
     setPickingDate(false);
 
@@ -136,6 +150,20 @@ export default function LogShiftForm({
     setHourlyRate(moneyInputValue(job.hourly_rate_cents));
   }
 
+  function pickerValue(time: string | null): Date {
+    const value = new Date();
+    if (time) value.setHours(Number(time.slice(0, 2)), Number(time.slice(3)), 0, 0);
+    return value;
+  }
+
+  function handleTimeChange(value: Date) {
+    const time = `${String(value.getHours()).padStart(2, '0')}:${String(value.getMinutes()).padStart(2, '0')}`;
+    if (pickingTime === 'start') setStartTime(time);
+    if (pickingTime === 'end') setEndTime(time);
+    if (!hoursTouched) setHours('');
+  }
+
+  // fallow-ignore-next-line complexity -- Trust-boundary checks stay explicit beside their messages.
   async function handleSubmit() {
     if (selectedJobId === '') {
       Alert.alert('Choose a job', 'A shift must belong to a job.');
@@ -149,14 +177,12 @@ export default function LogShiftForm({
 
     // Number(), paired with the empty-string checks, rejects pasted text such
     // as "7.5 hours". parseFloat() would silently accept that as 7.5.
-    const hoursValue = Number(hours);
-    const tipsValue = Number(tips);
+    const hoursValue = hours.trim() === '' ? null : Number(hours);
+    const tipsValue = tips.trim() === '' ? 0 : Number(tips);
     const rateValue = Number(hourlyRate);
 
     if (
-      hours.trim() === '' ||
-      !Number.isFinite(hoursValue) ||
-      tips.trim() === '' ||
+      (hoursValue !== null && !Number.isFinite(hoursValue)) ||
       !Number.isFinite(tipsValue) ||
       tipsValue < 0 ||
       hourlyRate.trim() === '' ||
@@ -165,22 +191,30 @@ export default function LogShiftForm({
     ) {
       Alert.alert(
         'Check shift details',
-        'Enter hours greater than zero. Tips and hourly rate cannot be negative.'
+        'Enter valid hours. Tips and hourly rate cannot be negative.'
       );
       return;
     }
 
     // Same unit conversions either way: Math.round rather than a bare
     // multiply, to avoid floating point landing one cent off.
-    const durationSeconds = Math.round(hoursValue * 3600);
     const tipsCents = Math.round(tipsValue * 100);
     const hourlyRateCents = Math.round(rateValue * 100);
     const noteValue = note.trim() === '' ? null : note.trim();
+    const hasStartTime = startTime !== null;
+    const hasEndTime = endTime !== null;
 
-    // A tiny positive decimal can still round to zero stored seconds. Catch it
-    // here instead of letting SQLite's CHECK constraint surface as an error.
-    if (durationSeconds <= 0) {
-      Alert.alert('Check hours worked', 'Hours worked must round to at least one second.');
+    if (hasStartTime !== hasEndTime) {
+      Alert.alert('Check shift times', 'Enter both a start time and an end time, or leave both blank.');
+      return;
+    }
+
+    const durationSeconds = hoursValue === null
+      ? startTime && endTime ? durationSecondsBetween(startTime, endTime) : null
+      : Math.round(hoursValue * 3600);
+
+    if (durationSeconds === null || durationSeconds <= 0) {
+      Alert.alert('Check hours worked', 'Enter hours greater than zero, or enter different start and end times.');
       return;
     }
 
@@ -192,7 +226,9 @@ export default function LogShiftForm({
         durationSeconds,
         tipsCents,
         hourlyRateCents,
-        noteValue
+        noteValue,
+        startTime,
+        endTime
       );
     } else {
       await createShift(
@@ -201,7 +237,9 @@ export default function LogShiftForm({
         durationSeconds,
         tipsCents,
         hourlyRateCents,
-        noteValue
+        noteValue,
+        startTime,
+        endTime
       );
 
       // Reset the per-shift fields, but leave the job selected -- logging
@@ -213,6 +251,8 @@ export default function LogShiftForm({
       setHours('');
       setTips('');
       setNote('');
+      setStartTime('');
+      setEndTime('');
     }
 
     onShiftSaved();
@@ -277,16 +317,63 @@ export default function LogShiftForm({
         />
       ) : null}
 
-      <Text style={styles.label}>Hours worked</Text>
+      <Text style={styles.label}>Start time (optional)</Text>
+      <Pressable style={styles.input} onPress={() => setPickingTime('start')}>
+        <Text style={[styles.timeText, !startTime && styles.placeholder]}>
+          {startTime ? timeInputValue(startTime) : 'Choose start time'}
+        </Text>
+      </Pressable>
+
+      <Text style={styles.label}>End time (optional)</Text>
+      <Pressable style={styles.input} onPress={() => setPickingTime('end')}>
+        <Text style={[styles.timeText, !endTime && styles.placeholder]}>
+          {endTime ? timeInputValue(endTime) : 'Choose end time'}
+        </Text>
+      </Pressable>
+
+      {pickingTime ? (
+        <View style={styles.timePickerPanel}>
+          <DateTimePicker
+            value={pickerValue(pickingTime === 'start' ? startTime : endTime)}
+            mode="time"
+            display="spinner"
+            locale="en-US"
+            onChange={(_, value) => {
+              if (value) handleTimeChange(value);
+            }}
+          />
+          <Pressable style={styles.timePickerDone} onPress={() => setPickingTime(null)}>
+            <Text style={styles.timePickerDoneText}>Done</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {startTime || endTime ? (
+        <Pressable
+          style={styles.clearTimesButton}
+          onPress={() => {
+            setStartTime(null);
+            setEndTime(null);
+            setPickingTime(null);
+          }}
+        >
+          <Text style={styles.clearTimesText}>Clear times</Text>
+        </Pressable>
+      ) : null}
+
+      <Text style={styles.label}>Hours worked (optional with times)</Text>
       <TextInput
         style={styles.input}
         value={hours}
-        onChangeText={setHours}
+        onChangeText={(value) => {
+          setHours(value);
+          setHoursTouched(true);
+        }}
         placeholder="e.g. 7.5"
         keyboardType="decimal-pad"
       />
 
-      <Text style={styles.label}>Tips ($)</Text>
+      <Text style={styles.label}>Tips ($, optional)</Text>
       <TextInput
         style={styles.input}
         value={tips}
@@ -340,6 +427,30 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 10,
     fontSize: 16,
+  },
+  timeText: {
+    fontSize: 16,
+  },
+  placeholder: {
+    color: '#999',
+  },
+  clearTimesButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+  },
+  clearTimesText: {
+    color: '#666',
+  },
+  timePickerPanel: {
+    gap: 8,
+  },
+  timePickerDone: {
+    alignSelf: 'flex-end',
+    padding: 10,
+  },
+  timePickerDoneText: {
+    color: '#2563eb',
+    fontWeight: '600',
   },
   dateRow: {
     flexDirection: 'row',

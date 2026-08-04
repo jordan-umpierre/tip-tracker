@@ -1,3 +1,4 @@
+// fallow-ignore-file unused-file -- the pre-commit hook executes this file directly.
 // Run with: node src/lib/dates.test.ts
 //
 // Same no-framework approach as totals.test.ts: Node runs TypeScript directly
@@ -9,7 +10,7 @@
 // pass only on the machine that wrote them. That matters here more than usual,
 // since the bug being guarded against is specifically a timezone bug.
 import assert from 'node:assert/strict';
-import { localDateString, parseCalendarDate, weekStartString } from './dates.ts';
+import { durationSecondsBetween, localDateString, parseCalendarDate, timeInputValue, weekStartString } from './dates.ts';
 
 // The regression. 23:31 local on 2026-07-30 is already 2026-07-31 in UTC for
 // anywhere in the Americas, and the old toISOString().slice(0, 10) returned
@@ -53,6 +54,14 @@ assert.deepEqual(parseCalendarDate('2028-02-29'), {
   weekdayIndex: 2, // Tuesday
 });
 
+assert.equal(durationSecondsBetween('09:00', '17:00'), 8 * 3600);
+assert.equal(durationSecondsBetween('21:30', '02:00'), 4.5 * 3600);
+assert.equal(durationSecondsBetween('09:00', '09:00'), null);
+assert.equal(timeInputValue('00:00'), '12:00 AM');
+assert.equal(timeInputValue('09:05'), '9:05 AM');
+assert.equal(timeInputValue('17:00'), '5:00 PM');
+assert.equal(timeInputValue(null), '');
+
 // Weeks start Sunday (D10), and the start date has to cross month and year
 // boundaries rather than clamping to the 1st. Trends and the Log both group by
 // week off this, so a change here silently moves shifts between groups on two
@@ -69,4 +78,4 @@ assert.equal(weekStart('2026-08-01'), '2026-07-26'); // reaches back a month
 assert.equal(weekStart('2026-01-01'), '2025-12-28'); // and back a year
 assert.equal(weekStart('2028-03-01'), '2028-02-27'); // across a leap day
 
-console.log('dates OK (16 checks)');
+console.log('dates OK (23 checks)');

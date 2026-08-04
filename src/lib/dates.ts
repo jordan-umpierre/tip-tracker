@@ -35,6 +35,7 @@ export type CalendarDate = {
   weekdayIndex: number;
 };
 
+// fallow-ignore-next-line complexity -- Exact calendar validation is covered by dates.test.ts.
 export function parseCalendarDate(value: string): CalendarDate | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) {
@@ -61,6 +62,21 @@ export function parseCalendarDate(value: string): CalendarDate | null {
   }
 
   return { year, month, day, weekdayIndex: date.getUTCDay() };
+}
+
+// Elapsed wall-clock time, wrapping once across midnight. Equal times are
+// ambiguous between zero and 24 hours, so the form asks for explicit hours.
+export function durationSecondsBetween(startTime: string, endTime: string): number | null {
+  const minutes = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
+  const elapsed = (minutes(endTime) - minutes(startTime) + 1440) % 1440;
+  return elapsed === 0 ? null : elapsed * 60;
+}
+
+export function timeInputValue(time: string | null | undefined): string {
+  if (!time) return '';
+  const hour = Number(time.slice(0, 2));
+  const minute = time.slice(3);
+  return `${hour % 12 || 12}:${minute} ${hour < 12 ? 'AM' : 'PM'}`;
 }
 
 // The Sunday that starts the week containing this date, as a date-only string.
