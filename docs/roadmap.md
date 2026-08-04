@@ -9,26 +9,53 @@ Last updated: 2026-08-03
 
 ## NEXT
 
-**Confirm the Layer 2 money contract, then implement overtime before taxes.**
+**Run a device pass over the 2026-08-03 UI session before building anything
+new.** That session shipped roughly fifteen behavior changes across both tabs
+and verified none of them on hardware. TypeScript, the tracked hook, and all
+seven direct-run test files pass, but every item below is a layout, gesture, or
+filesystem behavior that no assertion in this repo can reach.
 
-1. Confirm D14's first overtime slice: opt-in per job, a configured fixed
-   workweek, 40-hour threshold, 1.5x base wage, and an explicit estimate label.
-   Decide whether a weekday-at-midnight boundary is sufficient or shift times
-   must be stored before the feature can claim accuracy.
-2. Confirm the first tax slice: opt-in 2026 federal W2 estimates using filing
+1. **Verify the CSV export end to end** — this is the only item touching a code
+   path that has never executed. `buildShiftExportCsv` is asserted, but
+   `Directory.pickDirectoryAsync`, `createFile`, and `write` have never run:
+   tap Export shifts as CSV in Manage data, pick a location, confirm the file
+   appears with 845 rows, and open it in a spreadsheet. Then cancel the picker
+   and confirm the "Nothing exported" alert rather than a crash. Note that a
+   canceled pick and a failed write are indistinguishable to the caller, which
+   is why that message claims nothing about which happened (D16).
+2. **Verify the Log screen** on a physical iPhone: groups collapsed on open,
+   the screen centered vertically while short and scrolling normally once a
+   year is expanded, tapping year → month → week → shift, the form opening from
+   Log a shift and from tapping a row, Cancel closing it in both cases, swipe
+   and long-press delete still reaching the native confirmation, and the
+   importer still working from inside Manage data.
+3. **Verify Trends**: tapping the line jumps to that point without a drag, a
+   vertical scroll starting on the chart does not leave a stray selection, YTD
+   and the date-range window labels read correctly, and the summary card
+   changes with the range while the weekday bars deliberately do not (D10).
+   Check the weekday bars share a baseline at their widest shift counts.
+4. **Then** confirm D14's first overtime slice: opt-in per job, a configured
+   fixed workweek, 40-hour threshold, 1.5x base wage, explicit estimate label.
+   The open sub-decision is whether a weekday-at-midnight boundary is enough or
+   shift times must be stored first. Storing them also unblocks the CSV
+   importer, which currently refuses any file carrying real Start Time or End
+   Time values because `shifts` has nowhere to put them — see
+   [learning/product-and-data-model.md](learning/product-and-data-model.md).
+5. Confirm the first tax slice: opt-in 2026 federal W2 estimates using filing
    status, pay frequency, W-4 inputs, other income/adjustments, and actual
    withholding. Do not substitute one flat percentage; state/local, 1099, and
    tipped-credit edge cases remain explicit later scope.
-3. Run the CSV import plus the complete dashboard revision on a physical
-   iPhone, including the YTD range, the new date-range window labels, and the
-   weekday bars at their widest shift counts. Android now passes the graph
-   ranges and scrub interaction, chart
-   vertical scrolling, lower Log management controls, concealed swipe-delete,
-   long-press/accessibility delete paths, and native confirmation. The iOS
-   bundle passes, but that is not a VoiceOver or gesture claim.
-4. Place user-controlled export and optional cloud backup/sync before public
-   tax projections. Years of local income history need a recovery story before
-   net estimates increase the data's value.
+6. Export now exists but restore does not. An exported file cannot be
+   re-imported, because the importer only accepts D13's contract and the export
+   uses its own columns (D16). Decide whether restore means teaching the
+   importer this format or moving both sides onto one contract, and place
+   optional cloud backup/sync before public tax projections either way.
+
+Android last passed a cold run on 2026-08-03 covering the graph ranges and
+scrub interaction, chart vertical scrolling, Log management controls,
+swipe-delete, long-press and accessibility delete paths, and native
+confirmation — all of that predates the session described above. iOS evidence
+is bundle-only, which is not a VoiceOver or gesture claim on either platform.
 
 ---
 

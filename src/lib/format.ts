@@ -1,8 +1,8 @@
 // Turning the database's integer cents and integer seconds into strings a
-// person reads. Split out once ShiftTotals became the third place doing it --
-// ShiftList was already formatting money in two spots, and three copies of
-// "divide by 100 and hope everyone picked the same number of decimals" is how
-// two screens end up disagreeing about what $1,234.50 looks like.
+// person reads. Split out once a third component started doing it -- ShiftList
+// was already formatting money in two spots, and three copies of "divide by
+// 100 and hope everyone picked the same number of decimals" is how two screens
+// end up disagreeing about what $1,234.50 looks like.
 //
 // Deliberately the only place a raw cents value becomes a string. Nothing
 // upstream of this formats money: totals.ts returns integers, and the

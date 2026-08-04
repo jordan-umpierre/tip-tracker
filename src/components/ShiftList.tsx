@@ -40,7 +40,7 @@ type Props = {
   onShiftPress: (shift: Shift) => void;
 
   // Rendered above the rows, inside the same scroll view. The screen's form
-  // and totals go here rather than sitting above this component, so the whole
+  // and buttons go here rather than sitting above this component, so the whole
   // screen scrolls as one surface instead of squeezing the list into whatever
   // vertical space the form leaves behind.
   //

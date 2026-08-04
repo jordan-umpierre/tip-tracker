@@ -230,7 +230,8 @@ sees 20:  returns 15 + 20 = 35
 Two things fell out of that starting value that are worth keeping. An empty
 array returns the starting value unchanged, which is why `calculateTotals([])`
 needs no special case for "no shifts logged yet" — the zeros are already the
-right answer. And when the accumulator is an object rather than a number,
+right answer. (`calculateTotals` was deleted on 2026-08-03 with the Log
+screen's totals strip; the reduce lesson is why this entry stays.) And when the accumulator is an object rather than a number,
 every field has to exist in that starting object with a zero in it; miss one
 and the first pass does `undefined + 5`, which is `NaN`, which then poisons
 every pass after it without throwing.
