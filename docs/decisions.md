@@ -749,3 +749,35 @@ UI/UX bar from the product definition is achievable here.
 > 2026 federal W2 taxes. State/local, 1099, non-midnight workweek boundaries,
 > varying-rate regular-pay rules, and tip-credit edge cases stay explicitly
 > unsupported until their required inputs and tests exist.
+
+### D15 — Collapse the shift history into month sections (2026-08-03)
+
+> **Decision:** The Log lists shifts under sticky month headers carrying that
+> month's gross and shift count. Every month except the newest starts
+> collapsed. A collapsed month is a `SectionList` section with an empty `data`
+> array, and expansion state stores only the months the user has tapped,
+> falling back to "index 0 is open".
+>
+> **Alternatives:**
+> - Keep the flat, fully expanded list and rely on virtualization alone
+> - Month sections with sticky headers but nothing collapsed
+> - A month stepper showing exactly one month at a time, with no full scroll
+> - Infinite scroll paging in older shifts as the user reaches the bottom
+>
+> **Why:** virtualization solved the rendering cost of 845 rows but not the
+> navigation cost. Every row looked alike and nothing said where in five years
+> of history the scroll had landed. Sticky headers fix orientation; collapsing
+> fixes distance, turning "scroll past 800 rows to reach 2022" into roughly 50
+> headers and one tap. The stepper was rejected because it removes the ability
+> to scan across months at all, and comparing a slow month against the one
+> before it is a normal thing to want. Paging was rejected as the same infinite
+> scroll with extra machinery.
+>
+> **Known cost:** a collapsed month hides its rows from search-by-scrolling,
+> and there is no expand-all. Month subtotals also duplicate a calculation the
+> Trends tab already presents, so both have to keep using the same D5 per-shift
+> gross or they will disagree in front of the user.
+>
+> **Revisit when:** a shift search or a job filter lands on the Log. Either one
+> changes what "the newest month" should default to, and a filtered result set
+> probably wants every matching month open instead.
