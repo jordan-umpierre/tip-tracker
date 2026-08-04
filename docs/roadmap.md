@@ -9,30 +9,31 @@ Last updated: 2026-08-04
 
 ## NEXT
 
-**Finish the device pass, then return to the roadmap's own order.** Steps 1 and
-2 are done. Step 3, Trends, is the one remaining verification and is the next
-thing to do.
+**The device pass is finished. Next is D14's first overtime slice, below.**
 
-Note what the last two sessions cost: the Log tab picked up a calendar picker,
-haptics, animated month paging and row actions, none of which were on this
-list. All of it is real Layer 0 work and all of it was verified on device, but
-Trends has now been unverified for two days while the Log tab kept growing.
-Verify Trends before building anything else on Log.
+All three verification steps are done and the 2026-08-03 UI session is now
+confirmed on hardware. It cost more than a pass/fail check: eight defects
+across the three steps, plus a round of Log screen UI work that was not on this
+list. Every one of them was in code that typechecked and passed every test.
 
-1. ~~**Verify the CSV export end to end.**~~ Done 2026-08-04. Found two real
-   defects, both fixed: a canceled picker logged as an error, and the date-only
-   filename made the second export of any day fail. See the revised D16.
+Two of those defects were the same bug in different components — a pan
+responder that never refuses termination, so a gesture died whenever a finger
+drifted. Check any new gesture surface for it; no assertion in this repo can.
+
+1. ~~**Verify the CSV export end to end.**~~ Done 2026-08-04. A canceled picker
+   logged as an error, and the date-only filename made the second export of any
+   day fail. See the revised D16.
 2. ~~**Verify the Log screen.**~~ Done 2026-08-04, and it turned into a round of
-   UI work rather than a pass/fail check. The controls moved below the history
-   so the primary action sits within a thumb's reach, the date field gained a
-   calendar picker built rather than depended on (D17), and a swiped row now
-   offers Edit as well as Delete. Each change was confirmed on a physical
-   iPhone before its commit.
-3. **Verify Trends**: tapping the line jumps to that point without a drag, a
-   vertical scroll starting on the chart does not leave a stray selection, YTD
-   and the date-range window labels read correctly, and the summary card
-   changes with the range while the weekday bars deliberately do not (D10).
-   Check the weekday bars share a baseline at their widest shift counts.
+   UI work rather than a check. The controls moved below the history so the
+   primary action sits within a thumb's reach, the date field gained a calendar
+   picker built rather than depended on (D17), and a swiped row now offers Edit
+   as well as Delete.
+3. ~~**Verify Trends.**~~ Done 2026-08-04. Ranges, labels, the summary card
+   following the range, the job filter, and the weekday bars deliberately not
+   following the range (D10) all behaved. Three fixes: the weekday captions did
+   not share a baseline, `MONTH_NAMES` had a third copy, and the chart lost a
+   scrub to a vertical drift.
+
 4. **Then** confirm D14's first overtime slice: opt-in per job, a configured
    fixed workweek, 40-hour threshold, 1.5x base wage, explicit estimate label.
    The open sub-decision is whether a weekday-at-midnight boundary is enough or
@@ -50,11 +51,12 @@ Verify Trends before building anything else on Log.
    importer this format or moving both sides onto one contract, and place
    optional cloud backup/sync before public tax projections either way.
 
-Android last passed a cold run on 2026-08-03 covering the graph ranges and
-scrub interaction, chart vertical scrolling, Log management controls,
-swipe-delete, long-press and accessibility delete paths, and native
-confirmation — all of that predates the session described above. iOS evidence
-is bundle-only, which is not a VoiceOver or gesture claim on either platform.
+**Android is now the stale platform.** Everything above was verified on a
+physical iPhone only. Android last passed a cold run on 2026-08-03, which
+predates the calendar picker, the haptics, the animated month paging, both
+gesture fixes and the Log layout change — and the gesture work is exactly the
+kind that behaves differently there. An Android pass is worth doing before the
+overtime slice, not after. Neither platform has a VoiceOver or TalkBack claim.
 
 ---
 
@@ -591,3 +593,18 @@ Trends scope is complete.
     after it felt wrong in use: it required horizontal movement to strictly
     exceed vertical, and it let the `FlatList` reclaim the gesture mid-drag,
     which collapsed the row whenever a finger drifted toward its neighbour.
+61. Verified Trends on a physical iPhone, closing the device pass. The chart
+    ranges and their window labels, the summary card following the range, the
+    job filter, and the weekday bars deliberately not following the range (D10)
+    all behaved. Three fixes came out of it, in `dcf4901`, `2bb8a78` and
+    `e62796d`: the weekday bar captions did not share a baseline because they
+    relied on text wrapping, which only happens when the text is too wide to
+    fit; `MONTH_NAMES` still had a third copy in Trends after the calendar work
+    consolidated the other two; and the chart lost a scrub whenever a finger
+    drifted vertically.
+
+    That last one is the same defect as the shift row swipe from `d3d077e`, in
+    a different component: a pan responder that never refuses termination
+    cannot hold a gesture through the noise of a real hand. Two instances make
+    it a pattern worth checking for rather than a coincidence, and no assertion
+    in this repo can reach either.

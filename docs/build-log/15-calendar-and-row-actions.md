@@ -111,3 +111,40 @@ instead of a half.
 TypeScript, the tracked hook, 21 schema checks and all nine direct-run test
 files pass. Every behaviour above was confirmed on a physical iPhone before its
 commit, which is the practice the export work earlier the same day argued for.
+
+## Trends verification and its three fixes (2026-08-04)
+
+Step 3 of the device pass, run after the Log work above. Chart ranges, window
+labels, the summary card following the range, and the job filter all behaved.
+The weekday breakdown correctly does not follow the range, which is D10's
+intent and the thing most likely to be mistaken for a bug. A selection made by
+tapping survives scrolling away, which is wanted: the responder has already
+ended by then, so nothing clears it.
+
+Three defects came out of it.
+
+`dcf4901` — the weekday bar captions did not share a baseline. The caption
+relied on the text wrapping, and wrapping only happens when the text is too
+wide to fit: "167 shifts" took two lines, "6 shifts" took one, and Saturday's
+column sat a line higher than its six neighbours. The line break is now
+explicit, so the layout no longer depends on how many digits the number has.
+
+`2bb8a78` — `MONTH_NAMES` existed in three places. Two were consolidated into
+`lib/dates.ts` when the calendar picker landed, which left the Trends copy
+behind and made the comment there describing one source slightly untrue. All
+three agreed, so nothing was broken; that is what drift looks like before it
+becomes a bug.
+
+`e62796d` — the same gesture defect as the shift row, in a different component.
+The chart claims a touch as soon as a finger lands so a tap jumps to a point,
+and it offered the gesture back unconditionally so a vertical scroll starting
+on the chart would not be trapped. That answer cannot tell a scroll apart from
+a scrub whose finger has wandered, so drifting vertically mid-drag handed the
+gesture away and dropped the selection. It now surrenders only while the
+gesture is still ambiguous: six points of horizontal travel settles it as a
+scrub, after which it is kept until the finger lifts.
+
+Worth naming as a pattern rather than two coincidences. Both defects were a pan
+responder that never refuses termination, which cannot hold a gesture through
+the noise of a real hand, and neither was reachable by any assertion in this
+repo. Every future gesture surface should be checked for the same thing.
