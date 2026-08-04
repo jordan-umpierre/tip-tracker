@@ -9,28 +9,25 @@ Last updated: 2026-08-04
 
 ## NEXT
 
-**Finish the device pass over the 2026-08-03 UI session before building
-anything new.** That session shipped roughly fifteen behavior changes across
-both tabs and verified none of them on hardware. Every item below is a layout,
-gesture, or filesystem behavior that no assertion in this repo can reach.
+**Finish the device pass, then return to the roadmap's own order.** Steps 1 and
+2 are done. Step 3, Trends, is the one remaining verification and is the next
+thing to do.
 
-Step 1 is done. The export was verified end to end on 2026-08-04 and found two
-real defects, both fixed — see
-[build-log/14-device-verification.md](build-log/14-device-verification.md) and
-the revised D16. Worth carrying into the rest of the pass: both defects were in
-code that typechecked, passed every test, and had never once run.
+Note what the last two sessions cost: the Log tab picked up a calendar picker,
+haptics, animated month paging and row actions, none of which were on this
+list. All of it is real Layer 0 work and all of it was verified on device, but
+Trends has now been unverified for two days while the Log tab kept growing.
+Verify Trends before building anything else on Log.
 
-1. ~~**Verify the CSV export end to end.**~~ Done 2026-08-04. The file matched
-   D16's format at 845 rows, and its per-year counts agree with the Log tab's
-   own grouping. Canceling the picker logged at `console.error` and alerted;
-   the second export of any day failed outright on a filename collision. Both
-   fixed and re-verified on device.
-2. **Verify the Log screen** on a physical iPhone: groups collapsed on open,
-   the screen centered vertically while short and scrolling normally once a
-   year is expanded, tapping year → month → week → shift, the form opening from
-   Log a shift and from tapping a row, Cancel closing it in both cases, swipe
-   and long-press delete still reaching the native confirmation, and the
-   importer still working from inside Manage data.
+1. ~~**Verify the CSV export end to end.**~~ Done 2026-08-04. Found two real
+   defects, both fixed: a canceled picker logged as an error, and the date-only
+   filename made the second export of any day fail. See the revised D16.
+2. ~~**Verify the Log screen.**~~ Done 2026-08-04, and it turned into a round of
+   UI work rather than a pass/fail check. The controls moved below the history
+   so the primary action sits within a thumb's reach, the date field gained a
+   calendar picker built rather than depended on (D17), and a swiped row now
+   offers Edit as well as Delete. Each change was confirmed on a physical
+   iPhone before its commit.
 3. **Verify Trends**: tapping the line jumps to that point without a drag, a
    vertical scroll starting on the chart does not leave a stray selection, YTD
    and the date-range window labels read correctly, and the summary card
@@ -557,3 +554,40 @@ Trends scope is complete.
 
     The through-line for the rest of this pass: every defect found today was in
     code that typechecked, passed every test, and had never once executed.
+58. Moved the Log screen's controls below the shift history, in `b04649a`, so
+    the primary action sits within a thumb's reach on a cold open rather than
+    up by the status bar. The downward nudge on the centred layout had to
+    become conditional: padding, unlike `justifyContent`, does not stop
+    applying once content outgrows the viewport, so unconditionally it left a
+    blank band above an expanded year and pushed an open form off the bottom.
+
+59. Built a calendar picker for the shift date field across `3a8d481` and
+    `2ed8544`, with the days that already have a shift dotted, animated month
+    paging, haptics, and a month and year chooser behind the header. Typing a
+    date still works and is still the primary path.
+
+    `react-native-calendars` was installed and run on the device before being
+    rejected, rather than argued about from its dependency list. It rendered
+    and dotted correctly; its month swipe did not work, because it depends on
+    a gesture library that predates `react-native-gesture-handler` and does not
+    survive the New Architecture. D17 records why that settled it, and why the
+    requirements here — English only, Sunday already pinned by D10, one date,
+    no ranges — make a hand-written grid unusually cheap.
+
+    The animation took three attempts. Two of them re-centred a three-month
+    strip after each page, which means moving the strip and swapping its
+    contents at the same instant; the first flashed the outgoing month, and
+    moving the reset into `useLayoutEffect` did not help because the transform
+    runs on the native thread and ordering JavaScript cannot fix a cross-thread
+    race. Positioning each month by its distance from an anchor removes the
+    re-centre, and with it the race. Frame-by-frame screenshots from the device
+    are what identified the flashed month as the outgoing one and pointed at
+    the cause.
+
+60. Added Edit beside Delete on a swiped shift row, in `d3d077e`, and made both
+    it and a plain row tap scroll to the form — which renders below every row,
+    so opening a shift previously changed something off the bottom of the
+    screen and looked like nothing had happened. The gesture was also retuned
+    after it felt wrong in use: it required horizontal movement to strictly
+    exceed vertical, and it let the `FlatList` reclaim the gesture mid-drag,
+    which collapsed the row whenever a finger drifted toward its neighbour.
