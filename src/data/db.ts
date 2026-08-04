@@ -3,11 +3,22 @@ import { File } from 'expo-file-system';
 import * as SQLite from 'expo-sqlite';
 
 const DATABASE_NAME = 'tip-tracker.db';
-const SCHEMA_VERSION = 2;
-const upgradeSqlByVersion = [
-  require('./schema.sql'),
-  require('./migrations/1-to-2.sql'),
-];
+const SCHEMA_VERSION = 3;
+
+// A database that does not exist yet gets the whole current schema in one go.
+const freshSchemaSql = require('./schema.sql');
+
+// One entry per hop, keyed by the version it upgrades *from*. Every step has
+// to be listed: the runner walks this from the database's current version up
+// to SCHEMA_VERSION rather than applying a single file, which is what it used
+// to do. That worked only while there was exactly one hop -- a version-1
+// database upgrading to version 3 applied 1-to-2.sql and was then stamped as
+// version 3, so it claimed a shape it did not have and every later migration
+// would have skipped it.
+const migrationSqlByFromVersion: Record<number, number> = {
+  1: require('./migrations/1-to-2.sql'),
+  2: require('./migrations/2-to-3.sql'),
+};
 
 // Opening a connection is async, and we only want to do it once -- not a
 // fresh connection per call. This caches the in-flight (or finished) open,
@@ -52,15 +63,31 @@ async function openDb(): Promise<SQLite.SQLiteDatabase> {
   if (currentVersion < SCHEMA_VERSION) {
     // SQL ships as bundled assets (see metro.config.js), not duplicated JS
     // strings. downloadAsync() makes sure the asset is on disk before it is
-    // read, and the transaction keeps the SQL and version marker atomic.
-    // Version 0 gets the complete current schema; version 1 gets the one
-    // migration that advances it to version 2. Both assets are statically
-    // required above so Metro includes them in native bundles.
-    const upgradeSql = await readBundledSql(upgradeSqlByVersion[currentVersion]);
+    // read, so the reads happen here rather than inside the transaction.
+    const steps: { sql: string; toVersion: number }[] = [];
 
+    if (currentVersion === 0) {
+      steps.push({ sql: await readBundledSql(freshSchemaSql), toVersion: SCHEMA_VERSION });
+    } else {
+      for (let from = currentVersion; from < SCHEMA_VERSION; from += 1) {
+        const asset = migrationSqlByFromVersion[from];
+        if (asset === undefined) {
+          throw new Error(`No migration from database version ${from}.`);
+        }
+        steps.push({ sql: await readBundledSql(asset), toVersion: from + 1 });
+      }
+    }
+
+    // One transaction around the whole chain, not one per step. A failure
+    // halfway through a two-hop upgrade would otherwise leave the database at
+    // an intermediate version with the app expecting the final one.
     await db.withExclusiveTransactionAsync(async (transaction) => {
-      await transaction.execAsync(upgradeSql);
-      await transaction.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION};`);
+      for (const step of steps) {
+        await transaction.execAsync(step.sql);
+        // Stamped per step so the marker never claims a shape the database
+        // does not have, even mid-chain.
+        await transaction.execAsync(`PRAGMA user_version = ${step.toVersion};`);
+      }
     });
   }
 

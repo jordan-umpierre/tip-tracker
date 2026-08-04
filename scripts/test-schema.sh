@@ -115,6 +115,57 @@ else
   failed=$((failed + 1))
 fi
 
+# --- Version 3: shift times and the overtime workweek ----------------------
+#
+# Times are optional because 845 existing shifts have none, so "absent" has to
+# stay a legal state rather than something the schema quietly forbids.
+accepts "a shift with no times, which every pre-version-3 row is" \
+  "INSERT INTO shifts ($shift_cols) VALUES ('shift-5', 'job-2', '2026-07-28', 18000, 2000, 1200, NULL, NULL, '$now', '$now');"
+
+accepts "a shift with both times" \
+  "UPDATE shifts SET start_time = '17:30', end_time = '23:45' WHERE id = 'shift-5';"
+
+# End before start is an overnight shift, not a mistake. duration_seconds still
+# carries the real length, so nothing needs these two to be in order.
+accepts "an overnight shift whose end time is before its start time" \
+  "UPDATE shifts SET start_time = '20:00', end_time = '02:00' WHERE id = 'shift-5';"
+
+accepts "a job with a Wednesday 06:00 workweek" \
+  "UPDATE jobs SET overtime_enabled = 1, workweek_start_weekday = 3, workweek_start_time = '06:00' WHERE id = 'job-2';"
+
+rejects "a shift with a start time and no end time" \
+  "UPDATE shifts SET start_time = '18:00', end_time = NULL WHERE id = 'shift-5';"
+
+rejects "a shift with an end time and no start time" \
+  "UPDATE shifts SET start_time = NULL, end_time = '02:00' WHERE id = 'shift-5';"
+
+rejects "a shift time with hour 24" \
+  "UPDATE shifts SET start_time = '24:00', end_time = '02:00' WHERE id = 'shift-5';"
+
+rejects "a shift time with minute 60" \
+  "UPDATE shifts SET start_time = '18:60', end_time = '02:00' WHERE id = 'shift-5';"
+
+rejects "an unpadded shift time" \
+  "UPDATE shifts SET start_time = '8:00', end_time = '02:00' WHERE id = 'shift-5';"
+
+rejects "a shift time that is not a time at all" \
+  "UPDATE shifts SET start_time = 'evening', end_time = '02:00' WHERE id = 'shift-5';"
+
+rejects "an overtime flag that is neither on nor off" \
+  "UPDATE jobs SET overtime_enabled = 2 WHERE id = 'job-2';"
+
+rejects "a workweek starting on an eighth weekday" \
+  "UPDATE jobs SET workweek_start_weekday = 7 WHERE id = 'job-2';"
+
+rejects "a negative workweek weekday" \
+  "UPDATE jobs SET workweek_start_weekday = -1 WHERE id = 'job-2';"
+
+rejects "a workweek starting at 25:00" \
+  "UPDATE jobs SET workweek_start_time = '25:00' WHERE id = 'job-2';"
+
+rejects "a workweek start time that is not a time" \
+  "UPDATE jobs SET workweek_start_time = 'morning' WHERE id = 'job-2';"
+
 # --- Things that must be refused ------------------------------------------
 
 rejects "a job with no name" \

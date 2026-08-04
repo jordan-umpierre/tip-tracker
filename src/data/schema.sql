@@ -50,7 +50,33 @@ CREATE TABLE jobs (
   created_at TEXT NOT NULL,
 
   -- Needed for sync later: when two devices disagree, the later edit wins.
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+
+  -- Overtime is per job and off until the user turns it on (D14). Federal
+  -- entitlement depends on the employer and the role, so there is no sane
+  -- global default -- a universal toggle would rewrite every number on screen
+  -- based on a guess.
+  --
+  -- Declared last because migrations/2-to-3.sql adds these with ALTER, which
+  -- can only append. Matching that order keeps a database created from this
+  -- file byte-identical to one upgraded into version 3.
+  overtime_enabled INTEGER NOT NULL DEFAULT 0 CHECK (overtime_enabled IN (0, 1)),
+
+  -- The employer's fixed workweek. Federal rules define it as a recurring
+  -- 168-hour period that may start on any day at any hour, which is not the
+  -- same thing as a calendar week. 0 is Sunday, matching WEEKDAY_NAMES and the
+  -- week boundary D10 pins for Trends and the Log.
+  workweek_start_weekday INTEGER NOT NULL DEFAULT 0
+    CHECK (workweek_start_weekday BETWEEN 0 AND 6),
+
+  -- Local "HH:MM", zero-padded so it compares as text. Midnight is the default
+  -- because that is what every other part of this app already assumes.
+  workweek_start_time TEXT NOT NULL DEFAULT '00:00'
+    CHECK (
+      workweek_start_time GLOB '[0-9][0-9]:[0-9][0-9]'
+      AND CAST(substr(workweek_start_time, 1, 2) AS INTEGER) <= 23
+      AND CAST(substr(workweek_start_time, 4, 2) AS INTEGER) <= 59
+    )
 );
 
 -- A shift is one instance of working: a date, some hours, some tips.
@@ -104,8 +130,28 @@ CREATE TABLE shifts (
   -- to filter "deleted_at IS NULL". Centralize it in one place.
   deleted_at TEXT,
 
+
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
+
+  -- When the shift sat within its day, as local "HH:MM". Optional, because
+  -- every shift logged before schema version 3 has no time and never will --
+  -- a NOT NULL column would force a made-up value into real history.
+  --
+  -- These do not define how long the shift was. duration_seconds stays
+  -- authoritative for that, so a rounded clock time can never silently rewrite
+  -- a recorded length. An end_time earlier than start_time is legitimate and
+  -- means the shift crossed midnight, which is most of a bartender's week.
+  --
+  -- Their job is placing a shift against an employer's workweek boundary,
+  -- which federal rules allow to start at any hour. Without them, overtime
+  -- counts a shift wholly against its logged date.
+  --
+  -- Validity is enforced by the triggers below rather than a CHECK, because
+  -- ALTER TABLE cannot add a CHECK to an existing table and the migrated and
+  -- freshly created databases have to end up identical.
+  start_time TEXT,
+  end_time TEXT,
 
   -- Stops a shift from pointing at a job that doesn't exist.
   -- RESTRICT means SQLite refuses to delete a job that still has shifts.
@@ -122,3 +168,42 @@ CREATE TABLE shifts (
 -- No indexes yet. Queries will filter shifts by date and by job, which sounds
 -- like it wants an index, but a few thousand rows scan faster than the screen
 -- can redraw. Add one when there's a slow query to point at, not before.
+
+-- Shift times are all-or-nothing and have to be real times. Triggers rather
+-- than CHECK constraints so that a database created from this file and one
+-- upgraded by migrations/2-to-3.sql enforce the rule the same way -- SQLite
+-- cannot ALTER a CHECK onto an existing table, so the migration has only this
+-- option and this file matches it deliberately.
+CREATE TRIGGER shifts_times_valid_insert
+BEFORE INSERT ON shifts
+FOR EACH ROW
+WHEN NEW.start_time IS NOT NULL OR NEW.end_time IS NOT NULL
+BEGIN
+  SELECT RAISE(ABORT, 'shift times must be set together')
+  WHERE NEW.start_time IS NULL OR NEW.end_time IS NULL;
+
+  SELECT RAISE(ABORT, 'shift times must be HH:MM')
+  WHERE NEW.start_time NOT GLOB '[0-9][0-9]:[0-9][0-9]'
+     OR NEW.end_time NOT GLOB '[0-9][0-9]:[0-9][0-9]'
+     OR CAST(substr(NEW.start_time, 1, 2) AS INTEGER) > 23
+     OR CAST(substr(NEW.end_time, 1, 2) AS INTEGER) > 23
+     OR CAST(substr(NEW.start_time, 4, 2) AS INTEGER) > 59
+     OR CAST(substr(NEW.end_time, 4, 2) AS INTEGER) > 59;
+END;
+
+CREATE TRIGGER shifts_times_valid_update
+BEFORE UPDATE ON shifts
+FOR EACH ROW
+WHEN NEW.start_time IS NOT NULL OR NEW.end_time IS NOT NULL
+BEGIN
+  SELECT RAISE(ABORT, 'shift times must be set together')
+  WHERE NEW.start_time IS NULL OR NEW.end_time IS NULL;
+
+  SELECT RAISE(ABORT, 'shift times must be HH:MM')
+  WHERE NEW.start_time NOT GLOB '[0-9][0-9]:[0-9][0-9]'
+     OR NEW.end_time NOT GLOB '[0-9][0-9]:[0-9][0-9]'
+     OR CAST(substr(NEW.start_time, 1, 2) AS INTEGER) > 23
+     OR CAST(substr(NEW.end_time, 1, 2) AS INTEGER) > 23
+     OR CAST(substr(NEW.start_time, 4, 2) AS INTEGER) > 59
+     OR CAST(substr(NEW.end_time, 4, 2) AS INTEGER) > 59;
+END;

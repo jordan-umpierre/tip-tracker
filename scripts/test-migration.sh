@@ -3,6 +3,12 @@
 # Proves the version-1-to-version-2 duration migration preserves every stored
 # fact other than the unit it deliberately changes. It also forces the UPDATE
 # to fail and checks that the surrounding transaction restores version 1.
+#
+# Then walks the whole chain, 1 to 2 to 3, the way db.ts does. That part exists
+# because the runner used to apply a single file and then stamp the newest
+# version number, which was only ever correct while there was one hop: a
+# version-1 database upgrading to version 3 got 1-to-2.sql and a "3" marker,
+# claiming a shape it did not have.
 
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
@@ -123,4 +129,89 @@ fi
 [ "$(shifts_snapshot "$rollback_db")" = "$rollback_before" ] || fail "rollback changed a shift field"
 [ "$(sqlite3 "$rollback_db" 'PRAGMA integrity_check;')" = "ok" ] || fail "rollback integrity_check failed"
 
-echo "migration OK (preservation + rollback)"
+# --- the full chain, as db.ts walks it -------------------------------------
+#
+# Each hop stamps its own version rather than jumping straight to the newest,
+# so the marker never describes a shape the database has not reached.
+apply_chain() {
+  sqlite3 "$1" <<SQL
+.bail on
+PRAGMA foreign_keys = ON;
+BEGIN IMMEDIATE;
+.read $migration_dir/1-to-2.sql
+PRAGMA user_version = 2;
+.read $migration_dir/2-to-3.sql
+PRAGMA user_version = 3;
+COMMIT;
+SQL
+}
+
+chain_db="$tmpdir/chain.db"
+create_v1_fixture "$chain_db" || fail "could not create the chain fixture"
+chain_before_jobs=$(jobs_snapshot "$chain_db")
+chain_expected_durations=$(sqlite3 "$chain_db" "SELECT id || '|' || (minutes * 60) FROM shifts ORDER BY id;")
+
+apply_chain "$chain_db" || fail "the 1-to-2-to-3 chain did not complete"
+
+[ "$(sqlite3 "$chain_db" 'PRAGMA user_version;')" = "3" ] || fail "the chain did not end at version 3"
+[ "$(jobs_snapshot "$chain_db")" = "$chain_before_jobs" ] || fail "the chain changed an existing job field"
+[ "$(sqlite3 "$chain_db" "SELECT id || '|' || duration_seconds FROM shifts ORDER BY id;")" = "$chain_expected_durations" ] || fail "the chain lost the version-2 duration conversion"
+[ "$(sqlite3 "$chain_db" 'PRAGMA integrity_check;')" = "ok" ] || fail "chain integrity_check failed"
+[ -z "$(sqlite3 "$chain_db" 'PRAGMA foreign_key_check;')" ] || fail "chain foreign_key_check found a broken relationship"
+
+# Existing rows have to come through with times absent and overtime off. A
+# default that silently switched overtime on would rewrite every number the
+# user already trusts.
+[ "$(sqlite3 "$chain_db" "SELECT count(*) FROM shifts WHERE start_time IS NOT NULL OR end_time IS NOT NULL;")" = "0" ] || fail "the chain invented a shift time"
+[ "$(sqlite3 "$chain_db" "SELECT count(*) FROM jobs WHERE overtime_enabled != 0;")" = "0" ] || fail "the chain enabled overtime on an existing job"
+[ "$(sqlite3 "$chain_db" "SELECT count(*) FROM jobs WHERE workweek_start_weekday != 0 OR workweek_start_time != '00:00';")" = "0" ] || fail "an existing job did not default to Sunday midnight"
+
+# The version-3 constraints have to actually reject, on a migrated database and
+# not just a freshly created one.
+chain_job=$(sqlite3 "$chain_db" "SELECT id FROM jobs LIMIT 1;")
+chain_shift=$(sqlite3 "$chain_db" "SELECT id FROM shifts LIMIT 1;")
+reject() {
+  if sqlite3 "$chain_db" "$2" >/dev/null 2>&1; then
+    fail "$1"
+  fi
+}
+reject "overtime_enabled accepted 2"        "UPDATE jobs SET overtime_enabled = 2 WHERE id = '$chain_job';"
+reject "workweek_start_weekday accepted 7"  "UPDATE jobs SET workweek_start_weekday = 7 WHERE id = '$chain_job';"
+reject "workweek_start_time accepted 25:00" "UPDATE jobs SET workweek_start_time = '25:00' WHERE id = '$chain_job';"
+reject "a start_time without an end_time"   "UPDATE shifts SET start_time = '18:00' WHERE id = '$chain_shift';"
+reject "an end_time without a start_time"   "UPDATE shifts SET end_time = '02:00' WHERE id = '$chain_shift';"
+reject "hour 24"                            "UPDATE shifts SET start_time = '24:00', end_time = '02:00' WHERE id = '$chain_shift';"
+reject "minute 60"                          "UPDATE shifts SET start_time = '18:60', end_time = '02:00' WHERE id = '$chain_shift';"
+reject "a non-time string"                  "UPDATE shifts SET start_time = 'evening', end_time = '02:00' WHERE id = '$chain_shift';"
+
+sqlite3 "$chain_db" "UPDATE shifts SET start_time = '18:00', end_time = '02:00' WHERE id = '$chain_shift';" || fail "a valid overnight pair was rejected"
+[ "$(sqlite3 "$chain_db" "SELECT start_time || '-' || end_time FROM shifts WHERE id = '$chain_shift';")" = "18:00-02:00" ] || fail "a valid time pair did not store"
+
+# --- a fresh database and a migrated one have to be the same shape ---------
+#
+# schema.sql builds version 3 in one statement; the migrations arrive at it in
+# hops. If those two drift, test-schema.sh is testing a shape no real device
+# has. Column order counts: ALTER can only append, so schema.sql declares the
+# version-3 columns last on purpose, and this is what keeps that honest.
+#
+# Comparing the stored DDL text would not work -- SQLite keeps CREATE TABLE
+# verbatim including comments, while ALTER-added columns arrive without them.
+# What matters is the resolved structure.
+fresh_db="$tmpdir/fresh.db"
+sqlite3 "$fresh_db" < src/data/schema.sql || fail "schema.sql did not load"
+
+for table in jobs shifts; do
+  fresh_cols=$(sqlite3 "$fresh_db" "PRAGMA table_info($table);")
+  chain_cols=$(sqlite3 "$chain_db" "PRAGMA table_info($table);")
+  if [ "$fresh_cols" != "$chain_cols" ]; then
+    printf 'FAIL  a fresh %s differs from a migrated one\n' "$table"
+    diff <(printf '%s\n' "$fresh_cols") <(printf '%s\n' "$chain_cols")
+    exit 1
+  fi
+done
+
+fresh_triggers=$(sqlite3 "$fresh_db" "SELECT name FROM sqlite_master WHERE type = 'trigger' ORDER BY name;")
+chain_triggers=$(sqlite3 "$chain_db" "SELECT name FROM sqlite_master WHERE type = 'trigger' ORDER BY name;")
+[ "$fresh_triggers" = "$chain_triggers" ] || fail "a fresh database and a migrated one have different triggers"
+
+echo "migration OK (preservation + rollback + 1-to-3 chain + fresh/migrated parity)"
