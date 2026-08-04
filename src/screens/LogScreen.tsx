@@ -322,6 +322,11 @@ const styles = StyleSheet.create({
   },
   // The one filled button on the screen. Logging a shift is the reason the tab
   // exists, so it should be the thing the eye lands on when the form is closed.
+  //
+  // The generous top margin only applies in this closed state -- the form
+  // replaces this button rather than sitting under it. With every group
+  // collapsed the screen holds very little, and starting it hard against the
+  // status bar left all of that weight at the top with empty space below.
   logShiftButton: {
     minHeight: 48,
     justifyContent: 'center',
@@ -329,6 +334,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#2563eb',
     margin: 16,
+    marginTop: 48,
     marginBottom: 0,
   },
   logShiftButtonText: {
