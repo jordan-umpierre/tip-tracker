@@ -957,3 +957,66 @@ UI/UX bar from the product definition is achievable here.
 > and D13's contract should be re-examined at the same time. Re-check the cancel
 > message on any `expo-file-system` upgrade, and drop the heuristic entirely if
 > the error code ever starts reaching JavaScript.
+
+### D17 — Build the calendar picker rather than depend on one (2026-08-04)
+
+> **Decision:** The date field keeps its text input and gains a calendar
+> alternative beside it, built in this repo. `buildMonthGrid` in
+> `src/lib/monthGrid.ts` produces a fixed six rows of cells; `CalendarPicker`
+> renders them in a bottom sheet with the days that already have a shift
+> dotted. Months page by swipe or arrows, animated; the header opens a month
+> and year chooser for anything further away. `expo-haptics` provides feedback
+> on paging, on selection, and a distinct warning when the chosen date already
+> has a shift.
+>
+> **Alternatives:**
+> - `react-native-calendars` (spiked on device 2026-08-04, then removed)
+> - `@react-native-community/datetimepicker`, the system picker
+> - Text entry only, as before
+> - `react-native-calendars` kept, with `react-native-gesture-handler` added to
+>   repair its swipe
+>
+> **Why:** the dots decided it. Knowing a day already has a shift is the whole
+> value of seeing a month at once, and the system picker cannot draw them. That
+> ruled out the cheapest option immediately, and since nothing here shipped a
+> date picker already, every remaining choice cost either a dependency or code.
+>
+> `react-native-calendars` was the reasonable default and was installed rather
+> than argued about. It rendered, dotted, and selected correctly on RN 0.86 and
+> React 19 — and its month swipe did not work, because it depends on
+> `react-native-swipe-gestures`, which predates `react-native-gesture-handler`
+> and does not survive the New Architecture. That left twelve packages,
+> including `xdate`, `prop-types`, and a virtualized list this does not need,
+> paying for a month grid whose gesture was broken. A package whose own
+> dependency is non-functional on the target platform is not merely untidy: it
+> is evidence the package is not tested against this stack, which predicts the
+> next React Native upgrade rather than just this one.
+>
+> Building was cheap here for reasons that would not hold generally. The hard
+> parts of a calendar — locale, week start, ranges, right-to-left — are all
+> absent: this app is English-only, D10 already pins Sunday, and the field takes
+> one date. What remained was a grid, and a grid is one pure function that Node
+> can assert. The library's version of that logic could not have been tested at
+> all by the direct-run pattern the rest of `src/lib/` uses.
+>
+> **Known cost:** accessibility and visual polish are now this project's
+> problem. The neighbouring months rendered for the swipe are hidden from
+> assistive tech, day cells carry spoken labels including whether a shift
+> exists, and the two off-screen panes are excluded — all of which a mature
+> library would have arrived with. None of it is covered by a test, because
+> none of it is reachable from Node.
+>
+> The animation took three attempts, and the two failures are worth keeping.
+> Both rendered three months and re-centred the strip after each page, which
+> requires moving the strip and swapping its contents in the same instant.
+> Doing that in the animation callback flashed the outgoing month. Moving it
+> into `useLayoutEffect` did not help, and the reason matters: with
+> `useNativeDriver` the transform lives on the native thread, so ordering
+> JavaScript operations cannot fix a race between two threads. Positioning each
+> month by its own distance from an anchor removes the re-centre entirely, and
+> with it the race. Reach for that shape before reaching for effect ordering.
+>
+> **Revisit when:** the app needs localization, a date range, or a second
+> calendar surface. Any of those changes the arithmetic above, and at that point
+> a maintained library is worth re-pricing — checking first, as here, whether its
+> gesture dependencies work on the React Native of the day.

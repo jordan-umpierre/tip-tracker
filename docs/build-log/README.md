@@ -83,3 +83,6 @@ name — the number adds sequence without costing you the description.
 14. [14-device-verification.md](14-device-verification.md) — the physical-device
     pass over that session: the first real CSV export, and the canceled-picker
     defect it exposed in reasoning nobody had checked.
+15. [15-calendar-and-row-actions.md](15-calendar-and-row-actions.md) — the Log
+    screen's controls moved within reach, a calendar date picker built rather
+    than depended on (D17), and Edit added to the swiped shift row.
