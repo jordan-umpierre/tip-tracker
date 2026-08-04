@@ -9,7 +9,7 @@
 // pass only on the machine that wrote them. That matters here more than usual,
 // since the bug being guarded against is specifically a timezone bug.
 import assert from 'node:assert/strict';
-import { localDateString, parseCalendarDate } from './dates.ts';
+import { localDateString, parseCalendarDate, weekStartString } from './dates.ts';
 
 // The regression. 23:31 local on 2026-07-30 is already 2026-07-31 in UTC for
 // anywhere in the Americas, and the old toISOString().slice(0, 10) returned
@@ -53,4 +53,20 @@ assert.deepEqual(parseCalendarDate('2028-02-29'), {
   weekdayIndex: 2, // Tuesday
 });
 
-console.log('dates OK (11 checks)');
+// Weeks start Sunday (D10), and the start date has to cross month and year
+// boundaries rather than clamping to the 1st. Trends and the Log both group by
+// week off this, so a change here silently moves shifts between groups on two
+// screens at once.
+function weekStart(value: string): string {
+  const date = parseCalendarDate(value);
+  assert.ok(date, `expected ${value} to parse`);
+  return weekStartString(date);
+}
+
+assert.equal(weekStart('2026-08-02'), '2026-08-02'); // a Sunday is its own start
+assert.equal(weekStart('2026-08-08'), '2026-08-02'); // Saturday, same week
+assert.equal(weekStart('2026-08-01'), '2026-07-26'); // reaches back a month
+assert.equal(weekStart('2026-01-01'), '2025-12-28'); // and back a year
+assert.equal(weekStart('2028-03-01'), '2028-02-27'); // across a leap day
+
+console.log('dates OK (16 checks)');

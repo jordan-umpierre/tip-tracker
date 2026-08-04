@@ -28,12 +28,14 @@ export function localDateString(date: Date): string {
 // Parses the exact date-only format stored in SQLite. Returning null gives
 // form code a normal validation branch while letting calculations reject a
 // persisted value that violates the same rule.
-export function parseCalendarDate(value: string): {
+export type CalendarDate = {
   year: number;
   month: number;
   day: number;
   weekdayIndex: number;
-} | null {
+};
+
+export function parseCalendarDate(value: string): CalendarDate | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) {
     return null;
@@ -59,4 +61,16 @@ export function parseCalendarDate(value: string): {
   }
 
   return { year, month, day, weekdayIndex: date.getUTCDay() };
+}
+
+// The Sunday that starts the week containing this date, as a date-only string.
+// Trends and the Log both group by week and have to agree on where a week
+// begins (D10 pins Sunday-Saturday), so the rule lives here once rather than
+// being written out in each of them.
+//
+// Constructing in UTC keeps a date-only value stable across timezones, and
+// lets Date carry the subtraction across month and year boundaries.
+export function weekStartString(date: CalendarDate): string {
+  const sunday = new Date(Date.UTC(date.year, date.month - 1, date.day - date.weekdayIndex));
+  return sunday.toISOString().slice(0, 10);
 }

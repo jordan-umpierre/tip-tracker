@@ -1,7 +1,7 @@
 // Layer 1 calculations. Like totals.ts, this module only turns Shift values
 // into other values: no SQLite, React, formatting, or device clock.
 import type { Shift } from '../data/shifts';
-import { parseCalendarDate } from './dates.ts';
+import { parseCalendarDate, weekStartString } from './dates.ts';
 import { calculateShiftGrossCents } from './totals.ts';
 
 const WEEKDAYS = [
@@ -97,14 +97,6 @@ function average(total: number, count: number): number | null {
   return count === 0 ? null : Math.round(total / count);
 }
 
-function weekStartKey(date: NonNullable<ReturnType<typeof parseCalendarDate>>): string {
-  // Trends use Sunday-Saturday calendar weeks. Constructing in UTC keeps a
-  // date-only shift stable across timezones and lets Date cross month/year
-  // boundaries for us.
-  const sunday = new Date(Date.UTC(date.year, date.month - 1, date.day - date.weekdayIndex));
-  return sunday.toISOString().slice(0, 10);
-}
-
 function shiftMatchesJob(shift: Shift, jobId: string | null): boolean {
   return jobId === null || shift.job_id === jobId;
 }
@@ -168,7 +160,7 @@ function seriesKeys(range: TrendChartRange, oldest: DatedShift, newest: DatedShi
   }
 
   if (range === 'quarter') {
-    const newestWeekStart = Date.parse(`${weekStartKey(newest.date)}T00:00:00.000Z`);
+    const newestWeekStart = Date.parse(`${weekStartString(newest.date)}T00:00:00.000Z`);
     return Array.from({ length: 13 }, (_, index) =>
       dateKey(newestWeekStart - (12 - index) * 7 * DAY_IN_MILLISECONDS)
     );
@@ -197,7 +189,7 @@ function pointKeyForShift(
   date: DatedShift['date']
 ): string {
   if (bucket === 'day') return shift.shift_date;
-  if (bucket === 'week') return weekStartKey(date);
+  if (bucket === 'week') return weekStartString(date);
   return shift.shift_date.slice(0, 7);
 }
 
@@ -265,7 +257,7 @@ export function calculateTrends(shifts: Shift[], jobId: string | null = null): T
     addShift(weekdayTotals[date.weekdayIndex], shift, grossCents);
     addShift(totalsForPeriod(monthTotals, monthPeriod), shift, grossCents);
     addShift(totalsForPeriod(yearTotals, yearPeriod), shift, grossCents);
-    workedWeeks.add(weekStartKey(date));
+    workedWeeks.add(weekStartString(date));
   }
 
   const workedWeekCount = workedWeeks.size;
