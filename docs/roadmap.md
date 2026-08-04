@@ -446,3 +446,16 @@ Trends scope is complete.
     average, in `9958a4f`. D10 is revised for the swap, and the same revision
     backfills YTD and the date-range window labels into D10's chart bullet,
     which had been describing the pre-`b771c03` screen for several commits.
+51. Made Weekday the default breakdown and scoped the Trends summary to the
+    selected chart range, in `559ebc7` and `2b5fbc1`. Changing the chart range
+    used to leave the number beneath it unchanged, which reads as broken range
+    buttons; both summaries now cover exactly the shifts the chart drew, via
+    `shiftsInWindow` in `trends.ts`. That function is asserted against the
+    series for all six ranges — the gross it selects equals the sum of that
+    series' points — because a card contradicting the graph above it is the
+    failure that matters. The chips are Per hour and Per week now, since "All
+    time" stopped being true and the window is stated in the card instead. The
+    breakdown stays on all history: scoping it would collapse Month and Year to
+    one row under 1W. D10 is amended for both, including the cost of running
+    two date scopes on one screen. Breakdown order is Weekday, Month, Year,
+    default-first and widening rightward. All checks pass; not yet on a device.
