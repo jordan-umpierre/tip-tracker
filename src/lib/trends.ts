@@ -229,6 +229,21 @@ export function calculateTrendSeries(
   };
 }
 
+// The shifts a chart series actually drew, so a summary beside the chart can be
+// calculated over exactly the same set. Both bounds are date-only strings in
+// the same format as shift_date, so comparing them as strings is the whole
+// filter -- no parsing, and no second definition of where a window starts.
+export function shiftsInWindow(shifts: Shift[], series: TrendSeries): Shift[] {
+  const { startDate, anchorDate } = series;
+  if (!startDate || !anchorDate) {
+    return [];
+  }
+
+  return shifts.filter(
+    (shift) => shift.shift_date >= startDate && shift.shift_date <= anchorDate
+  );
+}
+
 export function calculateTrends(shifts: Shift[], jobId: string | null = null): Trends {
   const allTotals = emptyTotals();
   const weekdayTotals = WEEKDAYS.map(() => emptyTotals());

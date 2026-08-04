@@ -354,7 +354,10 @@ function svgPath(positions: ChartPosition[]): string {
 // The window runs from where the range starts to the newest shift in it. Using
 // the newest shift as the end, rather than the end of the last bucket, keeps the
 // label honest: it names the last day there is actually data for.
-function rangeLabel(range: TrendChartRange, series: TrendSeries): string {
+//
+// Exported because the summary card below the chart is scoped to this same
+// window and has to name it identically. Two copies of this would drift.
+export function rangeLabel(range: TrendChartRange, series: TrendSeries): string {
   if (!series.anchorDate || !series.startDate) return 'No shifts yet';
   return rangeLabelPrecision[range] === 'month'
     ? monthRangeLabel(series.startDate, series.anchorDate)

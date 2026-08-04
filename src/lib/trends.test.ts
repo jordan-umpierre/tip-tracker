@@ -6,7 +6,7 @@
 // in src/lib/.
 import assert from 'node:assert/strict';
 import type { Shift } from '../data/shifts.ts';
-import { calculateTrends, calculateTrendSeries } from './trends.ts';
+import { calculateTrends, calculateTrendSeries, shiftsInWindow } from './trends.ts';
 
 function shift(
   id: string,
@@ -237,6 +237,35 @@ assert.deepEqual(
   allSeries.points.map((point) => [point.period, point.grossCents]),
   [['2022-12', 1000], ['2023-01', 0], ['2023-02', 1000]]
 );
+// The summary card beside the chart is calculated over shiftsInWindow, so this
+// has to return exactly what the series drew. Summing the series points and
+// summing the returned shifts is the check that the two can never disagree --
+// if they did, the card would contradict the graph directly above it.
+for (const range of ['week', 'month', 'quarter', 'year', 'ytd', 'all'] as const) {
+  const series = calculateTrendSeries(chartShifts, range, 'job-a');
+  const windowed = shiftsInWindow(chartShifts, series);
+  const seriesGross = series.points.reduce((total, point) => total + point.grossCents, 0);
+  const windowGross = calculateTrends(windowed, 'job-a').headline.grossCents;
+  assert.equal(windowGross, seriesGross, `${range} summary must match its chart`);
+}
+
+// The window filters on dates only; the job scope is applied afterwards by
+// calculateTrends. So a window wide enough to contain the other job's shift
+// returns it, and narrowing to one job is not this function's job.
+assert.ok(
+  shiftsInWindow(chartShifts, calculateTrendSeries(chartShifts, 'all'))
+    .some((entry) => entry.job_id === 'job-b')
+);
+// Scoping the series to job-a moves the anchor back to that job's newest shift,
+// which drops the later job-b shift out of the window on dates alone.
+assert.ok(
+  !shiftsInWindow(chartShifts, calculateTrendSeries(chartShifts, 'all', 'job-a'))
+    .some((entry) => entry.job_id === 'job-b')
+);
+
+// No shifts means no window, and therefore nothing to summarize.
+assert.deepEqual(shiftsInWindow(chartShifts, calculateTrendSeries([], 'week')), []);
+
 assert.deepEqual(calculateTrendSeries([], 'quarter'), {
   anchorDate: null,
   startDate: null,

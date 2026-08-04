@@ -3,7 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import IncomeTrendChart from '../components/IncomeTrendChart';
+import IncomeTrendChart, { rangeLabel } from '../components/IncomeTrendChart';
 import { getDb } from '../data/db';
 import { Job, listJobs } from '../data/jobs';
 import { listShifts, Shift } from '../data/shifts';
@@ -14,6 +14,7 @@ import {
   calculateTrendSeries,
   CalendarTrend,
   HeadlineTrend,
+  shiftsInWindow,
   TrendChartRange,
   Trends,
   WeekdayTrend,
@@ -95,9 +96,17 @@ export default function TrendsScreen() {
 
   let trends: ReturnType<typeof calculateTrends>;
   let trendSeries: ReturnType<typeof calculateTrendSeries>;
+  let rangeHeadline: HeadlineTrend;
   try {
     trends = calculateTrends(shifts, selectedJobId);
     trendSeries = calculateTrendSeries(shifts, chartRange, selectedJobId);
+    // The summary card describes the window the chart is showing, so it runs
+    // the same calculation over just the shifts the chart drew. The breakdown
+    // below deliberately keeps using the unfiltered `trends` -- see D10.
+    rangeHeadline = calculateTrends(
+      shiftsInWindow(shifts, trendSeries),
+      selectedJobId
+    ).headline;
   } catch (cause) {
     console.error('Could not calculate trends.', cause);
     return (
@@ -132,7 +141,11 @@ export default function TrendsScreen() {
 
         <JobFilters jobs={jobs} selectedJobId={selectedJobId} onChange={setSelectedJobId} />
         <SummaryControls value={summaryMode} onChange={setSummaryMode} />
-        <HeadlineCard mode={summaryMode} headline={trends.headline} />
+        <HeadlineCard
+          mode={summaryMode}
+          headline={rangeHeadline}
+          window={rangeLabel(chartRange, trendSeries)}
+        />
         <BreakdownControls value={breakdown} onChange={setBreakdown} />
         <BreakdownSection breakdown={breakdown} trends={trends} today={today} />
       </ScrollView>
@@ -186,16 +199,20 @@ function SummaryControls({
   return (
     <>
       <Text style={styles.filterLabel}>Summary</Text>
-      {/* All time first because it is the default: a selected chip that is not
-          the leftmost one reads as though something else was turned off. */}
+      {/* Per hour first because it is the default: a selected chip that is not
+          the leftmost one reads as though something else was turned off.
+          These name the metric rather than the window -- they were "All time"
+          and "Weekly average" when the card covered all history regardless of
+          the chart range, and now that both follow the range, the window is
+          stated once inside the card instead. */}
       <View style={styles.choiceRow}>
         <FilterChip
-          label="All time"
+          label="Per hour"
           selected={value === 'allTime'}
           onPress={() => onChange('allTime')}
         />
         <FilterChip
-          label="Weekly average"
+          label="Per week"
           selected={value === 'weekly'}
           onPress={() => onChange('weekly')}
         />
@@ -243,7 +260,9 @@ function weeklyHeadline(headline: HeadlineTrend): HeadlineContent {
     return {
       eyebrow: 'Average gross per worked week',
       value: 'No shifts',
-      context: 'Log a shift to calculate an average.',
+      // The range can now be empty for a reason other than logging nothing:
+      // a job filter whose shifts all fall outside the selected window.
+      context: 'No shifts in this range.',
     };
   }
 
@@ -260,17 +279,28 @@ function allTimeHeadline(headline: HeadlineTrend): HeadlineContent {
     eyebrow: 'Gross per hour',
     value: rateLabel(headline.grossPerHourCents),
     context: headline.durationSeconds === 0
-      ? 'Log a shift to calculate gross earnings.'
+      ? 'No shifts in this range.'
       : `${formatCents(headline.grossCents)} gross · ${formatHours(headline.durationSeconds)}`,
   };
 }
 
-function HeadlineCard({ mode, headline }: { mode: SummaryMode; headline: HeadlineTrend }) {
+function HeadlineCard({
+  mode,
+  headline,
+  window,
+}: {
+  mode: SummaryMode;
+  headline: HeadlineTrend;
+  // The chart's own window label, repeated here because this card is scoped to
+  // the same range and the number would otherwise be unattributed.
+  window: string;
+}) {
   const content = mode === 'weekly' ? weeklyHeadline(headline) : allTimeHeadline(headline);
 
   return (
     <View style={styles.headlineCard}>
       <Text style={styles.eyebrow}>{content.eyebrow}</Text>
+      <Text style={styles.headlineWindow}>{window}</Text>
       <Text selectable style={styles.headlineValue}>{content.value}</Text>
       <Text style={[styles.context, styles.headlineContext]}>{content.context}</Text>
       {content.note ? <Text style={styles.headlineNote}>{content.note}</Text> : null}
@@ -472,6 +502,7 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
     marginVertical: 4,
   },
+  headlineWindow: { color: '#6b7280', fontSize: 13, marginTop: 2 },
   headlineContext: { color: '#4b5563' },
   headlineNote: { color: '#6b7280', fontSize: 12, marginTop: 6 },
   section: { gap: 12, borderRadius: 16, backgroundColor: '#f9fafb', padding: 16 },
