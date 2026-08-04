@@ -791,16 +791,17 @@ UI/UX bar from the product definition is achievable here.
 ### D15 — Collapse the shift history into a year/month/week tree (2026-08-03; revised 2026-08-03)
 
 > **Decision:** The Log nests shifts under year, then month, then week rows,
-> each carrying its own gross and shift count. Only the newest branch is open:
-> newest year, newest month inside it, newest week inside that. The tree is
-> flattened into one array of typed rows and rendered through a single
-> `FlatList`. Expansion state stores only the groups the user has tapped,
-> falling back to "index 0 at each level is open".
+> each carrying its own gross and shift count. Everything starts collapsed, so
+> the tab opens to one row per year. The tree is flattened into one array of
+> typed rows and rendered through a single `FlatList`. Expansion state stores
+> only the groups the user has tapped.
 >
 > **Alternatives:**
 > - Keep the flat, fully expanded list and rely on virtualization alone
 > - Month sections with sticky headers but nothing collapsed
 > - Month sections, collapsed, one level deep (what shipped first, 2026-08-03)
+> - Open the newest year, month, and week by default (shipped 2026-08-03,
+>   replaced the same day)
 > - A month stepper showing exactly one month at a time, with no full scroll
 > - Infinite scroll paging in older shifts as the user reaches the bottom
 > - Nested `FlatList`s, one per level
@@ -809,9 +810,14 @@ UI/UX bar from the product definition is achievable here.
 > navigation cost. Every row looked alike and nothing said where in five years
 > of history the scroll had landed. One level of collapsing fixed the distance
 > between months but not within them: an open month of thirty shifts is still a
-> long list, and it was still the first thing on the tab. Three levels put the
-> current week on screen and nothing else, while any older week stays two taps
-> away. The stepper was rejected because it removes the ability to scan across
+> long list, and it was still the first thing on the tab. Three levels reduce
+> five years to one row per year.
+>
+> Opening the newest branch by default was tried first, on the reasoning that
+> the current week is what a user most often wants to see. It reintroduced the
+> scrolling the tree existed to remove and left the screen too tall to sit
+> centered, so the default is now fully closed and reaching this week costs
+> three taps. The stepper was rejected because it removes the ability to scan across
 > months at all, and comparing a slow month against the one before it is a
 > normal thing to want. Paging was rejected as the same infinite scroll with
 > extra machinery. Nested lists were rejected outright: scrollers inside
@@ -819,8 +825,8 @@ UI/UX bar from the product definition is achievable here.
 > which is the thing making a long history cheap.
 >
 > **Known cost:** collapsed groups hide their rows from search-by-scrolling,
-> and there is no expand-all — worse now than at one level, since a shift can
-> be three closed groups deep. Sticky headers were lost in the move off
+> and there is no expand-all — worse now than at one level, since every shift
+> is three closed groups deep from a cold open, including the one just logged. Sticky headers were lost in the move off
 > `SectionList`; they were solving orientation mid-scroll, which a
 > collapsed-by-default tree does not have enough scroll to need. A week
 > crossing a month boundary is split so that each month's rows add up to its
