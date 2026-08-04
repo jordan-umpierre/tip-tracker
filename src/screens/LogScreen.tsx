@@ -335,6 +335,7 @@ const styles = StyleSheet.create({
   },
   manageDataButton: {
     minHeight: 44,
+    alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 16,
     paddingTop: 20,
