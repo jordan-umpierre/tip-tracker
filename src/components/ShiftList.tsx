@@ -9,29 +9,13 @@ import {
   Text,
   View,
 } from 'react-native';
-import { parseCalendarDate } from '../lib/dates';
+import { MONTH_NAMES, parseCalendarDate, WEEKDAY_NAMES } from '../lib/dates';
 import { formatCents, formatHours } from '../lib/format';
 import { flattenShifts, groupShifts, ShiftGroupRow } from '../lib/shiftGroups';
 import { calculateShiftGrossCents } from '../lib/totals';
 import { Job } from '../data/jobs';
 import { deleteShift, Shift } from '../data/shifts';
 
-const MONTH_NAMES = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-];
-
-const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 // How far below centered the short-history layout sits, in points. See the
 // `content` style for why the padding is twice this and what it costs on a

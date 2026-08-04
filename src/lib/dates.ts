@@ -74,3 +74,26 @@ export function weekStartString(date: CalendarDate): string {
   const sunday = new Date(Date.UTC(date.year, date.month - 1, date.day - date.weekdayIndex));
   return sunday.toISOString().slice(0, 10);
 }
+
+// Month and weekday labels. These live here rather than in a component because
+// the shift history and the calendar picker both label the same calendar and
+// have to agree -- two copies would be two places for "Sept" to drift into
+// "Sep". English only, deliberately: nothing in this app is localized yet, and
+// a lookup table is the honest shape for that until something is.
+export const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
+// Sunday first, matching the week boundary D10 pins for Trends and the Log.
+export const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

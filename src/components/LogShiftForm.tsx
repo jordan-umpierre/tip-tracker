@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import CalendarPicker from './CalendarPicker';
 import { Job } from '../data/jobs';
 import { createShift, Shift, updateShift } from '../data/shifts';
 import { localDateString, parseCalendarDate } from '../lib/dates';
@@ -19,10 +20,21 @@ type Props = {
   // editingShift once at mount like any other prop-seeded state.
   editingShift?: Shift | null;
 
+  // Every logged shift, so the calendar can dot the days that already have
+  // one. Passed down for the same reason as `jobs` -- LogScreen has already
+  // read them.
+  existingShifts?: Shift[];
+
   onShiftSaved: () => void;
 
   // Only meaningful in edit mode -- lets the user back out without saving.
   onCancelEdit?: () => void;
+
+  // Called when the user picks a date that already has one shift and chooses
+  // to edit it rather than add another. This form cannot switch itself into
+  // edit mode -- LogScreen owns which shift is being edited and re-keys the
+  // form -- so the choice is handed back up.
+  onEditExisting?: (shift: Shift) => void;
 };
 
 function todayIsoDate(): string {
@@ -33,8 +45,61 @@ function todayIsoDate(): string {
   return localDateString(new Date());
 }
 
-export default function LogShiftForm({ jobs, editingShift, onShiftSaved, onCancelEdit }: Props) {
+export default function LogShiftForm({
+  jobs,
+  editingShift,
+  existingShifts = [],
+  onShiftSaved,
+  onCancelEdit,
+  onEditExisting,
+}: Props) {
   const isEditing = editingShift != null;
+
+  const [pickingDate, setPickingDate] = useState(false);
+
+  // One dot per day that already has a shift. Two shifts on the same date
+  // collapse to one dot, which is the honest signal -- the dot answers "have I
+  // logged this day", not "how many".
+  const datesWithShifts = useMemo(
+    () => new Set(existingShifts.map((shift) => shift.shift_date)),
+    [existingShifts]
+  );
+
+  function handleDateSelected(date: string) {
+    setPickingDate(false);
+
+    // The shift being edited is not a conflict with itself. Without this,
+    // opening the calendar while editing and tapping the date already in the
+    // field would warn that the shift collides with itself.
+    const clashes = existingShifts.filter(
+      (shift) => shift.shift_date === date && shift.id !== editingShift?.id
+    );
+
+    if (clashes.length === 0) {
+      setShiftDate(date);
+      return;
+    }
+
+    // Doubles are legitimate -- two shifts on one day is a real thing that
+    // happens, and the data already contains one -- so this informs rather
+    // than blocks. Cancel leaves the date untouched.
+    const buttons = [
+      { text: 'Add new shift', onPress: () => setShiftDate(date) },
+      // Only offered when there is exactly one shift to mean. With several,
+      // "the existing shift" has no referent, so the choice is left out rather
+      // than guessing which one the user meant.
+      ...(clashes.length === 1 && onEditExisting
+        ? [{ text: 'Edit existing shift', onPress: () => onEditExisting(clashes[0]) }]
+        : []),
+      { text: 'Cancel', style: 'cancel' as const },
+    ];
+
+    Alert.alert(
+      'A shift already exists for this date.',
+      clashes.length === 1 ? undefined : `${clashes.length} shifts are logged on ${date}.`,
+      buttons
+    );
+  }
 
   const [selectedJobId, setSelectedJobId] = useState(editingShift?.job_id ?? jobs[0]?.id ?? '');
   const [shiftDate, setShiftDate] = useState(editingShift?.shift_date ?? todayIsoDate());
@@ -176,12 +241,36 @@ export default function LogShiftForm({ jobs, editingShift, onShiftSaved, onCance
       </View>
 
       <Text style={styles.label}>Date</Text>
-      <TextInput
-        style={styles.input}
-        value={shiftDate}
-        onChangeText={setShiftDate}
-        placeholder="YYYY-MM-DD"
-      />
+      {/* Typing stays the primary path -- the icon is an alternative, not a
+          replacement, so a keyboard user is never forced through a grid. */}
+      <View style={styles.dateRow}>
+        <TextInput
+          style={[styles.input, styles.dateInput]}
+          value={shiftDate}
+          onChangeText={setShiftDate}
+          placeholder="YYYY-MM-DD"
+        />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Pick a date from a calendar"
+          style={styles.calendarButton}
+          onPress={() => setPickingDate(true)}
+        >
+          <Text style={styles.calendarButtonText}>📅</Text>
+        </Pressable>
+      </View>
+
+      {/* Remounted per opening so the month it shows is re-seeded from the
+          field each time, rather than staying wherever it was left. */}
+      {pickingDate ? (
+        <CalendarPicker
+          visible
+          selectedDate={shiftDate}
+          datesWithShifts={datesWithShifts}
+          onSelect={handleDateSelected}
+          onClose={() => setPickingDate(false)}
+        />
+      ) : null}
 
       <Text style={styles.label}>Hours worked</Text>
       <TextInput
@@ -246,6 +335,28 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 10,
     fontSize: 16,
+  },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  // The field takes the leftover width so the button keeps a fixed size
+  // whatever the screen is.
+  dateInput: {
+    flex: 1,
+  },
+  calendarButton: {
+    minWidth: 48,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+  },
+  calendarButtonText: {
+    fontSize: 20,
   },
   jobRow: {
     flexDirection: 'row',

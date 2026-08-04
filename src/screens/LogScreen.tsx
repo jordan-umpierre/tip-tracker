@@ -199,6 +199,8 @@ function LogControls({
           key={`${editingShift?.id ?? 'new'}:${formJobs.map((job) => job.id).join(':')}`}
           jobs={formJobs}
           editingShift={editingShift}
+          existingShifts={shifts}
+          onEditExisting={setEditingShift}
           onShiftSaved={() => {
             setEditingShift(null);
             setLoggingShift(false);
