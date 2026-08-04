@@ -4,6 +4,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Job } from '../data/jobs';
 import type { Shift } from '../data/shifts';
 import { localDateString } from '../lib/dates';
+import { isPickerCancelled } from '../lib/pickerCancel';
 import { buildShiftExportCsv, shiftExportFileName } from '../lib/shiftExportCsv';
 
 type Props = {
@@ -11,31 +12,6 @@ type Props = {
   jobs: Job[];
 };
 
-// Backing out of the system picker throws, same as a real failure does, but it
-// arrives with a code that says which one it was. The two platforms name their
-// exception differently, so both codes are listed:
-//   iOS     FilePickingCancelledException -> ERR_FILE_PICKING_CANCELLED
-//   Android PickerCancelledException      -> ERR_PICKER_CANCELLED
-// Verified against expo-file-system 57 on device, 2026-08-04. An Expo upgrade
-// could rename these, and the failure mode is silent -- a renamed code would
-// make cancels start logging as errors again, which is the noise this removes,
-// not a broken export. See D16.
-const PICKER_CANCELLED_CODES = new Set([
-  'ERR_FILE_PICKING_CANCELLED',
-  'ERR_PICKER_CANCELLED',
-]);
-
-// `cause` is `unknown` in a catch block, so this checks the shape before
-// reading `.code` rather than trusting that what was thrown is an Error.
-function isPickerCancelled(cause: unknown): boolean {
-  return (
-    typeof cause === 'object' &&
-    cause !== null &&
-    'code' in cause &&
-    typeof cause.code === 'string' &&
-    PICKER_CANCELLED_CODES.has(cause.code)
-  );
-}
 
 export default function ExportCsvButton({ shifts, jobs }: Props) {
   const [exporting, setExporting] = useState(false);
