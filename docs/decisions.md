@@ -879,35 +879,58 @@ UI/UX bar from the product definition is achievable here.
 > carries a file URI on iOS but ignores it on Android, where it only shares
 > text. CSV over JSON because the file's job is to open in a spreadsheet.
 >
-> The cancel handling is a correction, and the original reasoning was wrong on
-> a fact nobody had checked. This first shipped claiming a canceled pick and a
-> failed write were indistinguishable to the caller, so both logged at
-> `console.error` and both raised the same alert. The 2026-08-04 device pass
-> showed otherwise: the cancel surfaced a red LogBox toast, and reading
-> `expo-file-system` 57 found a dedicated exception on each platform —
-> `FilePickingCancelledException` on iOS, `PickerCancelledException` on Android,
-> reaching JS as `ERR_FILE_PICKING_CANCELLED` and `ERR_PICKER_CANCELLED`. The
-> assumption had never been tested because that code path had never run.
+> The cancel handling is a correction, and it took two passes because the first
+> attempt repeated the mistake it was fixing. This originally shipped claiming a
+> canceled pick and a failed write were indistinguishable to the caller, so both
+> logged at `console.error` and both raised the same alert. That was never
+> tested, because until 2026-08-04 the export path had never run.
 >
-> Correcting it matters more than the toast, which is dev-only and would never
-> reach a user. Logging a deliberate user choice at error severity means that
-> once crash reporting exists, every cancel arrives as a reported error — and
-> the failure mode there is not noise, it is learning to ignore your own error
-> reports. The alert was the second half: it asked the user to dismiss a modal
-> confirming something they had just chosen on purpose.
+> The device pass surfaced a red LogBox toast on cancel. Reading
+> `expo-file-system` 57 found a dedicated native exception on each platform —
+> `FilePickingCancelledException` on iOS, `PickerCancelledException` on Android
+> — and `expo-modules-core` derives an error code from each class name. That
+> looked like a stable discriminator, so a code check shipped. It did not work,
+> and it did not work for the same reason as the original: the derivation was
+> read from source rather than observed. Logging the caught value on device
+> showed the code never survives the crossing into JavaScript. What arrives is a
+> plain `Error` carrying `message` and `stack`, nothing else.
+>
+> The message is therefore the only available signal, and both platforms share
+> the phrase "was cancelled by the user". Matching on it is a heuristic on
+> someone else's string, which is worth stating plainly rather than dressing up.
+> It is acceptable because its failure is one-directional: a reworded or
+> localized message means cancels log as errors again, which is noise and
+> nothing worse, while wrongly swallowing a genuine failure would require that
+> failure to describe itself as cancelled by the user.
+>
+> Doing nothing was reconsidered once the code check fell through, since the
+> toast is dev-only and no user would ever see it. It lost on two facts. LogBox
+> patches `console.warn` as well as `console.error`, so downgrading the severity
+> recolors the toast rather than removing it. And the alert — the one part a
+> user does see — cannot be removed without telling cancel apart from failure,
+> so declining to distinguish leaves the only user-visible half unfixed. The
+> logging still matters for later: once crash reporting exists, a miscategorized
+> cancel arrives as a reported error, and the cost there is not noise but
+> learning to ignore your own error reports.
 >
 > **Known cost:** two duration columns is redundancy a reader has to have
 > explained, and nothing enforces that they agree — a future edit could write
 > one and not the other. The export also has no importer, so "export" currently
 > means "get your data out", not "restore your data".
 >
-> The two cancel codes are copied constants, and an Expo upgrade renaming
-> either would break the check silently — cancels would go back to logging as
-> errors. No test can catch that, since a test would only assert the constants
-> match themselves. It surfaces as returning noise rather than a broken export,
-> which is why it is left as a comment in the code rather than machinery.
+> Cancel detection depends on a message string this project does not own, and
+> an Expo reword would break it silently. `pickerCancel.test.ts` pins both real
+> messages and guards the pattern against being loosened to `/cancel/`, which
+> would start hiding real write errors — but no local test can notice the day
+> upstream changes its wording. That is why the failure direction was the
+> deciding factor rather than the fragility itself.
+>
+> The right fix is upstream: `expo-file-system` raises a properly coded
+> exception and then loses the code on the way to JavaScript. Worth reporting,
+> not worth blocking on.
 >
 > **Revisit when:** restore is built. That is the point to decide whether this
 > format grows an importer or whether both sides move to one shared contract,
-> and D13's contract should be re-examined at the same time. Re-check the two
-> cancel codes on any `expo-file-system` major upgrade.
+> and D13's contract should be re-examined at the same time. Re-check the cancel
+> message on any `expo-file-system` upgrade, and drop the heuristic entirely if
+> the error code ever starts reaching JavaScript.

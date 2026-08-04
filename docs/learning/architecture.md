@@ -404,3 +404,47 @@ constants match themselves. The real risk is an Expo upgrade renaming a code,
 which no local assertion can observe, so it is a comment at the constant and a
 line in D16's revisit condition instead. A check that cannot fail is not a
 check. See the revised D16.
+
+### 2026-08-04 — "The error code doesn't reach JS. What would a senior do now?"
+
+Asked after the code-based cancel check shipped and did nothing. The honest
+first answer is that the second attempt failed the same way the first did: both
+were reasoned out of library source without ever being run. Tracing
+`errorCodeFromString` by hand produced a correct-looking derivation for a
+property that turns out not to cross into JavaScript at all. One `console.log`
+in the catch block answered in a single tap what an hour of reading had not.
+The lesson is not "read more carefully" — it is that a claim about runtime
+behavior is worth nothing until something has executed.
+
+On the choice itself: the instinct to downgrade `console.error` to
+`console.warn` and stop there was reasonable, and it lost to two facts neither
+of us had. `LogBox` patches `console.warn` too, so the toast turns yellow
+rather than going away. And the alert is the only piece a user ever sees, and
+it cannot be removed without telling a cancel apart from a failure. Declining
+to distinguish means fixing only the invisible half.
+
+That reframed the whole thing. The problem was never the toast. It was that the
+code did not model the difference between a user choosing to stop and something
+going wrong, and that gap shows up in the log, in the alert, and later in crash
+reports. Recoloring one symptom closes none of it.
+
+Which leaves matching on a message string — someone else's string, an
+implementation detail, the kind of thing that reads badly in review. Seniors
+ship heuristics like this routinely. What makes one defensible is not avoiding
+it but three things: it is named as a heuristic, its failure *direction* is
+stated, and it carries a revisit trigger. Here the asymmetry is what carries
+it. A reworded message means cancels log as errors again, which is noise; for
+it to hide a real failure, that failure would have to describe itself as
+cancelled by the user. Degrading into annoying is acceptable. Degrading into
+dangerous would not have been.
+
+The other real senior instinct in play was timeboxing — this is a dev-only
+issue on a feature whose actual gap is having no restore path, and the device
+pass had two items still untouched. That argument loses only because the fix is
+a few lines. The expensive part was the analysis, not the code, and stopping
+early would have saved none of it.
+
+Worth naming: the right fix is upstream, in `expo-file-system`, which raises a
+properly coded exception and then drops the code. Recognizing that a workaround
+is a workaround, and writing down where the real bug lives, is part of the job.
+See the revised D16.

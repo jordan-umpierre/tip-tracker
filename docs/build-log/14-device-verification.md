@@ -46,33 +46,52 @@ picki...`. The alert was right; the toast was the tell.
 
 Reading `expo-file-system` 57 showed the premise behind that catch block was
 false. Both platforms throw a dedicated exception when the user backs out:
+`FilePickingCancelledException` on iOS, `PickerCancelledException` on Android.
+`expo-modules-core` derives an error code from each class name —
+`errorCodeFromString` in `ios/Core/Exceptions/CodedError.swift`, and the
+matching inference in Kotlin's `CodedException.kt` — which produces
+`ERR_FILE_PICKING_CANCELLED` and `ERR_PICKER_CANCELLED`.
 
-| Platform | Exception | Code reaching JS |
-| --- | --- | --- |
-| iOS | `FilePickingCancelledException` | `ERR_FILE_PICKING_CANCELLED` |
-| Android | `PickerCancelledException` | `ERR_PICKER_CANCELLED` |
+So this commit checked those two codes and returned quietly on a cancel.
+TypeScript clean, hook green, seven test files passing. On device it changed
+nothing: the cancel still logged and still alerted.
 
-The codes are derived from the class names by `expo-modules-core` —
-`errorCodeFromString` in `ios/Core/Exceptions/CodedError.swift`, and the same
-inference documented in Kotlin's `CodedException.kt`.
+## `0a980f0` — fix: detect a canceled export picker by message, not error code (2026-08-04)
 
-`ExportCsvButton.tsx` now checks both codes and returns quietly on a cancel.
-Real failures keep `console.error` and the alert, and the alert text is
-unchanged: a genuine throw can come from the pick, the create, or the write,
-so "no file was written" is still the only claim it can safely make.
+The previous commit failed for exactly the reason the original code did — a
+derivation read out of source instead of observed. A throwaway `console.log` of
+the caught value in the catch block settled it in one tap:
 
-The toast was dev-only and would never have reached a user. The reason to fix
-it is that logging a deliberate user choice at error severity means every
-cancel becomes a reported error the moment crash reporting exists, and the
-failure mode there is learning to ignore your own error reports. D16 is revised
-with the verified codes and the corrected reasoning; the superseded claim in
-[13-interactive-dashboard.md](13-interactive-dashboard.md) is marked in place
-rather than rewritten, since the log records what was believed at the time.
+```
+EXPORT CATCH SHAPE {"code": undefined, "message": "File picking was cancelled
+by the user", "name": "Error", "ownKeys": ["message", "stack"]}
+```
 
-No test was added. A test here could only assert that two copied string
-constants match themselves, which is not a check on anything. The real risk is
-an Expo upgrade renaming a code, which no local assertion can see, so it is a
-comment at the constant and a line in D16's revisit condition instead.
+The code does not survive the crossing into JavaScript. What arrives is a plain
+`Error` with `message` and `stack` and nothing else, so the message is the only
+signal there is. Both platforms share the phrase "was cancelled by the user"
+(iOS: "File picking was cancelled by the user"; Android: "The file picker was
+cancelled by the user"), and that is what the check now matches.
 
-TypeScript clean, tracked hook green, 21 schema checks and all seven direct-run
+Doing nothing was reconsidered at this point, since the toast is dev-only. Two
+facts ruled it out. `LogBox.js` patches `console.warn` alongside
+`console.error`, so downgrading the severity recolors the toast instead of
+removing it. And the alert is the only user-visible half, which cannot be
+removed without telling cancel apart from failure. D16 carries the full
+reasoning, including the one-directional failure mode that makes a string match
+acceptable here.
+
+The predicate moved to `src/lib/pickerCancel.ts` so it can be asserted
+directly; importing the component would pull in React Native, which the
+direct-run test files cannot load. `pickerCancel.test.ts` covers both real
+platform messages, a write failure, a failure that merely mentions
+cancellation, and the non-`Error` values a `catch (unknown)` can receive —
+eight checks. It was verified by loosening the pattern to `/cancel/` on
+purpose, which fails the fourth assertion. The hook's test loop is a `for`
+rather than a pipe, so a failing file does propagate its status.
+
+What no test covers is upstream rewording the message, which is recorded in
+D16's revisit condition rather than pretended away.
+
+TypeScript clean, tracked hook green, 21 schema checks and all eight direct-run
 test files passing.
