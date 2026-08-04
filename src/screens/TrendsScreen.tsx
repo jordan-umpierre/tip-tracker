@@ -357,6 +357,10 @@ function WeekdayBars({ weekdays }: { weekdays: WeekdayTrend[] }) {
                 <View style={[styles.verticalBarFill, { height }]} />
               </View>
               <Text style={styles.weekdayName}>{day.weekday.slice(0, 3)}</Text>
+              {/* Two lines so "167 shifts" wraps instead of shrinking. Hours
+                  used to sit here too, but a wrapped count ate the second line
+                  and silently truncated them on most columns. They stay in the
+                  accessibility label above, where there is no width limit. */}
               <Text
                 selectable
                 adjustsFontSizeToFit
@@ -365,8 +369,6 @@ function WeekdayBars({ weekdays }: { weekdays: WeekdayTrend[] }) {
                 style={styles.weekdayContext}
               >
                 {shiftCountLabel(day.shiftCount)}
-                {'\n'}
-                {formatHours(day.durationSeconds)}
               </Text>
             </View>
           );
