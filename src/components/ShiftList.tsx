@@ -119,24 +119,38 @@ export default function ShiftList({ shifts, jobs, onShiftDeleted, onShiftPress, 
       // Dragging the list closes the keyboard too, which is what the rest of
       // iOS does and costs nothing here now that the screen is one scroller.
       keyboardDismissMode="on-drag"
+      // flexGrow lets the content stretch past its natural height when there
+      // is room, which is what gives the filler below something to fill.
+      contentContainerStyle={styles.content}
       ListHeaderComponent={header}
       ListEmptyComponent={
-        <View style={styles.empty}>
+        <View style={[styles.card, styles.cardTop, styles.empty]}>
           <Text style={styles.emptyText}>No shifts logged yet.</Text>
         </View>
       }
-      renderItem={({ item }) =>
-        item.kind === 'shift' ? (
-          <SwipeableShiftRow
-            jobName={jobNameById.get(item.shift.job_id) ?? 'Unknown job'}
-            shift={item.shift}
-            onDelete={() => handleDeletePress(item.shift)}
-            onPress={() => onShiftPress(item.shift)}
-          />
-        ) : (
-          <GroupRow row={item} onPress={() => toggleGroup(item)} />
-        )
+      // Takes the leftover height so the rows read as one panel running to the
+      // bottom of the screen rather than a block that stops mid-page. It
+      // collapses to nothing as soon as the rows overflow, so a long history
+      // is unaffected.
+      ListFooterComponent={
+        rows.length > 0 ? <View style={[styles.card, styles.cardFill]} /> : null
       }
+      renderItem={({ item, index }) => (
+        // The rows are inset as one card, so only the first needs rounding at
+        // the top -- the filler below closes the bottom.
+        <View style={[styles.card, index === 0 && styles.cardTop]}>
+          {item.kind === 'shift' ? (
+            <SwipeableShiftRow
+              jobName={jobNameById.get(item.shift.job_id) ?? 'Unknown job'}
+              shift={item.shift}
+              onDelete={() => handleDeletePress(item.shift)}
+              onPress={() => onShiftPress(item.shift)}
+            />
+          ) : (
+            <GroupRow row={item} onPress={() => toggleGroup(item)} />
+          )}
+        </View>
+      )}
     />
   );
 }
@@ -311,7 +325,33 @@ const styles = StyleSheet.create({
   list: {
     flex: 1,
   },
+  content: {
+    flexGrow: 1,
+    paddingBottom: 16,
+  },
+  // Every row sits in one of these, so the whole history reads as a single
+  // inset panel instead of edge-to-edge stripes. overflow hidden makes the
+  // rounded top actually clip the row's own background.
+  card: {
+    overflow: 'hidden',
+    // The panel's own base tone. Rows tint themselves lighter the deeper they
+    // sit, so this reads as the surface they are stacked on rather than as one
+    // more row.
+    backgroundColor: '#f3f4f6',
+    marginHorizontal: 16,
+  },
+  cardTop: {
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
+  },
+  cardFill: {
+    flex: 1,
+    borderBottomLeftRadius: 14,
+    borderBottomRightRadius: 14,
+  },
   empty: {
+    borderBottomLeftRadius: 14,
+    borderBottomRightRadius: 14,
     padding: 16,
   },
   emptyText: {
