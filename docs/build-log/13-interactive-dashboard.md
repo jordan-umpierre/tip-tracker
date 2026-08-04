@@ -75,3 +75,40 @@ width. The accessibility label still speaks both, where there is no width limit.
 
 Both commits pass the tracked hook: TypeScript, the schema and migration checks,
 and all five direct-run test files. Neither has been seen on a physical device.
+
+## `3dc3013` — feat: select a chart point on tap, not only on drag (2026-08-03)
+
+Device feedback: tapping a spot on the income line did nothing, and the point
+only moved once a drag was already underway. The pan responder returned false
+from `onStartShouldSetPanResponder`, which was how it avoided trapping vertical
+scrolling, so a touch had to become a horizontal gesture before it counted.
+
+It now claims the touch on press-down and selects from the grant event, matching
+the reference behavior in Robinhood's chart. Vertical scrolling still works
+because the responder agrees to termination requests: the surrounding scroll view
+takes the gesture back, and `onPanResponderTerminate` clears the selection so a
+scroll cannot leave a stray point highlighted behind it.
+
+## `d2a28d1` — feat: group the shift history into collapsible months (2026-08-03)
+
+The 845-row import made the Log an unbroken scroll. Virtualization had already
+solved the rendering cost, but every row looked alike and nothing indicated
+where in five years the scroll had landed.
+
+`FlatList` became a `SectionList` grouped by month. Each sticky header shows the
+month, its gross, and its shift count; all months except the newest start
+collapsed. Collapsing is implemented as a section with an empty `data` array, so
+the header still renders and the visible rows stay virtualized. Expansion state
+records only the months the user has tapped and falls back to index zero, which
+means the default follows the data with no effect re-seeding it after a log, an
+edit, or an import. D15 records why collapsed rather than merely sectioned.
+
+Rows dropped the ISO date the header now carries and lead with weekday and day
+("Mon 3"), with the shift's gross right-aligned the way Trends already lists a
+period. `src/lib/shiftGroups.ts` holds the grouping as a pure function with its
+own direct-run assertions: order across a year boundary, ordering within a
+month, and subtotals using the same D5 per-shift gross the other tab uses, since
+a header disagreeing with Trends would be visible to the user.
+
+TypeScript, the tracked hook, and all six direct-run test files pass. Neither
+commit has run on a physical device.
