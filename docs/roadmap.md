@@ -474,3 +474,9 @@ Trends scope is complete.
     file has no importer yet, so this is "get your data out", not "restore".
     All seven direct-run test files pass. The export's picker and file write
     are the parts assertions cannot reach and have never run for real.
+53. Reworked the Log screen's layout in `33352ad`. The history was edge-to-edge
+    while every control above it sat in a 16pt gutter, and with groups
+    collapsed the rows stopped mid-screen against white. Rows are now inset
+    into one rounded panel sharing that gutter, and a flexible footer takes the
+    leftover height so the panel reaches the bottom, collapsing to nothing once
+    the rows overflow. Not yet seen on a device.
