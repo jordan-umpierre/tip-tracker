@@ -189,3 +189,38 @@ D10 is revised for the swap. The same revision fixes a gap left by `b771c03`:
 D10's chart bullet still listed five ranges and had never been updated for YTD
 or for the date-range window labels, so the decision log had been describing a
 screen that no longer existed for several commits.
+
+## `559ebc7` — feat: default the Trends breakdown to weekday (2026-08-03)
+
+Weekday is the only breakdown that compares like periods against each other;
+Month and Year list history in order, which the chart above already does better.
+It becomes the default and moves to the left, with Month and Year widening to
+the right so the row reads default-first like the summary chips now do.
+
+## `2b5fbc1` — feat: scope the Trends summary to the selected chart range (2026-08-03)
+
+The summary card described all history no matter what the chart above it was
+showing, so selecting 1W changed the graph and left the number underneath
+unchanged — which reads as the range buttons being broken rather than as two
+different questions.
+
+Both summaries now cover exactly the shifts the chart drew. `shiftsInWindow`
+filters on `shift_date` between the series' start date and anchor date, both of
+which are already date-only strings in the same format, so the comparison needs
+no parsing and introduces no second definition of where a window begins. It sits
+in `trends.ts` rather than in the screen specifically so it can be asserted
+against the series it has to agree with: for all six ranges, the gross it selects
+equals the sum of that series' points. A card contradicting the graph directly
+above it is the failure worth a test.
+
+The chips became Per hour and Per week. "All time" stopped being true once the
+card followed the range, and naming the metric leaves the window to be stated
+once, inside the card, where it is printed on every render.
+
+The weekday, month, and year breakdown deliberately stays on all history. D10
+originally required one scope for the whole screen; that is amended rather than
+quietly broken, with the reason recorded — under a 1W range the Month and Year
+views collapse to one row and the weekday bars drop to whichever days that week
+contained, which is a worse chart than the one it would replace. The amendment
+also records the cost: two date scopes on one screen, distinguished only by a
+label the user has to read.
