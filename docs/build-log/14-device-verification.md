@@ -95,3 +95,38 @@ D16's revisit condition rather than pretended away.
 
 TypeScript clean, tracked hook green, 21 schema checks and all eight direct-run
 test files passing.
+
+## `114f25f` — fix: stamp the export filename with the time, not just the date (2026-08-04)
+
+Exporting a second time in the same afternoon failed:
+
+```
+FunctionCallException: Calling the 'createFile' function has failed
+  -> Caused by: FileAlreadyExistsException: File '.../tip-tracker-shifts-2026-08-04.csv'
+```
+
+`Directory.createFile` refuses an existing path rather than replacing it, so a
+date-only name allowed exactly one export per day. The user-facing symptom was
+worse than the crash: the alert says only that no file was written, which is
+accurate and gives no way to work out that the cause was a name collision.
+
+`shiftExportFileName` now takes a `Date` rather than a pre-formatted string and
+appends local `HHMMSS`. Local for the same reason `localDateString` uses local
+getters — the name should read as the moment the person taking it lived through.
+The call site drops its `localDateString` wrapper and passes `new Date()`.
+
+Overwriting via `create({ overwrite: true })` was the alternative. D16 carries
+the reasoning; the short version is that an export is normally a regenerable
+artifact, but that argument assumes the app still exists, and until restore is
+built these files are the only copy that survives losing the device. It also
+would have put new behavior on the write path, where nothing local can assert
+it and being wrong destroys a file rather than failing to create one.
+
+Four new assertions in `shiftExportCsv.test.ts`: zero-padding across month,
+day, hour, minute and second; two same-day exports producing different names;
+and a later export sorting after an earlier one under plain text comparison,
+which is how every file browser will actually order them. Verified by removing
+the minute `padStart` on purpose, which fails the padding assertion.
+
+Confirmed on device: two consecutive exports produced two files, both complete,
+and the cancel path still returns silently.

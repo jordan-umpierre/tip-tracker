@@ -847,9 +847,10 @@ UI/UX bar from the product definition is achievable here.
 > to two decimals for people and spreadsheets, `Duration Seconds` as the exact
 > stored value. Rows are oldest first, tie-broken by id, so two exports of the
 > same data are byte-identical. Files are written wherever the user chooses via
-> `Directory.pickDirectoryAsync`, named `tip-tracker-shifts-<date>.csv`. A
-> canceled picker is detected by its error code and returns silently; only a
-> genuine failure logs and alerts.
+> `Directory.pickDirectoryAsync`, named `tip-tracker-shifts-<date>-<time>.csv`
+> so repeated exports sit beside each other rather than colliding. A canceled
+> picker is recognized by its message and returns silently; only a genuine
+> failure logs and alerts.
 >
 > **Alternatives:**
 > - Emit the nine-column import contract so exports can be re-imported
@@ -859,6 +860,9 @@ UI/UX bar from the product definition is achievable here.
 > - Export JSON instead of CSV
 > - Treat every throw from the export path alike, cancel included (shipped
 >   2026-08-03, replaced 2026-08-04)
+> - Name the file by date alone (shipped 2026-08-03, replaced 2026-08-04)
+> - Overwrite an existing export of the same day via `create({ overwrite: true })`
+> - Check `file.exists` and ask the user before replacing
 >
 > **Why:** the import contract stores `Hours` to two decimals, which is
 > 36-second granularity. A shift stored as 27300 seconds — 455 minutes, the
@@ -902,6 +906,25 @@ UI/UX bar from the product definition is achievable here.
 > localized message means cancels log as errors again, which is noise and
 > nothing worse, while wrongly swallowing a genuine failure would require that
 > failure to describe itself as cancelled by the user.
+>
+> The filename carried only the date at first, and the same device pass showed
+> why that was not enough. `Directory.createFile` throws
+> `FileAlreadyExistsException` rather than replacing, so the second export of
+> any day failed outright — and because the alert deliberately claims only that
+> no file was written, it could not say why. The intent behind the date was
+> right; a day was simply too coarse to carry it, so the name now includes the
+> local time.
+>
+> Overwriting was the real alternative and is the better answer later, not now.
+> An exported CSV is a derived artifact the app can regenerate at will, which
+> normally makes replacing one free. That reasoning depends on the app still
+> being there. With no restore path, these files are the only copy of the data
+> that survives losing the device, so a name collision should cost some clutter
+> rather than a backup. Revisit it when restore exists. Putting the fix in the
+> pure filename function rather than the write path was the second reason:
+> `create({ overwrite: true })` would put new behavior somewhere no local test
+> can reach, on the one path where being wrong destroys a file instead of
+> failing to make one.
 >
 > Doing nothing was reconsidered once the code check fell through, since the
 > toast is dev-only and no user would ever see it. It lost on two facts. LogBox
