@@ -48,7 +48,7 @@ export default function TrendsScreen() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [chartRange, setChartRange] = useState<TrendChartRange>('quarter');
-  const [summaryMode, setSummaryMode] = useState<SummaryMode>('weekly');
+  const [summaryMode, setSummaryMode] = useState<SummaryMode>('allTime');
   const [breakdown, setBreakdown] = useState<Breakdown>('year');
 
   const refresh = useCallback(async () => {
@@ -186,16 +186,18 @@ function SummaryControls({
   return (
     <>
       <Text style={styles.filterLabel}>Summary</Text>
+      {/* All time first because it is the default: a selected chip that is not
+          the leftmost one reads as though something else was turned off. */}
       <View style={styles.choiceRow}>
-        <FilterChip
-          label="Weekly average"
-          selected={value === 'weekly'}
-          onPress={() => onChange('weekly')}
-        />
         <FilterChip
           label="All time"
           selected={value === 'allTime'}
           onPress={() => onChange('allTime')}
+        />
+        <FilterChip
+          label="Weekly average"
+          selected={value === 'weekly'}
+          onPress={() => onChange('weekly')}
         />
       </View>
     </>
