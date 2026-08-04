@@ -329,3 +329,18 @@ since it would have offset the centering it was trying to approximate.
 Three attempts on one layout request. The first two solved problems that had not
 been raised; the reference screenshot was worth more than any of the questions
 asked before it.
+
+## `a05593f` — feat: start every shift group collapsed (2026-08-03)
+
+The Log tab opens to one row per year and nothing else. The previous default
+opened the newest year, month, and week, which put the current week's shifts on
+screen but reintroduced the scrolling the tree existed to remove — and made the
+screen too tall for `169bf52`'s centering to have any spare height to work with.
+
+Removing the newest-is-open rule also removed the index argument that carried
+it, so a group's state now depends only on whether the user has tapped it, and
+`flattenShifts` drops to plain loops. Assertions cover the closed default,
+opening one level at a time, two branches open at once, and an open group nested
+inside a shut one staying hidden rather than leaking its rows. D15 is amended,
+including the cost: every shift is now three closed groups deep from a cold
+open, including one just logged.
