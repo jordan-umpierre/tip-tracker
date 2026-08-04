@@ -291,3 +291,22 @@ The footer uses the panel's base tone rather than copying whichever row happens
 to be last. Rows tint lighter the deeper they sit in the tree, so a neutral base
 reads as the surface they are stacked on; matching the last row instead would
 make the empty space look like one more row of unexplained height.
+
+## `6d323b3` — Revert the inset history panel (2026-08-03)
+
+`33352ad` answered the wrong question. The complaint was that the compacted Log
+screen sits too high with empty space beneath it; the panel treatment addressed
+where the rows sat horizontally and how the grey terminated, neither of which
+was the problem. Reverted whole rather than adjusted, since none of it was
+wanted.
+
+## `187d3e6` — feat: drop the log button down from the top of the screen (2026-08-03)
+
+The actual fix: a larger top margin on the closed-state Log a shift button, which
+moves the entire compacted screen down instead of leaving it stacked against the
+status bar.
+
+Scoped to the closed state on purpose. The shift form replaces this button
+rather than rendering below it, so an open form still begins where it always
+did, and the extra space only exists in the state that had too little content to
+fill the screen.
