@@ -504,15 +504,15 @@ UI/UX bar from the product definition is achievable here.
 > selected filter in Layer 1.
 >
 > **Formulas and outputs:**
-> - The default headline shows average gross and hours per **worked week**.
+> - The default headline is **All time**: gross per hour,
+>   `round(total gross cents * 3600 / total duration seconds)`, total gross,
+>   and total duration. It does not repeat the full-history shift count in the
+>   headline.
+> - A Weekly average choice shows average gross and hours per **worked week**.
 >   A worked week is a Sunday-Saturday calendar week containing at least one
 >   logged shift in the selected job scope. Divide total gross cents and total
 >   duration seconds by the number of unique worked weeks, rounding back to
 >   whole cents and seconds. All jobs counts an overlapping week once.
-> - An All time choice shows gross per hour:
->   `round(total gross cents * 3600 / total duration seconds)`, total gross,
->   and total duration. It does not repeat the full-history shift count in the
->   headline.
 > - Each weekday uses the same gross-per-hour formula over that weekday's
 >   shifts:
 >   `round(total gross cents * 3600 / total duration seconds)`.
@@ -529,9 +529,15 @@ UI/UX bar from the product definition is achievable here.
 >   different facts.
 > - The chart defaults to 3M. Its fixed choices are 1W (7 daily points), 1M
 >   (30 daily points), 3M (13 Sunday-start weekly points), 1Y (12 monthly
->   points), and All (one point for every month from first through last shift).
->   Each range anchors to the newest shift in the selected job scope rather
->   than the device clock, and missing periods are explicit zero points.
+>   points), YTD (January through the newest shift's month), and All (one point
+>   for every month from first through last shift). Each range anchors to the
+>   newest shift in the selected job scope rather than the device clock, and
+>   missing periods are explicit zero points. YTD is the only range anchored to
+>   a calendar boundary instead of rolling backwards, so it shrinks to a single
+>   point each January.
+> - Each range names its window as a date range built from that window's start
+>   and the newest shift in it, rather than describing the calculation that
+>   produced it. Ranges measured in months name months; the rest name days.
 > - Each chart point sums D5 gross, tips, and duration for its calendar bucket.
 >   The line shows gross only; touch inspection exposes the exact breakdown.
 >   This is recorded gross under the current contract, not overtime-adjusted
@@ -565,6 +571,13 @@ UI/UX bar from the product definition is achievable here.
 > a satisfying top-level answer. Tips remain visible in month and year totals;
 > keeping a second hourly headline would add density without answering a new
 > primary question.
+>
+> All time leads because it answers "what has this work earned" without the
+> worked-week denominator needing to be explained first. Weekly average was the
+> default until 2026-08-03; device use showed the weekly framing is the more
+> specific question, worth a tap rather than worth landing on. It sits second in
+> the row to match, since a selected chip that is not the leftmost one reads as
+> though a default was turned off.
 >
 > Worked weeks avoid calling an unlogged or unemployed week a measured zero.
 > Including empty weeks would require an employment start/end date the app does
