@@ -207,6 +207,28 @@ assert.equal(yearSeries.points.length, 12);
 assert.equal(yearSeries.points[0].period, '2023-04');
 assert.equal(yearSeries.points.at(-1)?.period, '2024-03');
 
+// Year to date is the one range that does not roll backwards from the newest
+// shift: it always starts at January of that shift's year, so March 2 gives
+// three monthly points rather than twelve.
+const ytdSeries = calculateTrendSeries(chartShifts, 'ytd', 'job-a');
+assert.equal(ytdSeries.bucket, 'month');
+assert.equal(ytdSeries.startDate, '2024-01-01');
+assert.deepEqual(
+  ytdSeries.points.map((point) => [point.period, point.grossCents]),
+  [['2024-01', 0], ['2024-02', 4002], ['2024-03', 1300]]
+);
+// A shift logged in January leaves the window a single month wide.
+assert.equal(
+  calculateTrendSeries([shift('january', 'job-a', '2024-01-08', 3600, 0, 1000)], 'ytd').points.length,
+  1
+);
+
+// startDate is what the chart labels the window with, so it has to line up with
+// the first bucket for every range, not just the month-keyed ones.
+assert.equal(weekSeries.startDate, '2024-02-25');
+assert.equal(quarterSeries.startDate, quarterSeries.points[0].period);
+assert.equal(yearSeries.startDate, '2023-04-01');
+
 const allSeries = calculateTrendSeries([
   shift('all-december', 'job-a', '2022-12-31', 3600, 0, 1000),
   shift('all-february', 'job-a', '2023-02-01', 3600, 0, 1000),
@@ -217,6 +239,7 @@ assert.deepEqual(
 );
 assert.deepEqual(calculateTrendSeries([], 'quarter'), {
   anchorDate: null,
+  startDate: null,
   bucket: 'week',
   points: [],
 });

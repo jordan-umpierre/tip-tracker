@@ -47,6 +47,7 @@ const ranges: { label: string; value: TrendChartRange }[] = [
   { label: '1M', value: 'month' },
   { label: '3M', value: 'quarter' },
   { label: '1Y', value: 'year' },
+  { label: 'YTD', value: 'ytd' },
   { label: 'All', value: 'all' },
 ];
 
@@ -55,14 +56,21 @@ const rangeAccessibilityLabels: Record<TrendChartRange, string> = {
   month: '1 month',
   quarter: '3 months',
   year: '1 year',
+  ytd: 'Year to date',
   all: 'All time',
 };
 
-const endingRangeLabels: Record<Exclude<TrendChartRange, 'all'>, string> = {
-  week: '7 days ending',
-  month: '30 days ending',
-  quarter: '13 weeks ending',
-  year: '12 months ending',
+// How precisely to name the window under the dollar figure. Ranges measured in
+// months read better as "March 2024 - August 2026" than as exact days, since
+// their edges land on month boundaries anyway. Year to date is month-bucketed
+// but starts on a day everyone recognises, so it keeps day precision.
+const rangeLabelPrecision: Record<TrendChartRange, 'day' | 'month'> = {
+  week: 'day',
+  month: 'day',
+  quarter: 'day',
+  year: 'month',
+  ytd: 'day',
+  all: 'month',
 };
 
 type Props = {
@@ -333,24 +341,29 @@ function svgPath(positions: ChartPosition[]): string {
     .join(' ');
 }
 
+// The window runs from where the range starts to the newest shift in it. Using
+// the newest shift as the end, rather than the end of the last bucket, keeps the
+// label honest: it names the last day there is actually data for.
 function rangeLabel(range: TrendChartRange, series: TrendSeries): string {
-  if (!series.anchorDate) return 'No shifts yet';
-  return range === 'all'
-    ? allRangeLabel(series.points)
-    : endingRangeLabel(range, series.anchorDate);
+  if (!series.anchorDate || !series.startDate) return 'No shifts yet';
+  return rangeLabelPrecision[range] === 'month'
+    ? monthRangeLabel(series.startDate, series.anchorDate)
+    : dayRangeLabel(series.startDate, series.anchorDate);
 }
 
-function endingRangeLabel(range: Exclude<TrendChartRange, 'all'>, anchorDate: string): string {
-  const end = range === 'year'
-    ? formatMonth(anchorDate.slice(0, 7))
-    : formatDay(anchorDate);
-  return `${endingRangeLabels[range]} ${end}`;
+function dayRangeLabel(startDate: string, endDate: string): string {
+  if (startDate === endDate) return formatDay(endDate);
+  // The year only needs saying once when both ends share it.
+  const start = startDate.slice(0, 4) === endDate.slice(0, 4)
+    ? shortDayFormatter.format(new Date(`${startDate}T00:00:00Z`))
+    : formatDay(startDate);
+  return `${start} – ${formatDay(endDate)}`;
 }
 
-function allRangeLabel(points: CalendarTrend[]): string {
-  if (points.length === 0) return 'All logged shifts';
-  if (points.length === 1) return formatMonth(points[0].period);
-  return `${formatMonth(points[0].period)} – ${formatMonth(points[points.length - 1].period)}`;
+function monthRangeLabel(startDate: string, endDate: string): string {
+  const start = formatMonth(startDate.slice(0, 7));
+  const end = formatMonth(endDate.slice(0, 7));
+  return start === end ? start : `${start} – ${end}`;
 }
 
 function pointLabel(period: string, bucket: TrendSeries['bucket']): string {

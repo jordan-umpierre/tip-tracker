@@ -43,10 +43,14 @@ export type CalendarTrend = TrendTotals & {
   period: string;
 };
 
-export type TrendChartRange = 'week' | 'month' | 'quarter' | 'year' | 'all';
+export type TrendChartRange = 'week' | 'month' | 'quarter' | 'year' | 'ytd' | 'all';
 
 export type TrendSeries = {
   anchorDate: string | null;
+  // First calendar day the window covers. The chart labels the window with
+  // real dates, and this module is the only place that knows where each
+  // range starts, so it hands the date out rather than making the UI re-derive it.
+  startDate: string | null;
   bucket: 'day' | 'week' | 'month';
   points: CalendarTrend[];
 };
@@ -170,6 +174,13 @@ function seriesKeys(range: TrendChartRange, oldest: DatedShift, newest: DatedShi
     );
   }
 
+  if (range === 'ytd') {
+    // January through the month of the newest shift. Unlike every other range
+    // this one is anchored to a calendar boundary rather than rolling backwards,
+    // so the window shrinks to a single month each January.
+    return monthKeys(Date.UTC(newest.date.year, 0, 1), newest.date.month);
+  }
+
   if (range === 'year') {
     return monthKeys(Date.UTC(newest.date.year, newest.date.month - 12, 1), 12);
   }
@@ -199,7 +210,7 @@ export function calculateTrendSeries(
   const bucket = bucketForRange(range);
 
   if (datedShifts.length === 0) {
-    return { anchorDate: null, bucket, points: [] };
+    return { anchorDate: null, startDate: null, bucket, points: [] };
   }
 
   datedShifts.sort((left, right) => left.timestamp - right.timestamp);
@@ -218,6 +229,9 @@ export function calculateTrendSeries(
 
   return {
     anchorDate: newest.shift.shift_date,
+    // Month buckets are keyed "2026-01"; widen that to the first of the month
+    // so callers always receive a full calendar date.
+    startDate: keys[0].length === 7 ? `${keys[0]}-01` : keys[0],
     bucket,
     points: [...totalsByPoint].map(([period, totals]) => ({ period, ...totals })),
   };
