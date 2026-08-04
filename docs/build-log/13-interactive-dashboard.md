@@ -176,3 +176,16 @@ button it does.
 
 TypeScript, the tracked hook, the schema and migration checks, and all six
 direct-run test files pass. None of these three have run on a physical device.
+
+## `9958a4f` — feat: default the Trends summary to all time (2026-08-03)
+
+Trends landed on the weekly average. All time answers "what has this work
+earned" without the worked-week denominator needing explaining first, so it is
+now the default, and it moved to the left of Weekly average to match — a
+selected chip that is not the leftmost one reads as though a default was turned
+off.
+
+D10 is revised for the swap. The same revision fixes a gap left by `b771c03`:
+D10's chart bullet still listed five ranges and had never been updated for YTD
+or for the date-range window labels, so the decision log had been describing a
+screen that no longer existed for several commits.
