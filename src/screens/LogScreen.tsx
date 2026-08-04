@@ -7,7 +7,6 @@ import CreateJobForm from '../components/CreateJobForm';
 import ImportCsvForm from '../components/ImportCsvForm';
 import LogShiftForm from '../components/LogShiftForm';
 import ShiftList from '../components/ShiftList';
-import ShiftTotals from '../components/ShiftTotals';
 import { getDb } from '../data/db';
 import { archiveJob, Job, listActiveJobs, listJobs } from '../data/jobs';
 import { listShifts, Shift } from '../data/shifts';
@@ -78,8 +77,8 @@ export default function LogScreen() {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
-      {/* Keep history visible after the last active job is removed. The form,
-          totals, and rows share this one virtualized scroller. */}
+      {/* Keep history visible after the last active job is removed. The form
+          and the rows share this one virtualized scroller. */}
       <ShiftList
         shifts={shifts}
         jobs={allJobs}
@@ -214,7 +213,6 @@ function LogHeader({
           <Text style={styles.logShiftButtonText}>Log a shift</Text>
         </Pressable>
       )}
-      <ShiftTotals shifts={shifts} />
 
       {jobs.length > 0 ? (
         <>
