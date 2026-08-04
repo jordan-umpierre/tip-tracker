@@ -3,26 +3,28 @@
 Where this project is, what's next, and everything done so far in order.
 This is the file to open first, every session.
 
-Last updated: 2026-08-03
+Last updated: 2026-08-04
 
 ---
 
 ## NEXT
 
-**Run a device pass over the 2026-08-03 UI session before building anything
-new.** That session shipped roughly fifteen behavior changes across both tabs
-and verified none of them on hardware. TypeScript, the tracked hook, and all
-seven direct-run test files pass, but every item below is a layout, gesture, or
-filesystem behavior that no assertion in this repo can reach.
+**Finish the device pass over the 2026-08-03 UI session before building
+anything new.** That session shipped roughly fifteen behavior changes across
+both tabs and verified none of them on hardware. Every item below is a layout,
+gesture, or filesystem behavior that no assertion in this repo can reach.
 
-1. **Verify the CSV export end to end** — this is the only item touching a code
-   path that has never executed. `buildShiftExportCsv` is asserted, but
-   `Directory.pickDirectoryAsync`, `createFile`, and `write` have never run:
-   tap Export shifts as CSV in Manage data, pick a location, confirm the file
-   appears with 845 rows, and open it in a spreadsheet. Then cancel the picker
-   and confirm the "Nothing exported" alert rather than a crash. Note that a
-   canceled pick and a failed write are indistinguishable to the caller, which
-   is why that message claims nothing about which happened (D16).
+Step 1 is done. The export was verified end to end on 2026-08-04 and found two
+real defects, both fixed — see
+[build-log/14-device-verification.md](build-log/14-device-verification.md) and
+the revised D16. Worth carrying into the rest of the pass: both defects were in
+code that typechecked, passed every test, and had never once run.
+
+1. ~~**Verify the CSV export end to end.**~~ Done 2026-08-04. The file matched
+   D16's format at 845 rows, and its per-year counts agree with the Log tab's
+   own grouping. Canceling the picker logged at `console.error` and alerted;
+   the second export of any day failed outright on a filename collision. Both
+   fixed and re-verified on device.
 2. **Verify the Log screen** on a physical iPhone: groups collapsed on open,
    the screen centered vertically while short and scrolling normally once a
    year is expanded, tapping year → month → week → shift, the form opening from
@@ -531,3 +533,27 @@ Trends scope is complete.
     and importing would mean silently discarding them. That refusal is the
     first thing to revisit when D14's overtime work forces shift times to be
     stored.
+57. Verified the CSV export on a physical iPhone, the first time
+    `pickDirectoryAsync`, `createFile`, and `write` had ever executed. The file
+    matched D16's format at 845 rows and its per-year counts agreed with the
+    Log tab's own grouping, which is a useful cross-check: the export and the
+    on-screen tree derive those totals separately.
+
+    Two real defects came out of it, in `4ee6317`/`0a980f0` and `114f25f`.
+    Canceling the picker logged at `console.error`, so a deliberate user choice
+    was recorded as a failure and raised a modal confirming something the user
+    had just chosen. And the date-only filename made the second export of any
+    day fail on a collision, because `createFile` refuses an existing path
+    rather than replacing it.
+
+    The cancel fix took two attempts, and the first one failed exactly the way
+    the original bug had: both were reasoned out of library source that had
+    never been run. `expo-file-system` raises a properly coded exception on
+    cancel and then drops the code crossing into JavaScript, which one
+    `console.log` in the catch block settled in a single tap. The check now
+    matches the message, which is a heuristic and is documented as one — it
+    degrades into noise, never into a hidden write error. D16 revised twice,
+    with both learning entries in `docs/learning/architecture.md`.
+
+    The through-line for the rest of this pass: every defect found today was in
+    code that typechecked, passed every test, and had never once executed.
