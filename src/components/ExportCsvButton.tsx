@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Job } from '../data/jobs';
 import type { Shift } from '../data/shifts';
-import { localDateString } from '../lib/dates';
 import { isPickerCancelled } from '../lib/pickerCancel';
 import { buildShiftExportCsv, shiftExportFileName } from '../lib/shiftExportCsv';
 
@@ -25,7 +24,7 @@ export default function ExportCsvButton({ shifts, jobs }: Props) {
       // can actually reach. It also keeps this to zero new dependencies --
       // expo-file-system is already here for the import picker.
       const directory = await Directory.pickDirectoryAsync();
-      const fileName = shiftExportFileName(localDateString(new Date()));
+      const fileName = shiftExportFileName(new Date());
 
       // Job names are looked up now rather than stored on the shift, because
       // the export is a snapshot of the current state -- a renamed job should

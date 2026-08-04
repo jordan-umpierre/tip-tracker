@@ -106,6 +106,33 @@ assert.ok(
     .includes('Unknown job')
 );
 
-assert.equal(shiftExportFileName('2026-08-03'), 'tip-tracker-shifts-2026-08-03.csv');
+// Local time, so the Date is built from local parts rather than a UTC string.
+// Zero-padding matters in both halves: an unpadded name sorts wrong as text,
+// which is the whole reason for the ISO-style ordering.
+assert.equal(
+  shiftExportFileName(new Date(2026, 7, 3, 14, 34, 12)),
+  'tip-tracker-shifts-2026-08-03-143412.csv'
+);
+assert.equal(
+  shiftExportFileName(new Date(2026, 0, 5, 9, 7, 4)),
+  'tip-tracker-shifts-2026-01-05-090704.csv',
+  'single-digit month, day, hour, minute and second all pad to two characters'
+);
+
+// The reason this function grew a time at all: two exports in one day must not
+// produce the same name, or the second one throws FileAlreadyExistsException.
+assert.notEqual(
+  shiftExportFileName(new Date(2026, 7, 3, 14, 0, 0)),
+  shiftExportFileName(new Date(2026, 7, 3, 14, 34, 12)),
+  'two exports on the same day get different names'
+);
+
+// Names are compared as text by every file browser, so later exports have to
+// sort after earlier ones without anything parsing them as dates.
+assert.ok(
+  shiftExportFileName(new Date(2026, 7, 3, 9, 0, 0)) <
+    shiftExportFileName(new Date(2026, 7, 3, 14, 0, 0)),
+  'a later export sorts after an earlier one on the same day'
+);
 
 console.log('shift export CSV OK');
