@@ -224,3 +224,52 @@ views collapse to one row and the weekday bars drop to whichever days that week
 contained, which is a worse chart than the one it would replace. The amendment
 also records the cost: two date scopes on one screen, distinguished only by a
 label the user has to read.
+
+## `fc9e4d8` — fix: center the Manage data button (2026-08-03)
+
+It inherited left alignment from the outlined buttons it replaced. One
+`alignItems` on a button that now stands alone between the log button and the
+history.
+
+## `53e4764` — refactor: remove the lifetime totals strip from the Log screen (2026-08-03)
+
+Hours, tips, and gross pay across every shift ever logged sat between the Log a
+shift button and the history. Trends' All range shows the same three figures
+with a chart around them, and the year rows in the history give them per period,
+so nothing on this screen acted on it.
+
+Removing it left `ShiftTotals.tsx` and `calculateTotals` with no callers, so
+both went too rather than sitting as dead code. The D5 rounding assertions those
+tests carried were the valuable part and are kept, re-pointed at
+`calculateShiftGrossCents` — still the single place rounding happens for every
+caller that groups shifts, which is the property the tests exist to pin.
+
+## `976bedd` — feat: export every shift as a CSV file (2026-08-03)
+
+Sits under the importer inside Manage data. `Directory.pickDirectoryAsync` puts
+the file wherever the user chooses through the system's own picker on both
+platforms, and adds no dependency — `expo-file-system` was already here for the
+import side. React Native's built-in `Share` was considered first and rejected:
+it carries a file URI on iOS but ignores it on Android.
+
+The format is not D13's nine-column import contract. That contract stores Hours
+to two decimals, so a shift held as 27300 seconds rounds to 7.58 hours and loses
+30 seconds on the way out — unacceptable for the first half of a backup story.
+The export writes what the app stores, with `Duration Seconds` beside a
+human-readable `Hours`. D16 records the tradeoff, including the part given up:
+an exported file cannot currently be re-imported.
+
+`shiftExportCsv.ts` is pure and asserted directly: empty input still produces a
+header row, ordering is oldest-first and byte-stable across runs, sub-dollar
+amounts keep both decimals, gross comes from exact seconds rather than the
+rounded hours column, and commas, quotes, and newlines inside a note or job name
+are escaped so they cannot shift every following column.
+
+A canceled picker and a failed write are indistinguishable to the caller, so the
+alert states only what is certain of both: no file was written, nothing on the
+device changed.
+
+TypeScript, the tracked hook, and all seven direct-run test files pass. None of
+this has run on a physical device, and the export in particular has never had a
+real file written by it — the picker and the write are exactly the parts
+assertions cannot reach.
