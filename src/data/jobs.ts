@@ -9,6 +9,9 @@ export type Job = {
   id: string;
   name: string;
   hourly_rate_cents: number;
+  overtime_enabled: number;
+  workweek_start_weekday: number;
+  workweek_start_time: string;
   archived_at: string | null;
   created_at: string;
   updated_at: string;
@@ -59,7 +62,9 @@ export async function listActiveJobs(): Promise<Job[]> {
   // lists jobs has to carry this filter -- schema.sql's own comment flags
   // it as the easy-to-forget part.
   return db.getAllAsync<Job>(
-    `SELECT id, name, hourly_rate_cents, archived_at, created_at, updated_at
+    `SELECT id, name, hourly_rate_cents, overtime_enabled,
+            workweek_start_weekday, workweek_start_time,
+            archived_at, created_at, updated_at
      FROM jobs
      WHERE archived_at IS NULL
      ORDER BY name;`
@@ -72,7 +77,9 @@ export async function listJobs(): Promise<Job[]> {
   // Historical shifts still need their job names after a job is removed from
   // active pickers, so history screens read both active and archived rows.
   return db.getAllAsync<Job>(
-    `SELECT id, name, hourly_rate_cents, archived_at, created_at, updated_at
+    `SELECT id, name, hourly_rate_cents, overtime_enabled,
+            workweek_start_weekday, workweek_start_time,
+            archived_at, created_at, updated_at
      FROM jobs
      ORDER BY name;`
   );

@@ -8,6 +8,8 @@ export type Shift = {
   id: string;
   job_id: string;
   shift_date: string;
+  start_time: string | null;
+  end_time: string | null;
   duration_seconds: number;
   tips_cents: number;
   hourly_rate_cents: number;
@@ -22,7 +24,9 @@ export async function createShift(
   durationSeconds: number,
   tipsCents: number,
   hourlyRateCents: number,
-  note: string | null
+  note: string | null,
+  startTime: string | null = null,
+  endTime: string | null = null
 ): Promise<string> {
   const db = await getDb();
   const id = Crypto.randomUUID();
@@ -38,11 +42,14 @@ export async function createShift(
   // deleted_at is explicitly NULL: a brand new shift is never deleted.
   await db.runAsync(
     `INSERT INTO shifts
-       (id, job_id, shift_date, duration_seconds, tips_cents, hourly_rate_cents, note, deleted_at, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?);`,
+       (id, job_id, shift_date, start_time, end_time, duration_seconds,
+        tips_cents, hourly_rate_cents, note, deleted_at, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?);`,
     id,
     jobId,
     shiftDate,
+    startTime,
+    endTime,
     durationSeconds,
     tipsCents,
     hourlyRateCents,
@@ -70,7 +77,8 @@ export async function listShifts(): Promise<Shift[]> {
   // Most recent first, since that's the natural order for a list a user
   // scrolls through.
   return db.getAllAsync<Shift>(
-    `SELECT id, job_id, shift_date, duration_seconds, tips_cents, hourly_rate_cents, note, created_at, updated_at
+    `SELECT id, job_id, shift_date, start_time, end_time, duration_seconds,
+            tips_cents, hourly_rate_cents, note, created_at, updated_at
      FROM shifts
      WHERE deleted_at IS NULL
      ORDER BY shift_date DESC;`
@@ -84,7 +92,9 @@ export async function updateShift(
   durationSeconds: number,
   tipsCents: number,
   hourlyRateCents: number,
-  note: string | null
+  note: string | null,
+  startTime: string | null = null,
+  endTime: string | null = null
 ): Promise<void> {
   const db = await getDb();
   const now = new Date().toISOString();
@@ -97,10 +107,13 @@ export async function updateShift(
   // did this row last change" for eventual sync conflict resolution.
   await db.runAsync(
     `UPDATE shifts
-     SET job_id = ?, shift_date = ?, duration_seconds = ?, tips_cents = ?, hourly_rate_cents = ?, note = ?, updated_at = ?
+     SET job_id = ?, shift_date = ?, start_time = ?, end_time = ?,
+         duration_seconds = ?, tips_cents = ?, hourly_rate_cents = ?, note = ?, updated_at = ?
      WHERE id = ?;`,
     jobId,
     shiftDate,
+    startTime,
+    endTime,
     durationSeconds,
     tipsCents,
     hourlyRateCents,

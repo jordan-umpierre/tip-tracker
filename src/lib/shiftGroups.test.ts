@@ -19,6 +19,8 @@ function shift(
     id,
     job_id: 'job-a',
     shift_date: shiftDate,
+    start_time: null,
+    end_time: null,
     duration_seconds: durationSeconds,
     tips_cents: tipsCents,
     hourly_rate_cents: hourlyRateCents,

@@ -1,3 +1,4 @@
+// fallow-ignore-file unused-file -- the pre-commit hook executes this file directly.
 // Run from the repo root with: node src/lib/totals.test.ts
 //
 // No test framework, on purpose. Node runs TypeScript directly now (it strips
@@ -21,6 +22,8 @@ function shift(durationSeconds: number, tipsCents: number, hourlyRateCents: numb
     id: 'test-id',
     job_id: 'test-job',
     shift_date: '2026-07-30',
+    start_time: null,
+    end_time: null,
     duration_seconds: durationSeconds,
     tips_cents: tipsCents,
     hourly_rate_cents: hourlyRateCents,
