@@ -409,3 +409,19 @@ Trends scope is complete.
     dollars per hour; screen readers still speak them. TypeScript, the tracked
     hook, the schema and migration checks, and all five direct-run test files
     pass. Neither change has run on a physical device.
+48. Acted on a second round of device feedback, in `3dc3013` and `d2a28d1`.
+    Tapping the income line now jumps straight to that point instead of
+    requiring a drag: the chart claims the touch on press-down and hands it
+    back if the surrounding scroll view asks, clearing the selection so a
+    vertical scroll leaves nothing highlighted. The Log stopped being an
+    845-row unbroken scroll — shifts now sit under sticky month headers
+    carrying that month's gross and shift count, with every month except the
+    newest collapsed, so five years of history is about fifty headers and one
+    tap. Rows lead with weekday and day and put the shift's gross on the right,
+    since the header already supplies the month and year. D15 records why
+    collapsed rather than merely sectioned, and what a future search or job
+    filter would change about the default. Grouping lives in
+    `src/lib/shiftGroups.ts` with its own assertions so month subtotals stay on
+    the same D5 per-shift gross that Trends uses. TypeScript, the tracked hook,
+    and all six direct-run test files pass; neither change has run on a
+    physical device.
