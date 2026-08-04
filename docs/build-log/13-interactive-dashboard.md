@@ -310,3 +310,22 @@ Scoped to the closed state on purpose. The shift form replaces this button
 rather than rendering below it, so an open form still begins where it always
 did, and the extra space only exists in the state that had too little content to
 fill the screen.
+
+## `169bf52` — feat: center the Log screen vertically when it fits (2026-08-03)
+
+`187d3e6`'s top margin was still the wrong answer: it moved the content down a
+fixed amount and left it top-heavy, when what was wanted was the block sitting
+in the middle of the screen with space above and below it, the way the reference
+app does.
+
+`flexGrow: 1` with `justifyContent: 'center'` on the FlatList's
+`contentContainerStyle` does it without measuring anything. The content area is
+at least as tall as the list, so a short screen has spare height for
+justifyContent to distribute. Once the rows outgrow the list there is no spare
+height and the rule quietly stops applying, so an expanded history still begins
+at the top and scrolls normally. The fixed top margin from `187d3e6` is removed,
+since it would have offset the centering it was trying to approximate.
+
+Three attempts on one layout request. The first two solved problems that had not
+been raised; the reference screenshot was worth more than any of the questions
+asked before it.
