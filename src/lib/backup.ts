@@ -80,6 +80,8 @@ export type TipTrackerBackup = {
   shifts: BackupShift[];
 };
 
+export type BackupRows = Pick<TipTrackerBackup, 'jobs' | 'shifts'>;
+
 export function buildBackupJson(
   jobs: BackupJob[],
   shifts: BackupShift[],
@@ -123,6 +125,14 @@ export function backupFileName(now: Date): string {
     .map((part) => String(part).padStart(2, '0'))
     .join('');
   return `tip-tracker-backup-${localPart}-${timePart}.json`;
+}
+
+export function assertBackupRowsEqual(expected: BackupRows, actual: BackupRows): void {
+  const expectedRows = canonicalRows(expected);
+  const actualRows = canonicalRows(actual);
+  if (JSON.stringify(expectedRows) !== JSON.stringify(actualRows)) {
+    throw new Error('The restored rows did not match the backup.');
+  }
 }
 
 function validateBackup(value: unknown): TipTrackerBackup {
@@ -299,4 +309,11 @@ function assertSize(text: string): void {
 
 function compareIds<T extends { id: string }>(left: T, right: T): number {
   return left.id.localeCompare(right.id);
+}
+
+function canonicalRows(rows: BackupRows): BackupRows {
+  return {
+    jobs: [...rows.jobs].sort(compareIds),
+    shifts: [...rows.shifts].sort(compareIds),
+  };
 }

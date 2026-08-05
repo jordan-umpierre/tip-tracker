@@ -4,6 +4,7 @@
 // malformed or newer documents fail before the data layer can open SQLite.
 import assert from 'node:assert/strict';
 import {
+  assertBackupRowsEqual,
   backupFileName,
   buildBackupJson,
   MAX_BACKUP_BYTES,
@@ -143,6 +144,18 @@ rejects({
 assert.throws(
   () => buildBackupJson([job({ archived_at: 'bad' })], [], new Date(CREATED)),
   /ISO timestamp/
+);
+
+assert.doesNotThrow(() => assertBackupRowsEqual(
+  { jobs: exactJobs, shifts: exactShifts },
+  { jobs: [...exactJobs].reverse(), shifts: [...exactShifts].reverse() }
+));
+assert.throws(
+  () => assertBackupRowsEqual(
+    { jobs: exactJobs, shifts: exactShifts },
+    { jobs: exactJobs, shifts: exactShifts.map((row) => ({ ...row, deleted_at: null })) }
+  ),
+  /did not match/
 );
 
 console.log('backup contract OK');
