@@ -9,13 +9,14 @@ Last updated: 2026-08-05
 
 ## NEXT
 
-**The provider-free authenticated backend and sync foundations are implemented
-and locally verified. D22 supplies the isolated Node/Express boundary and cloud
-account lifecycle. D23 plus SQLite schema versions 5 and 6 track local intent,
-stable device identity, and blocked server responses. D24 supplies strict,
-idempotent mutation and incremental pull routes. SQLite remains the offline
-source. No mobile auth, HTTP client, deployment configuration, or external
-provider resource exists yet.**
+**The provider-free backend, sync foundations, and D25 mobile account boundary
+are implemented and locally verified. Accounts remain optional. The app now
+supports Supabase email/password signup and sign-in, encrypted native session
+persistence, `/v1/me` identity verification, deliberate one-account SQLite
+binding, and local-only sign-out. Express is still the only domain API and
+SQLite is still the offline source. No external provider resource, deployed
+API, SMTP configuration, mobile sync transport, recovery flow, deletion UI, or
+native account evidence exists yet.**
 
 `bc8e170` recorded D22. Email/password verification and reset belong to the
 managed auth provider, with custom SMTP required for reliable delivery. Cloud
@@ -76,19 +77,34 @@ unique conflicts, replay misuse, invalid input, payload ceilings, transaction
 rollback, pagination, cursor order, and account spoofing. Eleven server tests,
 the full repository hook, and the server Fallow health/duplication checks pass.
 
-D25 now fixes the next mobile boundary: accounts remain optional, Express stays
-the only domain-data API, public Expo configuration contains no server secrets,
-and `/v1/me` verification precedes deliberate one-account SQLite binding.
-Sign-out preserves local data and sync state. Recovery, deletion, sync traffic,
-provider resources, deployment, and native evidence remain later units.
+`0dec381` recorded D25. `3f3b470` added strict public configuration, a nullable
+Supabase client, SDK-matched dependencies, web local storage, and bounded
+double-slot SecureStore chunks whose manifest cannot point at a partial write.
+`4ccdd62` added bounded `/v1/me` requests, one exact refresh-after-401 retry,
+backend/session identity equality, atomic empty-database binding, populated-data
+consent, and hard mismatch rejection. `3d72bce` added the account provider and
+accessible Manage data states without adding cloud sync traffic. The full hook,
+TypeScript, Expo dependency check, Expo Doctor 20/20, changed-file Fallow audit,
+and iOS/Android/web exports pass.
 
-**Do this next:** implement D25's mobile email/password account slice without
-adding sync traffic. Complete the already-open native withholding and isolated
-restore acceptance passes separately. Before hosted/mobile verification, choose the
-Supabase and Render plans, database/API regions, availability and budget,
-backup/tombstone/log/deletion retention, and SMTP provider. Then create the
-external resources and least-privilege roles before implementing email/password
-auth, SecureStore sessions, retry scheduling, and conflict UI.
+This remains local integration evidence. No real signup email, provider token,
+API request, native Keychain/Keystore restoration, foreground refresh, offline
+relaunch, or native accessibility flow has been exercised. A Playwright attempt
+also confirmed an older web-runtime blocker before Manage data renders: fresh
+SQLite bootstrap reaches `src/data/db.ts` through `expo-file-system`, which is
+unsupported on web and throws `File.validatePath`. The production web bundle
+compiles, but that is not a working-web-runtime claim.
+
+**Do this next:** complete one staging infrastructure and native-auth acceptance
+unit. Choose the Supabase and API plans, regions, availability/budget limits,
+retention policies, and SMTP provider; create least-privilege resources; apply
+the server migrations; supply only the three public Expo variables; then verify
+signup, email confirmation, sign-in, relaunch persistence, refresh, offline
+local use, sign-out preservation, populated-data consent, and different-account
+rejection on iOS and Android. Keep the existing withholding and isolated-restore
+native passes separate. After staging auth passes, implement mobile push/pull
+transport and retry scheduling. Password recovery, account deletion, and
+conflict resolution remain later lifecycle units with their own evidence.
 
 The first complete local federal-withholding slice remains implemented: bounded
 2026 math, effective-dated per-job settings, lossless backup, and an opt-in
