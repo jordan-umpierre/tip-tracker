@@ -1,4 +1,4 @@
 {
   "entry": ["src/lib/*.test.ts"],
-  "ignoreDependencies": ["expo"]
+  "ignoreDependencies": ["expo", "react-native-web"]
 }
