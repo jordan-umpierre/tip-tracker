@@ -1,9 +1,9 @@
-import express, { type ErrorRequestHandler } from "express";
+import express, { type ErrorRequestHandler, type RequestHandler } from "express";
 
 import type { Accounts } from "./accounts.ts";
 import { requireAuth, wasRecentlyPasswordAuthenticated, type VerifyAccessToken } from "./auth.ts";
 import type { AuthAdmin } from "./authAdmin.ts";
-import { InvalidSyncRequestError, type SyncService } from "./sync.ts";
+import { InvalidSyncQueryError, InvalidSyncRequestError, type SyncService } from "./sync.ts";
 
 const JSON_BODY_LIMIT = "32kb";
 const SYNC_MUTATION_BODY_LIMIT = "10500000b";
@@ -15,6 +15,17 @@ const PUBLIC_PARSER_ERRORS = new Map([
 function errorStatus(error: unknown) {
   if (typeof error !== "object" || error === null || !("status" in error)) return undefined;
   return Number(error.status);
+}
+
+function requireActiveAccount(accounts: Accounts): RequestHandler {
+  return async (_request, response, next) => {
+    const account = await accounts.findOrCreate(response.locals.auth.subject);
+    if (account.deleted) {
+      response.status(410).json({ error: "account_deleted" });
+      return;
+    }
+    next();
+  };
 }
 
 export function createApp(dependencies?: {
@@ -45,16 +56,33 @@ export function createApp(dependencies?: {
   });
 
   if (dependencies) {
+    const requireSyncAccount = requireActiveAccount(dependencies.accounts);
+    app.get(
+      "/v1/sync/changes",
+      requireAuth(dependencies.verifyAccessToken),
+      requireSyncAccount,
+      async (request, response) => {
+        try {
+          response.json(await dependencies.sync.listChanges(
+            response.locals.auth.subject,
+            request.query,
+          ));
+        } catch (error) {
+          if (error instanceof InvalidSyncQueryError) {
+            response.status(400).json({ error: "invalid_query" });
+            return;
+          }
+          throw error;
+        }
+      },
+    );
+
     app.post(
       "/v1/sync/mutations",
       requireAuth(dependencies.verifyAccessToken),
       express.json({ limit: SYNC_MUTATION_BODY_LIMIT, strict: true }),
+      requireSyncAccount,
       async (request, response) => {
-        const account = await dependencies.accounts.findOrCreate(response.locals.auth.subject);
-        if (account.deleted) {
-          response.status(410).json({ error: "account_deleted" });
-          return;
-        }
         try {
           const result = await dependencies.sync.mutate(response.locals.auth.subject, request.body);
           response.status(result.status).json(result.body);

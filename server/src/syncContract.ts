@@ -57,6 +57,9 @@ export type SyncMutation = {
 };
 
 export class InvalidSyncRequestError extends Error {}
+export class InvalidSyncQueryError extends Error {}
+
+export type ChangesQuery = { after: number; limit: number };
 
 const MUTATION_KEYS = [
   "baseServerVersion", "deviceId", "entityId", "entityType", "operation", "operationId", "record",
@@ -97,6 +100,15 @@ export function parseSyncMutation(value: unknown): SyncMutation {
   };
   if (operation === "delete" && mutation.baseServerVersion === null) invalid();
   return mutation;
+}
+
+export function parseChangesQuery(value: unknown): ChangesQuery {
+  const input = readObject(value);
+  assertAllowedKeys(input, ["after", "limit"]);
+  if (!("after" in input)) throw new InvalidSyncQueryError("after is required");
+  const after = readQueryInteger(input.after, 0, Number.MAX_SAFE_INTEGER);
+  const limit = "limit" in input ? readQueryInteger(input.limit, 1, 200) : 100;
+  return { after, limit };
 }
 
 function readRecord(entityType: SyncEntityType, value: unknown): SyncRecord {
@@ -181,6 +193,31 @@ function assertExactKeys(value: Record<string, unknown>, keys: readonly string[]
   const actual = Object.keys(value).sort();
   const expected = [...keys].sort();
   if (actual.length !== expected.length || actual.some((key, index) => key !== expected[index])) invalid();
+}
+
+function assertAllowedKeys(value: Record<string, unknown>, keys: readonly string[]) {
+  if (Object.keys(value).some((key) => !keys.includes(key))) {
+    throw new InvalidSyncQueryError("Unknown sync query field");
+  }
+}
+
+function readQueryInteger(value: unknown, minimum: number, maximum: number) {
+  const text = readQueryIntegerText(value);
+  const number = Number(text);
+  if (!Number.isSafeInteger(number) || number < minimum || number > maximum) {
+    throw new InvalidSyncQueryError("Sync query integer is out of range");
+  }
+  return number;
+}
+
+function readQueryIntegerText(value: unknown) {
+  if (typeof value !== "string") {
+    throw new InvalidSyncQueryError("Sync query values must be canonical integers");
+  }
+  if (!/^(?:0|[1-9]\d*)$/.test(value)) {
+    throw new InvalidSyncQueryError("Sync query values must be canonical integers");
+  }
+  return value;
 }
 
 function readEntityType(value: unknown): SyncEntityType {

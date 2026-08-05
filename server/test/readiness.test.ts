@@ -15,7 +15,10 @@ function readinessApp(database: pg.Client | pg.Pool) {
     accounts: createAccounts(database),
     authAdmin: { deleteIdentity: async () => undefined },
     readiness: () => assertSchemaCurrent(database),
-    sync: { mutate: async () => ({ status: 200, body: {} }) },
+    sync: {
+      listChanges: async () => ({ changes: [], hasMore: false, nextCursor: 0 }),
+      mutate: async () => ({ status: 200, body: {} }),
+    },
     verifyAccessToken: async () => { throw new Error("unused"); },
   });
 }

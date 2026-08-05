@@ -3,7 +3,9 @@ import { createHash } from "node:crypto";
 import type pg from "pg";
 
 import {
+  InvalidSyncQueryError,
   InvalidSyncRequestError,
+  parseChangesQuery,
   parseSyncMutation,
   type FederalWithholdingSettingRecord,
   type JobRecord,
@@ -45,6 +47,27 @@ type DomainRow = Record<string, unknown> & {
 
 export function createSyncService(database: SyncDatabase) {
   return {
+    async listChanges(accountId: string, input: unknown) {
+      const query = parseChangesQuery(input);
+      const connection = await database.connect();
+      try {
+        const result = await connection.query<DomainRow & { entity_type: SyncEntityType }>(
+          CHANGES_SQL,
+          [accountId, query.after, query.limit + 1],
+        );
+        const hasMore = result.rows.length > query.limit;
+        const emitted = result.rows.slice(0, query.limit);
+        const changes = emitted.map((row) => serializeRemote(row.entity_type, row));
+        return {
+          changes,
+          hasMore,
+          nextCursor: changes.at(-1)?.changeSequence ?? query.after,
+        };
+      } finally {
+        connection.release();
+      }
+    },
+
     async mutate(accountId: string, input: unknown): Promise<SyncResponse> {
       const mutation = parseSyncMutation(input);
       const checksum = checksumMutation(mutation);
@@ -88,6 +111,48 @@ export function createSyncService(database: SyncDatabase) {
     },
   };
 }
+
+const CHANGES_SQL = `
+  SELECT * FROM (
+    SELECT 'job'::text AS entity_type, id, server_version, change_sequence,
+      created_at, updated_at, client_created_at, client_updated_at,
+      name, hourly_rate_cents, archived_at, overtime_enabled,
+      workweek_start_weekday, workweek_start_time,
+      NULL::text AS job_id, NULL::date AS shift_date,
+      NULL::text AS start_time, NULL::text AS end_time,
+      NULL::bigint AS duration_seconds, NULL::bigint AS tips_cents,
+      NULL::text AS note, NULL::timestamptz AS deleted_at,
+      NULL::date AS effective_from, NULL::text AS filing_status,
+      NULL::smallint AS pay_periods_per_year, NULL::boolean AS step2_checked,
+      NULL::bigint AS step3_credits_cents,
+      NULL::bigint AS step4a_other_income_cents,
+      NULL::bigint AS step4b_deductions_cents,
+      NULL::bigint AS step4c_extra_withholding_cents,
+      NULL::boolean AS exempt
+    FROM app.jobs WHERE account_id = $1 AND change_sequence > $2
+    UNION ALL
+    SELECT 'shift'::text, id, server_version, change_sequence,
+      created_at, updated_at, client_created_at, client_updated_at,
+      NULL::text, hourly_rate_cents, NULL::timestamptz, NULL::boolean,
+      NULL::smallint, NULL::text,
+      job_id, shift_date, start_time, end_time, duration_seconds, tips_cents,
+      note, deleted_at, NULL::date, NULL::text, NULL::smallint, NULL::boolean,
+      NULL::bigint, NULL::bigint, NULL::bigint, NULL::bigint, NULL::boolean
+    FROM app.shifts WHERE account_id = $1 AND change_sequence > $2
+    UNION ALL
+    SELECT 'federal_withholding_setting'::text, id, server_version, change_sequence,
+      created_at, updated_at, client_created_at, client_updated_at,
+      NULL::text, NULL::bigint, NULL::timestamptz, NULL::boolean,
+      NULL::smallint, NULL::text,
+      job_id, NULL::date, NULL::text, NULL::text, NULL::bigint, NULL::bigint,
+      NULL::text, deleted_at, effective_from, filing_status, pay_periods_per_year,
+      step2_checked, step3_credits_cents, step4a_other_income_cents,
+      step4b_deductions_cents, step4c_extra_withholding_cents, exempt
+    FROM app.federal_withholding_settings
+    WHERE account_id = $1 AND change_sequence > $2
+  ) AS changes
+  ORDER BY change_sequence
+  LIMIT $3`;
 
 async function readReplay(
   connection: SyncConnection,
@@ -452,4 +517,4 @@ function nullableText(value: unknown) {
   return value === null ? null : String(value);
 }
 
-export { InvalidSyncRequestError };
+export { InvalidSyncQueryError, InvalidSyncRequestError };

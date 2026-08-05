@@ -152,14 +152,62 @@ async function mutate(baseUrl: string, token: string, body: unknown) {
   });
 }
 
+async function pull(baseUrl: string, token: string, query: string) {
+  return fetch(`${baseUrl}/v1/sync/changes?${query}`, {
+    headers: { authorization: `Bearer ${token}` },
+  });
+}
+
 type MutationBody = {
   change?: { record: Record<string, unknown>; serverVersion: number };
   error?: string;
   remote?: { serverVersion: number };
 };
 
+type ChangesBody = {
+  changes: Array<{
+    changeSequence: number;
+    entityId: string;
+    entityType: string;
+    record: Record<string, unknown>;
+    serverVersion: number;
+  }>;
+  hasMore: boolean;
+  nextCursor: number;
+};
+
 async function readMutationBody(response: Response) {
   return response.json() as Promise<MutationBody>;
+}
+
+async function readAllChanges(baseUrl: string, token: string) {
+  const pulled: ChangesBody["changes"] = [];
+  let cursor = 0;
+  let hasMore = true;
+  while (hasMore) {
+    const response = await pull(baseUrl, token, `after=${cursor}&limit=2`);
+    assert.equal(response.status, 200);
+    const page = await response.json() as ChangesBody;
+    assert.equal(page.changes.length <= 2, true);
+    assert.equal(page.changes.every((change) => change.changeSequence > cursor), true);
+    pulled.push(...page.changes);
+    cursor = page.nextCursor;
+    hasMore = page.hasMore;
+  }
+  return { cursor, pulled };
+}
+
+function assertPulledFacts(changes: ChangesBody["changes"]) {
+  assert.deepEqual(new Set(changes.map((change) => change.entityId)), new Set([
+    "job-a", "job-b", "setting-a", "shift-a", "shift-b",
+  ]));
+  const rows = new Map(changes.map((change) => [change.entityId, change]));
+  assert.equal(rows.get("job-a")?.record.archivedAt, timestamp);
+  assert.equal(rows.get("shift-a")?.record.deletedAt, timestamp);
+  assert.equal(rows.get("setting-a")?.record.deletedAt, timestamp);
+  assert.equal(changes.every((change) => change.record.createdAt === timestamp), true);
+  const sequences = changes.map((change) => change.changeSequence);
+  assert.deepEqual(sequences, [...sequences].sort((left, right) => left - right));
 }
 
 test("sync mutations isolate tenants, replay exactly, and surface conflicts", async () => {
@@ -258,6 +306,20 @@ test("sync mutations isolate tenants, replay exactly, and surface conflicts", as
     const deletedSetting = await mutate(baseUrl, tokenA, settingTombstone);
     assert.equal(deletedSetting.status, 200);
     assert.equal((await readMutationBody(deletedSetting)).change?.record.deletedAt, timestamp);
+
+    const { cursor, pulled } = await readAllChanges(baseUrl, tokenA);
+    assertPulledFacts(pulled);
+
+    const exhausted = await pull(baseUrl, tokenA, `after=${cursor}`);
+    assert.deepEqual(await exhausted.json(), {
+      changes: [],
+      hasMore: false,
+      nextCursor: cursor,
+    });
+
+    const otherTenant = await pull(baseUrl, tokenB, "after=0&limit=200");
+    const otherTenantBody = await otherTenant.json() as ChangesBody;
+    assert.deepEqual(otherTenantBody.changes.map((change) => change.entityId), ["job-a"]);
   });
 });
 
@@ -310,5 +372,36 @@ test("a failed domain write rolls back its idempotency record", async () => {
         (SELECT count(*) FROM app.sync_operations) AS operations`,
     );
     assert.deepEqual(counts.rows[0], { jobs: "0", operations: "0" });
+  });
+});
+
+test("sync change queries enforce canonical cursor and page limits", async () => {
+  await withSyncApi(async ({ baseUrl, tokenFor }) => {
+    const token = await tokenFor(accountA);
+    const invalidQueries = [
+      "",
+      "after=-1",
+      "after=1.5",
+      "after=01",
+      "after=9007199254740992",
+      "after=0&limit=0",
+      "after=0&limit=201",
+      "after=0&unknown=1",
+      `after=0&accountId=${accountB}`,
+      "after=0&after=1",
+    ];
+    for (const query of invalidQueries) {
+      const response = await pull(baseUrl, token, query);
+      assert.equal(response.status, 400);
+      assert.deepEqual(await response.json(), { error: "invalid_query" });
+    }
+
+    const empty = await pull(baseUrl, token, "after=0");
+    assert.equal(empty.status, 200);
+    assert.deepEqual(await empty.json(), { changes: [], hasMore: false, nextCursor: 0 });
+
+    const unauthorized = await fetch(`${baseUrl}/v1/sync/changes?after=0`);
+    assert.equal(unauthorized.status, 401);
+    assert.deepEqual(await unauthorized.json(), { error: "unauthorized" });
   });
 });

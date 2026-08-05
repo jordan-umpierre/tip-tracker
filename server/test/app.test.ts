@@ -15,6 +15,7 @@ const server = createServer(createApp({
   logError: () => undefined,
   readiness: async () => undefined,
   sync: {
+    listChanges: async () => ({ changes: [], hasMore: false, nextCursor: 0 }),
     mutate: async () => ({ status: 200, body: {} }),
   },
   verifyAccessToken: async () => ({
