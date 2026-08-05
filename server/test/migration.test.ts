@@ -6,29 +6,27 @@ import { withTestDatabase } from "./database.ts";
 
 test("migration preserves ownership, versions, tombstones, and rollback", async () => {
   const migrations = await readMigrations();
+  assert.equal(migrations.length, 2);
   await withTestDatabase(async (database) => {
       await assert.rejects(
         applyMigrations(database, [
-          ...migrations,
-          {
-            checksum: "0".repeat(64),
-            name: "002_broken.sql",
-            sql: "CREATE TABLE app.must_rollback (id integer); SELECT missing_function();",
-            version: 2,
-          },
+          migrations[0],
+          { ...migrations[1], sql: `${migrations[1].sql}\nSELECT missing_function();` },
         ]),
         /missing_function/,
       );
       const rolledBack = await database.query(
-        `SELECT to_regclass('app.must_rollback') AS broken_table,
+        `SELECT to_regclass('app.sync_operations') AS broken_table,
                 array_agg(version ORDER BY version) AS versions
          FROM app.schema_migrations`,
       );
       assert.deepEqual(rolledBack.rows[0], { broken_table: null, versions: [1] });
-      await assertSchemaCurrent(database);
+      await assert.rejects(assertSchemaCurrent(database), /does not match/);
       await applyMigrations(database);
+      await applyMigrations(database);
+      await assertSchemaCurrent(database);
       await assert.rejects(
-        applyMigrations(database, [{ ...migrations[0], checksum: "f".repeat(64) }]),
+        applyMigrations(database, [migrations[0], { ...migrations[1], checksum: "f".repeat(64) }]),
         /does not match/,
       );
 
@@ -39,7 +37,9 @@ test("migration preserves ownership, versions, tombstones, and rollback", async 
 
       await database.query("INSERT INTO app.accounts (id) VALUES ($1), ($2)", [accountA, accountB]);
       await database.query(
-        "INSERT INTO app.jobs (account_id, id, name, hourly_rate_cents) VALUES ($1, $2, 'Bar', 1500)",
+        `INSERT INTO app.jobs
+          (account_id, id, name, hourly_rate_cents, client_created_at, client_updated_at)
+         VALUES ($1, $2, 'Bar', 1500, '2020-01-02T03:04:05.000Z', '2020-02-03T04:05:06.000Z')`,
         [accountA, jobA],
       );
       await database.query(
@@ -60,6 +60,30 @@ test("migration preserves ownership, versions, tombstones, and rollback", async 
         start_time: "09:30",
         workweek_start_time: "00:00",
       });
+      const clientTimes = await database.query(
+        `SELECT client_created_at, client_updated_at
+         FROM app.jobs WHERE account_id = $1 AND id = $2`,
+        [accountA, jobA],
+      );
+      assert.equal(clientTimes.rows[0].client_created_at.toISOString(), "2020-01-02T03:04:05.000Z");
+      assert.equal(clientTimes.rows[0].client_updated_at.toISOString(), "2020-02-03T04:05:06.000Z");
+
+      const replayBody = { operationId: 1, serverVersion: 1 };
+      await database.query(
+        `INSERT INTO app.sync_operations
+          (account_id, operation_id, request_checksum, response_status, response_body)
+         VALUES ($1, 1, $2, 200, $3)`,
+        [accountA, "a".repeat(64), replayBody],
+      );
+      await assert.rejects(
+        database.query(
+          `INSERT INTO app.sync_operations
+            (account_id, operation_id, request_checksum, response_status, response_body)
+           VALUES ($1, 1, $2, 200, $3)`,
+          [accountA, "a".repeat(64), replayBody],
+        ),
+        /unique constraint/i,
+      );
 
       await assert.rejects(
         database.query(
@@ -154,11 +178,13 @@ test("migration preserves ownership, versions, tombstones, and rollback", async 
           (SELECT count(*) FROM app.accounts) AS accounts,
           (SELECT count(*) FROM app.jobs) AS jobs,
           (SELECT count(*) FROM app.shifts) AS shifts,
-          (SELECT count(*) FROM app.federal_withholding_settings) AS settings`,
+          (SELECT count(*) FROM app.federal_withholding_settings) AS settings,
+          (SELECT count(*) FROM app.sync_operations) AS operations`,
       );
       assert.deepEqual(remaining.rows[0], {
         accounts: "1",
         jobs: "0",
+        operations: "0",
         shifts: "0",
         settings: "0",
       });
