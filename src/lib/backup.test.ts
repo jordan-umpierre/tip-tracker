@@ -72,6 +72,7 @@ function settings(
     exempt: 0,
     created_at: CREATED,
     updated_at: CREATED,
+    deleted_at: null,
     ...changes,
   };
 }
@@ -79,8 +80,8 @@ function settings(
 function backup(changes: Partial<TipTrackerBackup> = {}): TipTrackerBackup {
   return {
     format: 'tip-tracker-backup',
-    version: 2,
-    schema_version: 4,
+    version: 3,
+    schema_version: 5,
     exported_at: CREATED,
     jobs: [job()],
     shifts: [shift()],
@@ -99,6 +100,21 @@ function version1Backup(): Record<string, unknown> {
     exported_at: CREATED,
     jobs: [job()],
     shifts: [shift()],
+  };
+}
+
+// Version 2 predates settings tombstones. Keep the literal old shape so the
+// current parser cannot accidentally require a field those files never had.
+function version2Backup(): Record<string, unknown> {
+  const { deleted_at: _deletedAt, ...legacySettings } = settings();
+  return {
+    format: 'tip-tracker-backup',
+    version: 2,
+    schema_version: 4,
+    exported_at: CREATED,
+    jobs: [job()],
+    shifts: [shift()],
+    federal_withholding_settings: [legacySettings],
   };
 }
 
@@ -131,7 +147,13 @@ const exactShifts = [
   }),
 ];
 const exactSettings = [
-  settings({ id: 'settings-z', job_id: 'job-z', effective_from: '2025-01-03', exempt: 1 }),
+  settings({
+    id: 'settings-z',
+    job_id: 'job-z',
+    effective_from: '2025-01-03',
+    exempt: 1,
+    deleted_at: CREATED,
+  }),
   settings({
     id: 'settings-a',
     job_id: 'legacy-text-id',
@@ -161,12 +183,19 @@ assert.deepEqual(
 );
 
 const normalizedVersion1 = parse(version1Backup());
-assert.equal(normalizedVersion1.version, 2);
-assert.equal(normalizedVersion1.schema_version, 4);
+assert.equal(normalizedVersion1.version, 3);
+assert.equal(normalizedVersion1.schema_version, 5);
 assert.deepEqual(normalizedVersion1.federal_withholding_settings, []);
 assert.deepEqual(normalizedVersion1.jobs, [job()]);
 rejects({ ...version1Backup(), extra: true }, /missing or unknown fields/);
 rejects({ ...version1Backup(), schema_version: 4 }, /database version is not supported/);
+
+const normalizedVersion2 = parse(version2Backup());
+assert.equal(normalizedVersion2.version, 3);
+assert.equal(normalizedVersion2.schema_version, 5);
+assert.equal(normalizedVersion2.federal_withholding_settings[0].deleted_at, null);
+rejects({ ...version2Backup(), extra: true }, /missing or unknown fields/);
+rejects({ ...version2Backup(), schema_version: 5 }, /database version is not supported/);
 
 // The filename uses local wall-clock parts, matching the existing CSV export.
 assert.equal(
@@ -182,8 +211,8 @@ const missing = backup() as Record<string, unknown>;
 delete missing.exported_at;
 rejects(missing, /missing or unknown fields/);
 rejects({ ...backup(), format: 'other' }, /not a Tip Tracker backup/);
-rejects({ ...backup(), version: 3 }, /version is not supported/);
-rejects({ ...backup(), schema_version: 5 }, /database version is not supported/);
+rejects({ ...backup(), version: 4 }, /version is not supported/);
+rejects({ ...backup(), schema_version: 4 }, /database version is not supported/);
 rejects({ ...backup(), exported_at: 'yesterday' }, /ISO timestamp/);
 rejects({ ...backup(), jobs: null }, /jobs and shifts arrays/);
 rejects({ ...backup(), jobs: new Array(MAX_BACKUP_JOBS + 1).fill(null) }, /more than 1000 jobs/);
@@ -245,6 +274,19 @@ rejects({
   ...backup(),
   federal_withholding_settings: [settings({ exempt: 2 })],
 }, /must be 0 or 1/);
+rejects({
+  ...backup(),
+  federal_withholding_settings: [settings({ deleted_at: 'yesterday' })],
+}, /ISO timestamp/);
+rejects({
+  ...backup(),
+  federal_withholding_settings: [
+    (() => {
+      const { deleted_at: _deletedAt, ...missingDeletedAt } = settings();
+      return missingDeletedAt;
+    })(),
+  ],
+}, /missing or unknown fields/);
 rejects({
   ...backup(),
   federal_withholding_settings: [settings(), settings()],

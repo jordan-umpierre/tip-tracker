@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Proves the version-4 tables can reproduce every stored backup column and that
+# Proves the version-5 tables can reproduce every stored backup column and that
 # one bad shift rolls the preceding job insert back. The TypeScript contract
 # test covers JSON validation; this script covers SQLite parity and rollback.
 
@@ -20,7 +20,7 @@ rollback_db="$tmpdir/rollback.db"
 
 for db in "$source_db" "$restored_db" "$rollback_db"; do
   sqlite3 "$db" < src/data/schema.sql || exit 1
-  sqlite3 "$db" 'PRAGMA user_version = 4;' || exit 1
+  sqlite3 "$db" 'PRAGMA user_version = 5;' || exit 1
 done
 
 fixture_sql="
@@ -34,10 +34,10 @@ fixture_sql="
     (id,job_id,effective_from,filing_status,pay_periods_per_year,
      step2_checked,step3_credits_cents,step4a_other_income_cents,
      step4b_deductions_cents,step4c_extra_withholding_cents,exempt,
-     created_at,updated_at)
+     created_at,updated_at,deleted_at)
   VALUES
-    ('tax-a','job-a','2026-01-01','single-or-married-filing-separately',26,0,0,0,0,2500,0,'2026-08-04T12:00:00.000Z','2026-08-04T12:00:00.000Z'),
-    ('tax-z','job-z','2025-03-01','head-of-household',52,1,200000,10000,5000,725,1,'2026-08-01T12:00:00.000Z','2026-08-04T12:00:00.000Z');
+    ('tax-a','job-a','2026-01-01','single-or-married-filing-separately',26,0,0,0,0,2500,0,'2026-08-04T12:00:00.000Z','2026-08-04T12:00:00.000Z',NULL),
+    ('tax-z','job-z','2025-03-01','head-of-household',52,1,200000,10000,5000,725,1,'2026-08-01T12:00:00.000Z','2026-08-04T12:00:00.000Z','2026-08-05T12:00:00.000Z');
   INSERT INTO shifts
     (id,job_id,shift_date,duration_seconds,tips_cents,hourly_rate_cents,
      note,deleted_at,created_at,updated_at,start_time,end_time)
@@ -57,7 +57,7 @@ dump_rows() {
     SELECT id,job_id,effective_from,filing_status,pay_periods_per_year,
            step2_checked,step3_credits_cents,step4a_other_income_cents,
            step4b_deductions_cents,step4c_extra_withholding_cents,exempt,
-           created_at,updated_at
+           created_at,updated_at,deleted_at
     FROM federal_withholding_settings ORDER BY id;
     SELECT id,job_id,shift_date,duration_seconds,tips_cents,hourly_rate_cents,
            note,deleted_at,created_at,updated_at,start_time,end_time
@@ -66,6 +66,11 @@ dump_rows() {
 
 if [ "$(dump_rows "$source_db")" != "$(dump_rows "$restored_db")" ]; then
   echo "FAIL  restored rows differ from source rows"
+  exit 1
+fi
+
+if [ "$(sqlite3 "$restored_db" 'SELECT COUNT(*) FROM sync_outbox;')" != "6" ]; then
+  echo "FAIL  restore did not enqueue every restored domain row"
   exit 1
 fi
 
@@ -102,7 +107,7 @@ if sqlite3 "$rollback_db" "
   exit 1
 fi
 
-if [ "$(sqlite3 "$rollback_db" 'SELECT COUNT(*) FROM jobs; SELECT COUNT(*) FROM federal_withholding_settings; SELECT COUNT(*) FROM shifts;')" != $'0\n0\n0' ]; then
+if [ "$(sqlite3 "$rollback_db" 'SELECT COUNT(*) FROM jobs; SELECT COUNT(*) FROM federal_withholding_settings; SELECT COUNT(*) FROM shifts; SELECT COUNT(*) FROM sync_outbox;')" != $'0\n0\n0\n0' ]; then
   echo "FAIL  failed restore did not roll back every row"
   exit 1
 fi

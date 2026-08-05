@@ -3,7 +3,7 @@ import { File } from 'expo-file-system';
 import * as SQLite from 'expo-sqlite';
 
 const DATABASE_NAME = 'tip-tracker.db';
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 // A database that does not exist yet gets the whole current schema in one go.
 const freshSchemaSql = require('./schema.sql');
@@ -19,6 +19,7 @@ const migrationSqlByFromVersion: Record<number, number> = {
   1: require('./migrations/1-to-2.sql'),
   2: require('./migrations/2-to-3.sql'),
   3: require('./migrations/3-to-4.sql'),
+  4: require('./migrations/4-to-5.sql'),
 };
 
 // Opening a connection is async, and we only want to do it once -- not a
@@ -90,6 +91,13 @@ async function openDb(): Promise<SQLite.SQLiteDatabase> {
         await transaction.execAsync(`PRAGMA user_version = ${step.toVersion};`);
       }
     });
+  }
+
+  const syncState = await db.getFirstAsync<{ applying_remote: number }>(
+    'SELECT applying_remote FROM sync_state WHERE singleton = 1;'
+  );
+  if (!syncState || syncState.applying_remote !== 0) {
+    throw new Error('The local sync state is missing or still applying remote changes.');
   }
 
   return db;

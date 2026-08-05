@@ -9,6 +9,7 @@ export type FederalWithholdingSettings = FederalWithholdingSettingValues & {
   id: string;
   job_id: string;
   effective_from: string;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -77,9 +78,9 @@ export async function getFederalWithholdingSettingsForPayDate(
     `SELECT id, job_id, effective_from, filing_status, pay_periods_per_year,
             step2_checked, step3_credits_cents, step4a_other_income_cents,
             step4b_deductions_cents, step4c_extra_withholding_cents, exempt,
-            created_at, updated_at
+            created_at, updated_at, deleted_at
      FROM federal_withholding_settings
-     WHERE job_id = ? AND effective_from <= ?
+     WHERE job_id = ? AND effective_from <= ? AND deleted_at IS NULL
      ORDER BY effective_from DESC
      LIMIT 1;`,
     jobId,
@@ -94,7 +95,7 @@ export async function readFederalWithholdingSettingsForBackup(
     `SELECT id, job_id, effective_from, filing_status, pay_periods_per_year,
             step2_checked, step3_credits_cents, step4a_other_income_cents,
             step4b_deductions_cents, step4c_extra_withholding_cents, exempt,
-            created_at, updated_at
+            created_at, updated_at, deleted_at
      FROM federal_withholding_settings
      ORDER BY id;`
   );

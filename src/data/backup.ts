@@ -35,7 +35,7 @@ export async function createBackupJson(exportedAt = new Date()): Promise<string>
   const db = await getDb();
   let rows!: BackupRows;
 
-  // Both tables have to describe one moment. A job archived between two plain
+  // All three tables have to describe one moment. A job archived between plain
   // SELECTs would otherwise produce a backup that never existed on the device.
   await db.withExclusiveTransactionAsync(async (transaction) => {
     rows = await readBackupRows(transaction);
@@ -115,8 +115,8 @@ async function restoreRows(
          (id, job_id, effective_from, filing_status, pay_periods_per_year,
           step2_checked, step3_credits_cents, step4a_other_income_cents,
           step4b_deductions_cents, step4c_extra_withholding_cents, exempt,
-          created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+          created_at, updated_at, deleted_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
       settings.id,
       settings.job_id,
       settings.effective_from,
@@ -129,7 +129,8 @@ async function restoreRows(
       settings.step4c_extra_withholding_cents,
       settings.exempt,
       settings.created_at,
-      settings.updated_at
+      settings.updated_at,
+      settings.deleted_at
     );
   }
 

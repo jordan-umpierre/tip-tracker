@@ -178,11 +178,21 @@ accepts "later withholding settings for the same job" \
 # effective_from is the first paycheck pay date the row applies to. Before the
 # first date there is no setting; between dates the first applies; on the later
 # date the newer row wins.
-as_of=$(sql "SELECT ifnull((SELECT id FROM federal_withholding_settings WHERE job_id = 'job-2' AND effective_from <= '2026-08-14' ORDER BY effective_from DESC LIMIT 1), 'NONE') || '|' || (SELECT id FROM federal_withholding_settings WHERE job_id = 'job-2' AND effective_from <= '2026-09-01' ORDER BY effective_from DESC LIMIT 1) || '|' || (SELECT id FROM federal_withholding_settings WHERE job_id = 'job-2' AND effective_from <= '2026-10-01' ORDER BY effective_from DESC LIMIT 1);")
+as_of=$(sql "SELECT ifnull((SELECT id FROM federal_withholding_settings WHERE job_id = 'job-2' AND effective_from <= '2026-08-14' AND deleted_at IS NULL ORDER BY effective_from DESC LIMIT 1), 'NONE') || '|' || (SELECT id FROM federal_withholding_settings WHERE job_id = 'job-2' AND effective_from <= '2026-09-01' AND deleted_at IS NULL ORDER BY effective_from DESC LIMIT 1) || '|' || (SELECT id FROM federal_withholding_settings WHERE job_id = 'job-2' AND effective_from <= '2026-10-01' AND deleted_at IS NULL ORDER BY effective_from DESC LIMIT 1);")
 if [ "$as_of" = "NONE|tax-1|tax-2" ]; then
   passed=$((passed + 1))
 else
   printf 'FAIL  withholding settings as-of lookup returned: %s\n' "$as_of"
+  failed=$((failed + 1))
+fi
+
+accepts "tombstoning withholding settings" \
+  "UPDATE federal_withholding_settings SET deleted_at = '$now', updated_at = '$now' WHERE id = 'tax-2';"
+tombstoned_as_of=$(sql "SELECT id FROM federal_withholding_settings WHERE job_id = 'job-2' AND effective_from <= '2026-10-01' AND deleted_at IS NULL ORDER BY effective_from DESC LIMIT 1;")
+if [ "$tombstoned_as_of" = "tax-1" ]; then
+  passed=$((passed + 1))
+else
+  printf 'FAIL  tombstoned withholding settings remained active: %s\n' "$tombstoned_as_of"
   failed=$((failed + 1))
 fi
 
@@ -251,6 +261,48 @@ rejects "a shift pointing at a job that does not exist" \
 # is what stops a bug in that code from taking someone's tax year with it.
 rejects "deleting a job that still has shifts" \
   "DELETE FROM jobs WHERE id = 'job-1';"
+
+# --- Version 5: local sync invariants --------------------------------------
+
+direct_sync=$(sql "SELECT operation FROM sync_outbox WHERE entity_type = 'shift' AND entity_id = 'shift-1';")
+if [ "$direct_sync" = "upsert" ]; then
+  passed=$((passed + 1))
+else
+  printf 'FAIL  direct SQL did not enqueue shift-1: %s\n' "$direct_sync"
+  failed=$((failed + 1))
+fi
+
+before_sequence=$(sql "SELECT local_sequence FROM sync_outbox WHERE entity_type = 'shift' AND entity_id = 'shift-1';")
+accepts "a repeated local edit that compacts its outbox row" \
+  "UPDATE shifts SET note = 'changed again', updated_at = '$now' WHERE id = 'shift-1';"
+after_sequence=$(sql "SELECT local_sequence FROM sync_outbox WHERE entity_type = 'shift' AND entity_id = 'shift-1';")
+if [ "$(sql "SELECT count(*) FROM sync_outbox WHERE entity_type = 'shift' AND entity_id = 'shift-1';")" = "1" ] &&
+   [ "$after_sequence" -gt "$before_sequence" ]; then
+  passed=$((passed + 1))
+else
+  printf 'FAIL  repeated mutation did not compact with a newer sequence\n'
+  failed=$((failed + 1))
+fi
+
+# This is the acknowledgement predicate used after a request. It must not
+# remove the newer row allocated by the edit above.
+accepts "an old acknowledgement that leaves a newer local mutation pending" \
+  "DELETE FROM sync_outbox WHERE local_sequence = $before_sequence AND entity_type = 'shift' AND entity_id = 'shift-1';"
+if [ "$(sql "SELECT local_sequence FROM sync_outbox WHERE entity_type = 'shift' AND entity_id = 'shift-1';")" = "$after_sequence" ]; then
+  passed=$((passed + 1))
+else
+  printf 'FAIL  an old acknowledgement erased a newer mutation\n'
+  failed=$((failed + 1))
+fi
+
+rejects "an uppercase cloud account id" \
+  "UPDATE sync_state SET account_id = '00000000-0000-4000-8000-00000000000A' WHERE singleton = 1;"
+rejects "a noncanonical cloud account id" \
+  "UPDATE sync_state SET account_id = 'account-a' WHERE singleton = 1;"
+rejects "a negative server cursor" \
+  "UPDATE sync_state SET last_server_change_sequence = -1 WHERE singleton = 1;"
+rejects "an unsupported sync entity" \
+  "INSERT INTO sync_outbox (entity_type, entity_id, operation) VALUES ('account', 'x', 'upsert');"
 
 # --- The pragma itself ------------------------------------------------------
 # Everything above ran with foreign keys switched on. This runs the same bad

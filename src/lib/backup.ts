@@ -6,8 +6,8 @@ export const MAX_BACKUP_SHIFTS = 20_000;
 export const MAX_BACKUP_FEDERAL_WITHHOLDING_SETTINGS = 20_000;
 
 const FORMAT = 'tip-tracker-backup';
-const VERSION = 2;
-const SCHEMA_VERSION = 4;
+const VERSION = 3;
+const SCHEMA_VERSION = 5;
 
 const TOP_LEVEL_KEYS_V1 = [
   'format',
@@ -47,7 +47,7 @@ const SHIFT_KEYS = [
   'end_time',
 ] as const;
 
-const FEDERAL_WITHHOLDING_SETTING_KEYS = [
+const FEDERAL_WITHHOLDING_SETTING_KEYS_V2 = [
   'id',
   'job_id',
   'effective_from',
@@ -61,6 +61,11 @@ const FEDERAL_WITHHOLDING_SETTING_KEYS = [
   'exempt',
   'created_at',
   'updated_at',
+] as const;
+
+const FEDERAL_WITHHOLDING_SETTING_KEYS = [
+  ...FEDERAL_WITHHOLDING_SETTING_KEYS_V2,
+  'deleted_at',
 ] as const;
 
 export type BackupJob = {
@@ -107,6 +112,7 @@ export type BackupFederalWithholdingSettings = {
   exempt: number;
   created_at: string;
   updated_at: string;
+  deleted_at: string | null;
 };
 
 export type TipTrackerBackup = {
@@ -184,7 +190,8 @@ function validateBackup(value: unknown): TipTrackerBackup {
   assertPlainObject(value, 'The backup');
   if (value.format !== FORMAT) throw new Error('This is not a Tip Tracker backup.');
   if (value.version === 1) return validateVersion1Backup(value);
-  if (value.version === VERSION) return validateVersion2Backup(value);
+  if (value.version === 2) return validateVersion2Backup(value);
+  if (value.version === VERSION) return validateVersion3Backup(value);
   throw new Error('This backup version is not supported.');
 }
 
@@ -198,6 +205,17 @@ function validateVersion1Backup(value: Record<string, unknown>): TipTrackerBacku
 
 function validateVersion2Backup(value: Record<string, unknown>): TipTrackerBackup {
   assertExactKeys(value, TOP_LEVEL_KEYS_V2, 'The backup');
+  if (value.schema_version !== 4) {
+    throw new Error('This backup database version is not supported.');
+  }
+  if (!Array.isArray(value.federal_withholding_settings)) {
+    throw new Error('The backup must contain a federal_withholding_settings array.');
+  }
+  return validateRows(value, value.federal_withholding_settings, true);
+}
+
+function validateVersion3Backup(value: Record<string, unknown>): TipTrackerBackup {
+  assertExactKeys(value, TOP_LEVEL_KEYS_V2, 'The backup');
   if (value.schema_version !== SCHEMA_VERSION) {
     throw new Error('This backup database version is not supported.');
   }
@@ -207,10 +225,11 @@ function validateVersion2Backup(value: Record<string, unknown>): TipTrackerBacku
   return validateRows(value, value.federal_withholding_settings);
 }
 
-// fallow-ignore-next-line complexity -- Bounds, relationships, and both wire versions are asserted in backup.test.ts.
+// fallow-ignore-next-line complexity -- Bounds, relationships, and all wire versions are asserted in backup.test.ts.
 function validateRows(
   value: Record<string, unknown>,
-  rawFederalWithholdingSettings: unknown[]
+  rawFederalWithholdingSettings: unknown[],
+  legacySettings = false
 ): TipTrackerBackup {
   assertTimestamp(value.exported_at, 'exported_at');
   if (!Array.isArray(value.jobs) || !Array.isArray(value.shifts)) {
@@ -230,8 +249,8 @@ function validateRows(
 
   const jobs = value.jobs.map(validateJob);
   const shifts = value.shifts.map(validateShift);
-  const federalWithholdingSettings = rawFederalWithholdingSettings.map(
-    validateFederalWithholdingSettings
+  const federalWithholdingSettings = rawFederalWithholdingSettings.map((row, index) =>
+    validateFederalWithholdingSettings(row, index, legacySettings)
   );
   assertUniqueIds(jobs, 'job');
   assertUniqueIds(shifts, 'shift');
@@ -323,11 +342,16 @@ function validateShift(value: unknown, index: number): BackupShift {
 // fallow-ignore-next-line complexity -- Every stored field and rejection is pinned by backup.test.ts.
 function validateFederalWithholdingSettings(
   value: unknown,
-  index: number
+  index: number,
+  legacy = false
 ): BackupFederalWithholdingSettings {
   const label = `Federal withholding setting ${index + 1}`;
   assertPlainObject(value, label);
-  assertExactKeys(value, FEDERAL_WITHHOLDING_SETTING_KEYS, label);
+  assertExactKeys(
+    value,
+    legacy ? FEDERAL_WITHHOLDING_SETTING_KEYS_V2 : FEDERAL_WITHHOLDING_SETTING_KEYS,
+    label
+  );
   assertNonemptyString(value.id, `${label} id`);
   assertNonemptyString(value.job_id, `${label} job_id`);
   assertString(value.effective_from, `${label} effective_from`);
@@ -355,7 +379,11 @@ function validateFederalWithholdingSettings(
   assertBooleanInteger(value.exempt, `${label} exempt`);
   assertTimestamp(value.created_at, `${label} created_at`);
   assertTimestamp(value.updated_at, `${label} updated_at`);
-  return value as BackupFederalWithholdingSettings;
+  if (!legacy) assertNullableTimestamp(value.deleted_at, `${label} deleted_at`);
+  return {
+    ...(value as Omit<BackupFederalWithholdingSettings, 'deleted_at'>),
+    deleted_at: legacy ? null : value.deleted_at as string | null,
+  };
 }
 
 function assertPlainObject(value: unknown, label: string): asserts value is Record<string, unknown> {
