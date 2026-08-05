@@ -132,7 +132,22 @@ export type MutationAcknowledgement = {
 };
 
 export class SyncAccountMismatchError extends Error {}
-export class RemoteChangeConflictError extends Error {}
+export class RemoteChangeConflictError extends Error {
+  readonly entityType: SyncEntityType;
+  readonly entityId: string;
+  readonly localSequence: number;
+
+  constructor(
+    entityType: SyncEntityType,
+    entityId: string,
+    localSequence: number
+  ) {
+    super(`Remote ${entityType} ${entityId} conflicts with a pending local mutation.`);
+    this.entityType = entityType;
+    this.entityId = entityId;
+    this.localSequence = localSequence;
+  }
+}
 export class StaleMutationError extends Error {}
 
 export type LocalAccountState = {
@@ -169,6 +184,22 @@ export async function readDeviceId(database: SyncDatabase): Promise<string> {
     throw new Error('The local sync device id is missing or invalid.');
   }
   return state.device_id;
+}
+
+export async function readSyncCursor(database: SyncDatabase, accountId: string): Promise<number> {
+  assertCanonicalAccountId(accountId);
+  const state = await database.getFirstAsync<{
+    account_id: string | null;
+    last_server_change_sequence: number;
+  }>(
+    `SELECT account_id, last_server_change_sequence
+     FROM sync_state WHERE singleton = 1;`
+  );
+  if (!state || state.account_id !== accountId) {
+    throw new SyncAccountMismatchError('The local database belongs to another account.');
+  }
+  assertNonnegativeSafeInteger(state.last_server_change_sequence, 'server change cursor');
+  return state.last_server_change_sequence;
 }
 
 export async function bindSyncAccount(database: SyncDatabase, accountId: string): Promise<void> {
@@ -356,6 +387,46 @@ export async function blockMutation(
   });
 }
 
+export async function persistRemoteMutationConflict(
+  database: SyncDatabase,
+  input: {
+    accountId: string;
+    entityId: string;
+    entityType: SyncEntityType;
+    response: unknown;
+  },
+  now = new Date()
+): Promise<number> {
+  assertCanonicalAccountId(input.accountId);
+  assertEntity(input.entityType, input.entityId);
+  const responseJson = encodeBlockedResponse(input.response);
+  const blockedAt = now.toISOString();
+  let localSequence = 0;
+
+  await database.withExclusiveTransactionAsync(async (transaction) => {
+    await bindAccount(transaction, input.accountId);
+    const pending = await transaction.getFirstAsync<{ local_sequence: number }>(
+      `SELECT local_sequence FROM sync_outbox
+       WHERE entity_type = ? AND entity_id = ?;`,
+      input.entityType,
+      input.entityId
+    );
+    if (!pending) throw new StaleMutationError('The local mutation is no longer pending.');
+    const result = await transaction.runAsync(
+      `UPDATE sync_outbox
+       SET blocked_kind = 'conflict', blocked_code = 'remote_change_conflict',
+           blocked_response_json = ?, blocked_at = ?
+       WHERE local_sequence = ?;`,
+      responseJson,
+      blockedAt,
+      pending.local_sequence
+    );
+    requireOneChangedRow(result, 'The local mutation changed before its conflict was saved.');
+    localSequence = pending.local_sequence;
+  });
+  return localSequence;
+}
+
 export async function clearBlockedMutation(
   database: SyncDatabase,
   localSequence: number
@@ -428,9 +499,7 @@ export async function applyRemoteChanges(
           row.id
         );
         if (pending) {
-          throw new RemoteChangeConflictError(
-            `Remote ${entityType} ${row.id} conflicts with a pending local mutation.`
-          );
+          throw new RemoteChangeConflictError(entityType, row.id, pending.local_sequence);
         }
 
         const metadata = await transaction.getFirstAsync<{ server_change_sequence: number }>(

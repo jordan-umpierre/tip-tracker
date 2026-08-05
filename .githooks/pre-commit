@@ -27,6 +27,9 @@ node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON src/data/sync.test.ts || sta
 for t in src/auth/*.test.ts; do
   node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON "$t" || status=1
 done
+for t in src/sync/*.test.ts; do
+  node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON "$t" || status=1
+done
 for t in src/lib/*.test.ts; do
   node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON "$t" || status=1
 done
