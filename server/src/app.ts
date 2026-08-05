@@ -3,8 +3,10 @@ import express, { type ErrorRequestHandler } from "express";
 import type { Accounts } from "./accounts.ts";
 import { requireAuth, wasRecentlyPasswordAuthenticated, type VerifyAccessToken } from "./auth.ts";
 import type { AuthAdmin } from "./authAdmin.ts";
+import { InvalidSyncRequestError, type SyncService } from "./sync.ts";
 
 const JSON_BODY_LIMIT = "32kb";
+const SYNC_MUTATION_BODY_LIMIT = "10500000b";
 const PUBLIC_PARSER_ERRORS = new Map([
   [400, "invalid_json"],
   [413, "body_too_large"],
@@ -20,13 +22,13 @@ export function createApp(dependencies?: {
   authAdmin: AuthAdmin;
   logError?: (error: unknown) => void;
   readiness: () => Promise<void>;
+  sync: SyncService;
   verifyAccessToken: VerifyAccessToken;
 }) {
   const app = express();
   const logError = dependencies?.logError ?? console.error;
 
   app.disable("x-powered-by");
-  app.use(express.json({ limit: JSON_BODY_LIMIT, strict: true }));
 
   app.get("/health", (_request, response) => {
     response.json({ status: "ok" });
@@ -43,6 +45,31 @@ export function createApp(dependencies?: {
   });
 
   if (dependencies) {
+    app.post(
+      "/v1/sync/mutations",
+      requireAuth(dependencies.verifyAccessToken),
+      express.json({ limit: SYNC_MUTATION_BODY_LIMIT, strict: true }),
+      async (request, response) => {
+        const account = await dependencies.accounts.findOrCreate(response.locals.auth.subject);
+        if (account.deleted) {
+          response.status(410).json({ error: "account_deleted" });
+          return;
+        }
+        try {
+          const result = await dependencies.sync.mutate(response.locals.auth.subject, request.body);
+          response.status(result.status).json(result.body);
+        } catch (error) {
+          if (error instanceof InvalidSyncRequestError) {
+            response.status(422).json({ error: "invalid_request" });
+            return;
+          }
+          throw error;
+        }
+      },
+    );
+
+    app.use(express.json({ limit: JSON_BODY_LIMIT, strict: true }));
+
     app.get("/v1/me", requireAuth(dependencies.verifyAccessToken), async (_request, response) => {
       const account = await dependencies.accounts.findOrCreate(response.locals.auth.subject);
       if (account.deleted || !account.created_at) {

@@ -8,6 +8,7 @@ import { createAccessTokenVerifier } from "./auth.ts";
 import { createSupabaseAuthAdmin } from "./authAdmin.ts";
 import { readConfig } from "./config.ts";
 import { assertSchemaCurrent } from "./migrations.ts";
+import { createSyncService } from "./sync.ts";
 
 const config = readConfig(process.env);
 const database = new pg.Pool({ connectionString: config.databaseUrl, max: 10 });
@@ -24,6 +25,7 @@ const server = createServer(createApp({
   accounts: createAccounts(database),
   authAdmin,
   readiness,
+  sync: createSyncService(database),
   verifyAccessToken,
 }));
 let stopping = false;

@@ -8,7 +8,8 @@ import { createAccounts } from "../src/accounts.ts";
 import { createApp } from "../src/app.ts";
 import { createAccessTokenVerifier } from "../src/auth.ts";
 import { applyMigrations } from "../src/migrations.ts";
-import { withTestDatabase } from "./database.ts";
+import { createSyncService } from "../src/sync.ts";
+import { poolAdapter, withTestDatabase } from "./database.ts";
 import { close, listen } from "./http.ts";
 
 const issuer = "https://local-auth.example/auth/v1";
@@ -76,6 +77,7 @@ test("verified subjects alone control account reads and deletion", async () => {
         authAdmin,
         logError: () => undefined,
         readiness: async () => undefined,
+        sync: createSyncService(poolAdapter(database)),
         verifyAccessToken,
       }));
       const apiBaseUrl = await listen(apiServer);

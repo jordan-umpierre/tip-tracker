@@ -2,6 +2,17 @@ import pg from "pg";
 
 const { Client } = pg;
 
+export function poolAdapter(database: pg.Client): Pick<pg.Pool, "connect"> {
+  return {
+    async connect() {
+      return {
+        query: database.query.bind(database),
+        release: () => undefined,
+      } as unknown as pg.PoolClient;
+    },
+  };
+}
+
 function quoteIdentifier(value: string) {
   return `"${value.replaceAll('"', '""')}"`;
 }

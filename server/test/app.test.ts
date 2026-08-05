@@ -14,6 +14,9 @@ const server = createServer(createApp({
   authAdmin: { deleteIdentity: async () => undefined },
   logError: () => undefined,
   readiness: async () => undefined,
+  sync: {
+    mutate: async () => ({ status: 200, body: {} }),
+  },
   verifyAccessToken: async () => ({
     passwordAuthenticatedAt: Math.floor(Date.now() / 1000),
     subject: "00000000-0000-4000-8000-000000000001",
@@ -88,6 +91,17 @@ test("bounds JSON request bodies and error responses", async () => {
   assert.equal(response.status, 413);
   assert.deepEqual(await response.json(), { error: "body_too_large" });
   assert.equal(Number(response.headers.get("content-length")) < 100, true);
+
+  const oversizedSync = await fetch(`${baseUrl}/v1/sync/mutations`, {
+    method: "POST",
+    headers: {
+      authorization: "Bearer locally-accepted-test-token",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ value: "x".repeat(10_500_000) }),
+  });
+  assert.equal(oversizedSync.status, 413);
+  assert.deepEqual(await oversizedSync.json(), { error: "body_too_large" });
 });
 
 test("bounds malformed JSON, missing routes, and unexpected errors", async () => {
@@ -98,6 +112,17 @@ test("bounds malformed JSON, missing routes, and unexpected errors", async () =>
   });
   assert.equal(malformed.status, 400);
   assert.deepEqual(await malformed.json(), { error: "invalid_json" });
+
+  const malformedSync = await fetch(`${baseUrl}/v1/sync/mutations`, {
+    method: "POST",
+    headers: {
+      authorization: "Bearer locally-accepted-test-token",
+      "content-type": "application/json",
+    },
+    body: "{",
+  });
+  assert.equal(malformedSync.status, 400);
+  assert.deepEqual(await malformedSync.json(), { error: "invalid_json" });
 
   const missing = await fetch(`${baseUrl}/missing`);
   assert.equal(missing.status, 404);
