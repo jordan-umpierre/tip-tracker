@@ -91,3 +91,26 @@ The full tracked hook, TypeScript, Expo dependency check, Expo Doctor 20/20,
 Fallow's changed-file/dead-code/duplication gates, and fresh web, iOS, and
 Android exports pass. The new Switch, weekday choices, picker, persistence,
 and accessibility announcements still need native runtime verification.
+
+## `5642874` — feat: show overtime-adjusted gross estimates (2026-08-04)
+
+One pure overlay now starts every shift on its recorded D5 gross, then replaces
+known jobs with the configured-workweek calculator's result. Running that
+calculator independently for each job prevents two employers from sharing a
+40-hour threshold; a missing job safely stays on recorded gross. Neither the
+shift row nor SQLite stores an estimate.
+
+Log rows and year/month/week groups use the overlay. Trends uses the same map
+for its graph, range headline, per-hour and per-week summaries, and weekday,
+month, and year breakdowns. Individual rows are estimated only for configured
+jobs; a mixed group or All jobs scope is estimated when any included job is
+configured. Visible and accessibility labels say so, and affected scopes warn
+that untimed shifts count wholly on their logged date.
+
+The direct assertions cover separate-employer thresholds, missing-job fallback,
+mixed and selected scope labels, group totals, Trends/chart propagation, and
+the export boundary. A 41-hour shift displayed as a $415 overtime estimate at
+$10/hour still exports its recorded $410 gross. The full tracked hook,
+TypeScript, Expo dependency check, Expo Doctor 20/20, Fallow's changed-file,
+dead-code, and duplication gates, and fresh web, iOS, and Android exports pass.
+Native display and accessibility verification remain open.

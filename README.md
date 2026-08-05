@@ -52,7 +52,8 @@ emulator cannot prove that haptics were felt.
 per-job overtime/workweek settings, the data layer exposes them, native shift
 time entry works on iOS and Android, and the pure configured-workweek
 calculator is asserted. Manage data now has the per-job opt-in settings UI; the
-adjusted gross display is next. CSV import/export do not preserve shift times
+same configured estimate now drives Log and Trends with explicit labeling while
+CSV export keeps recorded gross. CSV import/export do not preserve shift times
 yet.
 
 Done:
@@ -92,14 +93,14 @@ Done:
   year chooser. Typing a date still works and is still the primary path
 - Overtime foundations: schema version 3, optional native shift times,
   per-job workweek fields and settings UI, chained migrations, and the pure
-  overtime calculator ([`overtime.ts`](src/lib/overtime.ts),
+  overtime calculator plus adjusted Log/Trends estimates ([`overtime.ts`](src/lib/overtime.ts),
   [D14 and D18](docs/decisions.md))
 
 Next:
 
-- Show an explicitly estimated overtime-adjusted gross without changing
-  recorded CSV exports. See [docs/roadmap.md](docs/roadmap.md) for the exact
-  order and remaining device/accessibility gates.
+- Preserve imported Start Time and End Time values, then add both fields to the
+  recorded CSV export. See [docs/roadmap.md](docs/roadmap.md) for the exact order
+  and remaining device/accessibility gates.
 
 ## Stack
 

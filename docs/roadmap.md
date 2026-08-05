@@ -10,8 +10,8 @@ Last updated: 2026-08-04
 ## NEXT
 
 **Overtime is in progress. Its storage, data-layer wiring, native shift-time
-entry, pure calculation, per-job settings UI, and the earlier full Android
-regression are complete. Next is the adjusted gross display.**
+entry, pure calculation, per-job settings UI, adjusted gross display, and the
+earlier full Android regression are complete. Next is CSV time import.**
 
 Two product decisions were made on 2026-08-04 and are already recorded, so they
 do not need re-deciding: overtime adjusts the gross shown on screen rather than
@@ -38,6 +38,15 @@ approximation, and the unsupported tipped-credit rules before anything uses
 the estimate on screen. Static checks and all three platform exports pass; the
 new controls still need their native runtime pass.
 
+`5642874` now derives one overtime-adjusted gross per shift in memory and feeds
+that same value through Log rows and calendar groups plus every Trends chart,
+headline, and breakdown. Configured jobs carry an explicit estimate label;
+mixed scopes are estimated if any included job is configured. Untimed-history
+scopes state D18's logged-date approximation. SQLite rows stay unchanged, and
+the export test pins a 41-hour shift to recorded gross rather than its displayed
+overtime estimate. Static checks and all three platform exports pass; the new
+labels and totals still need native runtime verification.
+
 **Then, in order:**
 
 1. ~~Data layer — `shifts.ts` and `jobs.ts` expose the new columns, and shift
@@ -51,11 +60,10 @@ new controls still need their native runtime pass.
    counted wholly against their logged date.~~ Done in `74ea74d`.
 4. ~~Per-job overtime settings UI, opt-in, inside Manage data.~~ Done in
    `0097a76`.
-5. **Do this now:** show the adjusted gross with an explicit estimate label.
-   The CSV export must keep exporting recorded gross, not adjusted — see the
-   revised D14.
-6. Teach the CSV importer the Start Time and End Time columns it currently
-   refuses (D13).
+5. ~~Show the adjusted gross with an explicit estimate label while keeping CSV
+   export on recorded gross.~~ Done in `5642874`.
+6. **Do this now:** teach the CSV importer the Start Time and End Time columns
+   it currently refuses (D13).
 7. Add times to the CSV export.
 
 The Android regression is complete. `f57e776` enlarged the weekday chart's

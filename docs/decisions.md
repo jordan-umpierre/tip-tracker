@@ -789,6 +789,13 @@ UI/UX bar from the product definition is achievable here.
 > and it was rejected as the more confusing of the two: a user comparing them
 > has no way to know which is the one their employer will pay.
 >
+> Estimate labels follow the displayed scope. An individual shift or selected
+> job is labeled estimated only when that job has overtime enabled. An All jobs
+> or collapsed calendar group is labeled estimated when any job inside that
+> scope has overtime enabled, even though unconfigured jobs keep their recorded
+> gross. Otherwise a mixed total could contain an estimate while presenting the
+> whole number as recorded fact.
+>
 > The prohibition this decision opens with still holds and is narrower than it
 > first reads. It rules out a *universal* toggle, not display. What stays true
 > either way: `shifts` rows keep their own recorded values untouched, so
