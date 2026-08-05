@@ -1,7 +1,8 @@
 # Tip Tracker API
 
-This package is the authenticated cloud boundary from D22. It does not replace
-the Expo app's SQLite database and does not contain sync endpoints yet.
+This package is the authenticated cloud boundary from D22 and D24. It does not
+replace the Expo app's SQLite database. It now exposes the provider-free,
+authenticated server half of push/pull; the mobile HTTP client is still absent.
 
 ## Local verification
 
@@ -58,6 +59,80 @@ schema ledger exactly matches the server.
 managed database must therefore be created from the current migration set; no
 live migration or data conversion is claimed. If an earlier local scratch
 database used the old draft, drop and recreate that disposable database.
+
+## Sync API
+
+Both routes require `Authorization: Bearer <Supabase access token>`. The
+verified token subject is the account; requests cannot select an account id.
+
+### Push one mutation
+
+`POST /v1/sync/mutations` accepts exactly one JSON mutation, with a maximum
+UTF-8 body size of 10,500,000 bytes:
+
+```json
+{
+  "deviceId": "10000000-0000-4000-8000-000000000001",
+  "operationId": 12,
+  "entityType": "job",
+  "entityId": "local-job-id",
+  "operation": "upsert",
+  "baseServerVersion": null,
+  "record": {
+    "name": "Bar",
+    "hourlyRateCents": 1500,
+    "archivedAt": null,
+    "overtimeEnabled": false,
+    "workweekStartWeekday": 0,
+    "workweekStartTime": "00:00",
+    "createdAt": "2026-08-05T12:34:56.000Z",
+    "updatedAt": "2026-08-05T12:34:56.000Z"
+  }
+}
+```
+
+`deviceId` is one stable canonical installation UUID. `operationId` is that
+device's positive local outbox sequence. `baseServerVersion` is `null` only for
+an unacknowledged create; updates and deletes name the positive version read.
+An identical `(account, deviceId, operationId)` retry returns the exact stored
+success or conflict response. Different content under that key returns
+`409 idempotency_key_reused`.
+
+Job records use the fields shown above. Shift records use `jobId`, `shiftDate`,
+`startTime`, `endTime`, `durationSeconds`, `tipsCents`, `hourlyRateCents`,
+`note`, `deletedAt`, `createdAt`, and `updatedAt`. Federal-setting records use
+`jobId`, `effectiveFrom`, `filingStatus`, `payPeriodsPerYear`, `step2Checked`,
+the four Step 3/4 cent fields, `exempt`, `deletedAt`, `createdAt`, and
+`updatedAt`. Fields are exact: missing and unknown keys fail with
+`422 invalid_request`.
+
+Success returns the full remote change with server version, change sequence,
+server timestamps, and preserved client timestamps. Existing-create, stale,
+missing-parent, and duplicate job/effective-date facts return explicit `409`
+conflicts. Similar-looking shifts are never deduplicated. A synced shift or
+setting may use `operation: "delete"`, `record: null`, and its base version to
+retain a server tombstone; jobs use archive, not physical delete.
+
+### Pull changes
+
+`GET /v1/sync/changes?after=0&limit=100` returns account-owned jobs, shifts,
+and federal settings in ascending server change-sequence order. `after` is a
+required nonnegative safe integer. `limit` defaults to 100 and must be from 1
+through 200. Unknown, repeated, noncanonical, or out-of-range query values
+return `400 invalid_query`.
+
+```json
+{
+  "changes": [],
+  "hasMore": false,
+  "nextCursor": 0
+}
+```
+
+Each nonempty change contains `entityType`, `entityId`, `record`,
+`serverVersion`, `changeSequence`, `serverCreatedAt`, and `serverUpdatedAt`.
+The next request uses the returned cursor. Gaps are normal because the server
+sequence is shared across accounts.
 
 ## Account deletion
 

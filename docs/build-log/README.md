@@ -108,3 +108,5 @@ name — the number adds sequence without costing you the description.
 24. [24-local-sync-foundation.md](24-local-sync-foundation.md) — D23, SQLite
     schema version 5, trigger-owned mutation tracking, safe remote apply, and
     backward-compatible backup version 3.
+25. [25-server-sync-api.md](25-server-sync-api.md) — D24, durable multi-device
+    mutation replay, optimistic conflicts, and paged account-owned pull.

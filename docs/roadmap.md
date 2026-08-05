@@ -9,13 +9,13 @@ Last updated: 2026-08-05
 
 ## NEXT
 
-**The authenticated backend and local sync foundations are implemented and
-locally verified. D22 supplies the isolated Node/Express boundary, private
-account-owned PostgreSQL schema, Supabase JWT/JWKS verification, and cloud
-account lifecycle. D23 and SQLite schema version 5 now track every local domain
-mutation for later push/pull without changing SQLite as the offline source. No
-mobile auth, network sync route, deployment configuration, or external provider
-resource exists yet.**
+**The provider-free authenticated backend and sync foundations are implemented
+and locally verified. D22 supplies the isolated Node/Express boundary and cloud
+account lifecycle. D23 plus SQLite schema versions 5 and 6 track local intent,
+stable device identity, and blocked server responses. D24 supplies strict,
+idempotent mutation and incremental pull routes. SQLite remains the offline
+source. No mobile auth, HTTP client, deployment configuration, or external
+provider resource exists yet.**
 
 `bc8e170` recorded D22. Email/password verification and reset belong to the
 managed auth provider, with custom SMTP required for reliable delivery. Cloud
@@ -63,13 +63,26 @@ protection, and account mismatch rejection. This is local plumbing only; no
 automated result is evidence of a real provider, network retry, conflict UI, or
 native migration of the developer's existing database.
 
+`7629f05` recorded D24. `3dce9d6` added predeployment server migration 002:
+separate client timestamps, account/device/operation replay storage, and
+account/change-sequence indexes. `1bc12a9` corrected replay scope before any
+endpoint shipped so two installations may both use local sequence one.
+`eafcc45` added the strict one-mutation route with optimistic server versions,
+exact replayed successes/conflicts, retained tombstones, and no guessed
+deduplication. `38256bd` added the strict paged pull route over all three entity
+tables. Real temporary PostgreSQL plus local JWKS tests cover tenant isolation,
+all entity records, duplicate-looking shifts, archives, tombstones, stale and
+unique conflicts, replay misuse, invalid input, payload ceilings, transaction
+rollback, pagination, cursor order, and account spoofing. Eleven server tests,
+the full repository hook, and the server Fallow health/duplication checks pass.
+
 **Do this next:** complete the already-open native withholding and isolated
-restore acceptance passes. Phase-two mobile authentication and HTTP push/pull
-contracts remain unimplemented. Before that hosted/mobile work, choose the
+restore acceptance passes. Mobile authentication and the HTTP client remain
+unimplemented. Before that hosted/mobile work, choose the
 Supabase and Render plans, database/API regions, availability and budget,
 backup/tombstone/log/deletion retention, and SMTP provider. Then create the
-external resources and least-privilege roles before implementing the mobile
-email/password flow and explicit push/pull sync contracts.
+external resources and least-privilege roles before implementing email/password
+auth, SecureStore sessions, retry scheduling, and conflict UI.
 
 The first complete local federal-withholding slice remains implemented: bounded
 2026 math, effective-dated per-job settings, lossless backup, and an opt-in
