@@ -14,7 +14,7 @@ export const MAX_BLOCKED_RESPONSE_BYTES = 10_500_000;
 
 type SQLiteValue = string | number | null;
 
-type SyncTransaction = {
+export type SyncTransaction = {
   getFirstAsync<T>(sql: string, ...params: SQLiteValue[]): Promise<T | null>;
   runAsync(sql: string, ...params: SQLiteValue[]): Promise<unknown>;
 };
@@ -78,6 +78,32 @@ export class SyncAccountMismatchError extends Error {}
 export class RemoteChangeConflictError extends Error {}
 export class StaleMutationError extends Error {}
 
+export type LocalAccountState = {
+  accountId: string | null;
+  localRecordCount: number;
+};
+
+export async function inspectLocalAccountState(
+  database: SyncDatabase
+): Promise<LocalAccountState> {
+  const state = await database.getFirstAsync<{
+    account_id: string | null;
+    applying_remote: number;
+    local_record_count: number;
+  }>(
+    `SELECT account_id, applying_remote,
+            (SELECT count(*) FROM jobs) +
+            (SELECT count(*) FROM shifts) +
+            (SELECT count(*) FROM federal_withholding_settings)
+              AS local_record_count
+     FROM sync_state WHERE singleton = 1;`
+  );
+  if (!state || state.applying_remote !== 0 || !Number.isSafeInteger(state.local_record_count)) {
+    throw new Error('The local sync state is unavailable.');
+  }
+  return { accountId: state.account_id, localRecordCount: state.local_record_count };
+}
+
 export async function readDeviceId(database: SyncDatabase): Promise<string> {
   const state = await database.getFirstAsync<{ device_id: string }>(
     'SELECT device_id FROM sync_state WHERE singleton = 1;'
@@ -93,6 +119,21 @@ export async function bindSyncAccount(database: SyncDatabase, accountId: string)
   await database.withExclusiveTransactionAsync(async (transaction) => {
     await bindAccount(transaction, accountId);
   });
+}
+
+export async function bindSyncAccountIfEmpty(
+  database: SyncDatabase,
+  accountId: string
+): Promise<boolean> {
+  assertCanonicalAccountId(accountId);
+  let bound = false;
+  await database.withExclusiveTransactionAsync(async (transaction) => {
+    const count = await readLocalRecordCount(transaction);
+    if (count !== 0) return;
+    await bindAccount(transaction, accountId);
+    bound = true;
+  });
+  return bound;
 }
 
 export async function readPendingMutations(database: SyncDatabase): Promise<PendingMutation[]> {
@@ -303,6 +344,18 @@ async function bindAccount(transaction: SyncTransaction, accountId: string) {
     );
   }
   return state;
+}
+
+async function readLocalRecordCount(transaction: SyncTransaction): Promise<number> {
+  const row = await transaction.getFirstAsync<{ count: number }>(
+    `SELECT (SELECT count(*) FROM jobs) +
+            (SELECT count(*) FROM shifts) +
+            (SELECT count(*) FROM federal_withholding_settings) AS count;`
+  );
+  if (!row || !Number.isSafeInteger(row.count) || row.count < 0) {
+    throw new Error('The local data count is unavailable.');
+  }
+  return row.count;
 }
 
 async function applyJob(transaction: SyncTransaction, job: RemoteJob) {

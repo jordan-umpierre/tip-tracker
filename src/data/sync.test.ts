@@ -8,10 +8,12 @@ import { DatabaseSync } from 'node:sqlite';
 import {
   acknowledgeMutation,
   applyRemoteChanges,
+  bindSyncAccountIfEmpty,
   bindSyncAccount,
   blockMutation,
   clearBlockedMutation,
   MAX_BLOCKED_RESPONSE_BYTES,
+  inspectLocalAccountState,
   readBlockedMutation,
   readBlockedMutations,
   readDeviceId,
@@ -328,6 +330,33 @@ test('one database cannot silently change cloud account ownership', async () => 
       ))?.account_id,
       ACCOUNT_A
     );
+  } finally {
+    database.close();
+  }
+});
+
+test('account connection detects local data and only auto-binds an empty database', async () => {
+  const database = new TestDatabase();
+  try {
+    assert.deepEqual(await inspectLocalAccountState(database), {
+      accountId: null,
+      localRecordCount: 0,
+    });
+    assert.equal(await bindSyncAccountIfEmpty(database, ACCOUNT_A), true);
+    assert.equal((await inspectLocalAccountState(database)).accountId, ACCOUNT_A);
+
+    const populated = new TestDatabase();
+    try {
+      await insertLocalJob(populated);
+      assert.deepEqual(await inspectLocalAccountState(populated), {
+        accountId: null,
+        localRecordCount: 1,
+      });
+      assert.equal(await bindSyncAccountIfEmpty(populated, ACCOUNT_A), false);
+      assert.equal((await inspectLocalAccountState(populated)).accountId, null);
+    } finally {
+      populated.close();
+    }
   } finally {
     database.close();
   }
