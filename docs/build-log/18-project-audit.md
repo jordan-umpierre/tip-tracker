@@ -20,7 +20,7 @@ individual unused-file suppressions. `.fallowrc.json` now declares the existing
 suppressions and the calculator's duplicate suppression were removed.
 
 Full dead-code and duplication runs now report zero issues and zero clones.
-Fallow health still estimates nine complexity/CRAP findings and 18 functions
+Fallow health still estimates ten complexity/CRAP findings and 18 functions
 over its 60-line heuristic, led by `LogShiftForm.tsx`. Those are triage signals,
 not stale or failing behavior: pure branches have direct assertions and native
 UI paths have current device evidence. Splitting them solely to lower a static
