@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import BackupRestore from '../components/BackupRestore';
 import CreateJobForm from '../components/CreateJobForm';
 import ExportCsvButton from '../components/ExportCsvButton';
 import ImportCsvForm from '../components/ImportCsvForm';
@@ -253,22 +254,21 @@ function LogControls({
         </Pressable>
       )}
 
-      {jobs.length > 0 ? (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: managingData }}
+        style={styles.manageDataButton}
+        onPress={() => setManagingData((current) => !current)}
+      >
+        <Text style={styles.manageDataButtonText}>
+          {managingData ? 'Hide data tools' : 'Manage data'}
+        </Text>
+      </Pressable>
+      {/* Restore has to remain reachable when there are no jobs, because an
+          empty database is the only one D19 allows it to write into. */}
+      {managingData ? (
         <>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ expanded: managingData }}
-            style={styles.manageDataButton}
-            onPress={() => setManagingData((current) => !current)}
-          >
-            <Text style={styles.manageDataButtonText}>
-              {managingData ? 'Hide data tools' : 'Manage data'}
-            </Text>
-          </Pressable>
-          {/* Jobs and CSV import are both occasional. Behind one toggle they
-              cost a single row instead of standing between the totals and the
-              history every time the tab opens. */}
-          {managingData ? (
+          {jobs.length > 0 ? (
             <>
               <Pressable
                 accessibilityRole="button"
@@ -325,6 +325,7 @@ function LogControls({
               <ExportCsvButton shifts={shifts} jobs={allJobs} />
             </>
           ) : null}
+          <BackupRestore onRestored={refresh} />
         </>
       ) : null}
     </>
