@@ -1466,10 +1466,10 @@ UI/UX bar from the product definition is achievable here.
 > **Decision:** The first sync API accepts one mutation per request. The
 > authenticated token subject is the only account identity; account ids are
 > absent from mutation and pull input. Each mutation carries the local outbox
-> sequence as a positive safe-integer `operationId`, one entity type and id,
-> the outbox operation, the last acknowledged `baseServerVersion`, and the
-> complete current row for an upsert. Entity-specific records reject missing
-> or unknown fields rather than silently dropping data.
+> sequence as a positive safe-integer `operationId`, a stable canonical UUID
+> `deviceId`, one entity type and id, the outbox operation, the last acknowledged
+> `baseServerVersion`, and the complete current row for an upsert. Entity-specific
+> records reject missing or unknown fields rather than silently dropping data.
 >
 > `baseServerVersion: null` means the device has never acknowledged that row.
 > A positive value may replace only that exact server version. A missing row,
@@ -1483,8 +1483,10 @@ UI/UX bar from the product definition is achievable here.
 > server authority and are never overwritten by a phone clock. Pull returns
 > both sets of facts so a new device can reconstruct the local row.
 >
-> Idempotency is scoped by verified account plus `operationId`. The canonical
-> request checksum and original success or conflict response commit with the
+> Idempotency is scoped by verified account, `deviceId`, and `operationId`.
+> Device ids distinguish two installations whose local sequences both start at
+> one; they are request identity, never account authority. The canonical request
+> checksum and exact original success or conflict response commit with the
 > mutation attempt. An identical retry returns that response; reuse with
 > different content returns `idempotency_key_reused`.
 >

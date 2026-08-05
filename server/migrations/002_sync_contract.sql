@@ -36,6 +36,7 @@ ALTER TABLE app.jobs DROP CONSTRAINT jobs_name_check;
 
 CREATE TABLE app.sync_operations (
   account_id uuid NOT NULL,
+  device_id uuid NOT NULL,
   operation_id bigint NOT NULL
     CHECK (operation_id BETWEEN 1 AND 9007199254740991),
   request_checksum text NOT NULL
@@ -43,7 +44,7 @@ CREATE TABLE app.sync_operations (
   response_status smallint NOT NULL CHECK (response_status IN (200, 409)),
   response_body jsonb NOT NULL CHECK (jsonb_typeof(response_body) = 'object'),
   created_at timestamptz NOT NULL DEFAULT transaction_timestamp(),
-  PRIMARY KEY (account_id, operation_id),
+  PRIMARY KEY (account_id, device_id, operation_id),
   FOREIGN KEY (account_id) REFERENCES app.accounts(id) ON DELETE CASCADE
 );
 

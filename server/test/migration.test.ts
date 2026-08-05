@@ -69,20 +69,28 @@ test("migration preserves ownership, versions, tombstones, and rollback", async 
       assert.equal(clientTimes.rows[0].client_updated_at.toISOString(), "2020-02-03T04:05:06.000Z");
 
       const replayBody = { operationId: 1, serverVersion: 1 };
+      const deviceA = "10000000-0000-4000-8000-000000000001";
+      const deviceB = "10000000-0000-4000-8000-000000000002";
       await database.query(
         `INSERT INTO app.sync_operations
-          (account_id, operation_id, request_checksum, response_status, response_body)
-         VALUES ($1, 1, $2, 200, $3)`,
-        [accountA, "a".repeat(64), replayBody],
+          (account_id, device_id, operation_id, request_checksum, response_status, response_body)
+         VALUES ($1, $2, 1, $3, 200, $4)`,
+        [accountA, deviceA, "a".repeat(64), replayBody],
       );
       await assert.rejects(
         database.query(
           `INSERT INTO app.sync_operations
-            (account_id, operation_id, request_checksum, response_status, response_body)
-           VALUES ($1, 1, $2, 200, $3)`,
-          [accountA, "a".repeat(64), replayBody],
+            (account_id, device_id, operation_id, request_checksum, response_status, response_body)
+           VALUES ($1, $2, 1, $3, 200, $4)`,
+          [accountA, deviceA, "a".repeat(64), replayBody],
         ),
         /unique constraint/i,
+      );
+      await database.query(
+        `INSERT INTO app.sync_operations
+          (account_id, device_id, operation_id, request_checksum, response_status, response_body)
+         VALUES ($1, $2, 1, $3, 200, $4)`,
+        [accountA, deviceB, "b".repeat(64), replayBody],
       );
 
       await assert.rejects(
