@@ -19,3 +19,15 @@ The live emulator showed all seven captions clearly, including three-digit
 counts, with no clipping or runtime errors. TypeScript, the trends assertion,
 the full tracked hook, and the Fallow changed-file audit passed.
 
+## `00bac2c` — fix: use Android time picker dialog API (2026-08-04)
+
+The mounted Android picker still used the package's deprecated `onChange`
+callback. Replaced that Android path with its documented imperative dialog API
+and `onValueChange`; iOS keeps its inline spinner and Done button with the same
+current callback.
+
+On the API 36 emulator, cancel left the start field blank, selecting start and
+end populated the correct fields, and each dialog stayed closed after OK.
+Logcat showed no datetime deprecation warning or runtime error. TypeScript, the
+date and picker-cancel assertions, the full tracked hook, and the Fallow
+changed-file audit passed.

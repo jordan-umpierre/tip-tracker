@@ -36,8 +36,7 @@ received `1-to-2.sql` and a version-3 marker.
    stays with step 4, where it will have a caller instead of being dead code.
 2. ~~The Log form — optional start and end time inputs.~~ Done in `bbc4046`
    with the native platform picker, derived hours, and blank tips as zero.
-   Android's picker lifecycle still belongs to the deferred Android pass; its
-   library recommends the imperative dialog API there.
+   Android's imperative dialog path passed in `00bac2c`.
 3. **Do this now:** overtime calculation in `src/lib`, pure and asserted: 40 hours per the job's
    configured workweek, 1.5x the shift's own rate, shifts without times counted
    wholly against their logged date.
@@ -51,7 +50,10 @@ received `1-to-2.sql` and a version-3 marker.
 The Android regression is now in progress. `f57e776` enlarged the weekday
 chart's shift counts after the API 36 emulator showed that its 10sp captions
 could auto-shrink to 7.5sp. The imported 845-shift breakdown now renders all
-seven counts clearly without clipping. The rest of the Android pass remains.
+seven counts clearly without clipping. `00bac2c` then moved Android's shift-time
+picker to the library's imperative dialog API; cancel and both time fields
+passed without the deprecated callback warning or a reopened dialog. The rest
+of the Android pass remains.
 
 **After overtime:**
 
@@ -66,9 +68,9 @@ seven counts clearly without clipping. The rest of the Android pass remains.
    optional cloud backup/sync before public tax projections either way.
 
 **Android is still the stale platform, with its regression now underway.** The
-weekday breakdown has passed after its caption fix, but the calendar picker,
-haptics, animated month paging, both gesture fixes and the Log layout still
-need the Android pass. The gesture work is exactly the kind that behaves
+weekday breakdown and native shift-time picker have passed, but the calendar
+picker, haptics, animated month paging, both gesture fixes and the Log layout
+still need the Android pass. The gesture work is exactly the kind that behaves
 differently there. Finish this pass before the overtime calculation. Neither
 platform has a VoiceOver or TalkBack claim.
 
@@ -647,3 +649,8 @@ Trends scope is complete.
     counts: 10sp text could auto-shrink to 7.5sp. `f57e776` removed that shrink,
     raised the captions to 13sp semibold text, and passed a live screenshot
     check with all seven counts visible and unclipped.
+66. Fixed the Android shift-time picker warning in `00bac2c` by using the
+    datetime package's imperative dialog API and current `onValueChange`
+    callback. On the API 36 emulator, cancel preserved the blank field, start
+    and end selections populated independently, the dialog stayed closed after
+    confirmation, and no deprecated-callback or runtime error appeared.
