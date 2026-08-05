@@ -9,9 +9,9 @@ Last updated: 2026-08-04
 
 ## NEXT
 
-**Overtime is in progress. Schema version 3, its data-layer wiring, native
-shift-time entry, and the full Android regression are complete. Next is the
-pure overtime calculation.**
+**Overtime is in progress. Its storage, data-layer wiring, native shift-time
+entry, pure calculation, and the full Android regression are complete. Next is
+the per-job settings UI.**
 
 Two product decisions were made on 2026-08-04 and are already recorded, so they
 do not need re-deciding: overtime adjusts the gross shown on screen rather than
@@ -38,10 +38,10 @@ received `1-to-2.sql` and a version-3 marker.
 2. ~~The Log form — optional start and end time inputs.~~ Done in `bbc4046`
    with the native platform picker, derived hours, and blank tips as zero.
    Android's imperative dialog path passed in `00bac2c`.
-3. **Do this now:** overtime calculation in `src/lib`, pure and asserted: 40 hours per the job's
-   configured workweek, 1.5x the shift's own rate, shifts without times counted
-   wholly against their logged date.
-4. Per-job overtime settings UI, opt-in, inside Manage data.
+3. ~~Overtime calculation in `src/lib`, pure and asserted: 40 hours per the
+   job's configured workweek, 1.5x the shift's own rate, shifts without times
+   counted wholly against their logged date.~~ Done in `74ea74d`.
+4. **Do this now:** per-job overtime settings UI, opt-in, inside Manage data.
 5. Show the adjusted gross with an explicit estimate label. The CSV export must
    keep exporting recorded gross, not adjusted — see the revised D14.
 6. Teach the CSV importer the Start Time and End Time columns it currently
@@ -662,3 +662,9 @@ Trends scope is complete.
     ownership all passed. A clean post-reload log window had no app errors,
     datetime deprecation warning, or SQLite exception. Haptics remain a
     no-crash result and TalkBack remains untested.
+68. Added the pure overtime calculator in `74ea74d`. It sorts a job's shifts
+    chronologically into its configured recurring workweeks, keeps the existing
+    straight-time gross calculation, and adds the extra half-rate only after
+    40 hours. Assertions cover opt-in behavior, weekly reset, different shift
+    rates, a threshold inside a shift, a non-midnight boundary, paid duration
+    that differs from elapsed time, untimed history, and invalid dates.

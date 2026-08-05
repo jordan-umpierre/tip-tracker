@@ -87,7 +87,7 @@ name — the number adds sequence without costing you the description.
     screen's controls moved within reach, a calendar date picker built rather
     than depended on (D17), and Edit added to the swiped shift row.
 16. [16-overtime.md](16-overtime.md) — schema version 3 stores the timing inputs
-    required for overtime and fixes chained migrations before the data layer
-    begins consuming them.
+    required for overtime, fixes chained migrations, and adds the pure
+    configured-workweek calculator.
 17. [17-android-regression.md](17-android-regression.md) — the deferred Android
     pass, beginning with readable weekday-chart sample counts.

@@ -51,3 +51,24 @@ TypeScript, 23 date/time assertions, the full hook, and Fallow's changed-file
 audit pass. The complete flow passed on a physical iPhone. The package also
 backs Android with its native time-picker dialog, but Android remains deferred
 and unverified; its maintainers recommend the imperative dialog API there.
+
+## `74ea74d` — feat: calculate overtime by configured workweek (2026-08-04)
+
+The pure calculator filters one job's shifts, sorts them chronologically, and
+tracks paid seconds inside each configured 168-hour workweek. Seconds after 40
+hours receive the extra half of that shift's stored rate; straight-time gross
+still comes from the existing D5 calculator, so disabled overtime produces the
+same totals as before.
+
+Clock times place a shift against a non-midnight boundary while stored duration
+remains authoritative. A shift spanning the boundary divides its paid seconds
+in proportion to the elapsed clock span and preserves the rounded remainder.
+Untimed history stays wholly on its logged date under D18's documented midnight
+approximation.
+
+The direct Node assertion covers disabled and empty inputs, input order, job
+filtering, the 40-hour threshold inside a shift, weekly reset, a custom
+Wednesday 6am boundary, breaks across that boundary, untimed history, and an
+invalid date. TypeScript, the full tracked hook, and Fallow's changed-file audit
+pass. Varying-rate regular-pay and tip-credit rules remain outside D14's bounded
+estimate; the calculator is not connected to displayed totals until step 5.

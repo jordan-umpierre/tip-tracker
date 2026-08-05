@@ -1095,6 +1095,13 @@ UI/UX bar from the product definition is achievable here.
 > recalculates, but preserves an entered duration when it differs from elapsed
 > time until the user changes a time.
 >
+> **Revised 2026-08-04 — crossing the workweek boundary.** If a timed shift
+> crosses the boundary and its paid duration differs from its clock span, split
+> the authoritative seconds in the same proportion as elapsed time and keep
+> the rounded remainder on the second side. The app does not know where an
+> unpaid break occurred, so this deterministic approximation preserves every
+> stored second without inventing a break time.
+>
 > **Revisit when:** a user reports overtime that disagrees with their pay stub.
 > The first suspects are an overnight shift attributed to the wrong workweek,
 > or a boundary configured against history that predates times.
