@@ -1,4 +1,3 @@
-// fallow-ignore-file unused-file -- the pre-commit hook executes this file directly.
 // Run from the repo root with: node src/lib/totals.test.ts
 //
 // No test framework, on purpose. Node runs TypeScript directly now (it strips

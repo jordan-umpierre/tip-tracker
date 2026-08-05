@@ -1,4 +1,3 @@
-// fallow-ignore-file unused-file -- the pre-commit hook executes this file directly.
 // Run with: node src/lib/dates.test.ts
 //
 // Same no-framework approach as totals.test.ts: Node runs TypeScript directly

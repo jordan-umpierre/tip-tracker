@@ -1,4 +1,3 @@
-// fallow-ignore-file unused-file -- the pre-commit hook executes this file directly.
 // Run from the repo root with: node src/lib/trends.test.ts
 //
 // No test runner for the same reason as totals.test.ts: Node and node:assert

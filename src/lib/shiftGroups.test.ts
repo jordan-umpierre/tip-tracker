@@ -1,4 +1,3 @@
-// fallow-ignore-file unused-file -- the pre-commit hook executes this file directly.
 // Run from the repo root with: node src/lib/shiftGroups.test.ts
 //
 // No test runner, same reason as the other files here: Node and node:assert

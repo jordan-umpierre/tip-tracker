@@ -1,4 +1,3 @@
-// fallow-ignore-file unused-file -- Step 5 wires this pure calculator into display totals.
 import type { Job } from '../data/jobs';
 import type { Shift } from '../data/shifts';
 import { parseCalendarDate } from './dates.ts';
@@ -90,7 +89,6 @@ function shiftSegments(shift: Shift, job: Job, inputIndex: number): WorkSegment[
   ];
 }
 
-// fallow-ignore-next-line -- Step 5 adds the first caller; overtime.test.ts covers the branches now.
 export function calculateOvertime(shifts: Shift[], job: Job): OvertimeShift[] {
   const jobShifts = shifts.filter((shift) => shift.job_id === job.id);
   const results = new Map(

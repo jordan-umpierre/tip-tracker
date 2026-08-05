@@ -1,4 +1,3 @@
-// fallow-ignore-file unused-file -- the pre-commit hook executes this file directly.
 // Run from the repo root with: node src/lib/shiftImportCsv.test.ts
 //
 // This is the import trust boundary: malformed files must fail before any

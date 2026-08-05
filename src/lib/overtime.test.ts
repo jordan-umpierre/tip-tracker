@@ -1,4 +1,3 @@
-// fallow-ignore-file unused-file -- the pre-commit hook executes this file directly.
 // Run from the repo root with: node src/lib/overtime.test.ts
 import assert from 'node:assert/strict';
 import type { Job } from '../data/jobs.ts';
