@@ -9,11 +9,13 @@ Last updated: 2026-08-05
 
 ## NEXT
 
-**The authenticated backend foundation is implemented and locally verified:
-D22, an isolated Node/Express process, private account-owned PostgreSQL schema,
-Supabase JWT/JWKS verification, and the cloud account lifecycle. SQLite remains
-the offline source. No mobile auth, sync route, deployment configuration, or
-external provider resource exists yet.**
+**The authenticated backend and local sync foundations are implemented and
+locally verified. D22 supplies the isolated Node/Express boundary, private
+account-owned PostgreSQL schema, Supabase JWT/JWKS verification, and cloud
+account lifecycle. D23 and SQLite schema version 5 now track every local domain
+mutation for later push/pull without changing SQLite as the offline source. No
+mobile auth, network sync route, deployment configuration, or external provider
+resource exists yet.**
 
 `bc8e170` recorded D22. Email/password verification and reset belong to the
 managed auth provider, with custom SMTP required for reliable delivery. Cloud
@@ -44,9 +46,26 @@ readiness, and bounded HTTP failure coverage. Seven server tests use real
 temporary PostgreSQL databases where persistence matters. The full repository
 hook passes and Fallow reports no server health finding without a suppression.
 
+`402988d` recorded D23. `d68c2e1` then added schema version 5: trigger-owned
+dirty-row tracking, monotonic local sequences, per-row server metadata, one
+canonical account binding, a server pull cursor, and an exclusive remote-apply
+transaction that cannot re-enqueue pulled rows. The 4-to-5 migration enqueues
+all existing active, archived, and tombstoned domain rows; a fresh database
+starts empty. Federal settings now retain tombstones, and backup version 3
+preserves them while strict version-1/schema-3 and version-2/schema-4 files
+remain restorable. `28057dd` keeps Expo and server TypeScript checks isolated by
+their actual package boundary.
+
+Real SQLite assertions cover direct-SQL capture, repeated-edit compaction,
+in-flight acknowledgements, migration bootstrap and rollback, restore rollback,
+parent-first remote apply, pull rollback and suppression, dirty-row conflict
+protection, and account mismatch rejection. This is local plumbing only; no
+automated result is evidence of a real provider, network retry, conflict UI, or
+native migration of the developer's existing database.
+
 **Do this next:** complete the already-open native withholding and isolated
-restore acceptance passes. Phase-two mobile authentication and push/pull sync
-remain unimplemented. Before that hosted/mobile work, choose the
+restore acceptance passes. Phase-two mobile authentication and HTTP push/pull
+contracts remain unimplemented. Before that hosted/mobile work, choose the
 Supabase and Render plans, database/API regions, availability and budget,
 backup/tombstone/log/deletion retention, and SMTP provider. Then create the
 external resources and least-privilege roles before implementing the mobile

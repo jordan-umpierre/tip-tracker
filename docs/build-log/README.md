@@ -105,3 +105,6 @@ name — the number adds sequence without costing you the description.
 23. [23-authenticated-backend-foundation.md](23-authenticated-backend-foundation.md)
     — D22, the isolated Express process, account-owned Postgres schema, and
     verified cloud account lifecycle.
+24. [24-local-sync-foundation.md](24-local-sync-foundation.md) — D23, SQLite
+    schema version 5, trigger-owned mutation tracking, safe remote apply, and
+    backward-compatible backup version 3.

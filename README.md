@@ -110,26 +110,32 @@ Done:
 - Versioned JSON backup and empty-only restore ([`backup.ts`](src/lib/backup.ts),
   [D19](docs/decisions.md)): strict bounded validation, all-row SQLite
   snapshots, one restore transaction, foreign-key checking, and exact row
-  parity without merging or replacing existing data; version 2 includes
-  withholding settings and still restores exact version-1/schema-3 files
+  parity without merging or replacing existing data; version 3 includes
+  withholding-setting tombstones and still restores strict version-1/schema-3
+  and version-2/schema-4 files
 - Pure 2026 federal withholding math
   ([`federalWithholding2026.ts`](src/lib/federalWithholding2026.ts),
   [D20](docs/decisions.md)) for one regular paycheck using user-entered federal
   taxable wages and actual 2020-or-later W-4 values; no paycheck record or tax
-  UI exists yet
+  paycheck record or calculated result is stored
 - Effective-dated per-job withholding-setting persistence ([D21](docs/decisions.md)):
   schema version 4 uses the first applicable paycheck pay date, and lossless
   backup covers every stored field
 - Opt-in local federal-withholding UI inside Manage data: save new W-4 history,
   choose a 2026 paycheck pay date, enter federal taxable wages from the paystub,
   and see one fully disclosed estimate without storing the wages or result
+- Local sync foundation ([D23](docs/decisions.md)): schema version 5 captures
+  every job, shift, and withholding-setting mutation in a compact SQLite
+  outbox, retains server metadata and one account binding, and applies remote
+  rows transactionally without re-enqueueing them. No mobile auth or HTTP sync
+  route exists yet
 
 Next:
 
 - Run the isolated iOS/Android migration, settings, calculation, accessibility,
-  and version-2 restore pass. Optional accounts plus authenticated cloud sync
-  remain the next design phase after that evidence and still precede public tax
-  projections. See
+  and legacy-backup restore pass. Then choose and create the external Supabase,
+  Render, and SMTP resources before adding mobile authentication and explicit
+  HTTP push/pull contracts. See
   [docs/roadmap.md](docs/roadmap.md) for the exact evidence boundary.
 
 ## Stack
