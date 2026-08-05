@@ -19,7 +19,13 @@ try {
 }
 const verifyAccessToken = createAccessTokenVerifier(config);
 const authAdmin = createSupabaseAuthAdmin(config);
-const server = createServer(createApp({ accounts: createAccounts(database), authAdmin, verifyAccessToken }));
+const readiness = () => assertSchemaCurrent(database);
+const server = createServer(createApp({
+  accounts: createAccounts(database),
+  authAdmin,
+  readiness,
+  verifyAccessToken,
+}));
 let stopping = false;
 
 function stop(signal: NodeJS.Signals) {

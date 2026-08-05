@@ -9,24 +9,12 @@ import { createApp } from "../src/app.ts";
 import { createAccessTokenVerifier } from "../src/auth.ts";
 import { applyMigrations } from "../src/migrations.ts";
 import { withTestDatabase } from "./database.ts";
+import { close, listen } from "./http.ts";
 
 const issuer = "https://local-auth.example/auth/v1";
 const audience = "authenticated";
 const accountA = "00000000-0000-4000-8000-000000000001";
 const accountB = "00000000-0000-4000-8000-000000000002";
-
-async function listen(server: ReturnType<typeof createServer>) {
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const address = server.address();
-  assert(address && typeof address === "object");
-  return `http://127.0.0.1:${address.port}`;
-}
-
-async function close(server: ReturnType<typeof createServer>) {
-  await new Promise<void>((resolve, reject) => {
-    server.close((error) => error ? reject(error) : resolve());
-  });
-}
 
 // fallow-ignore-next-line complexity -- One signing helper creates every valid and invalid JWT case below.
 function signToken(
@@ -86,6 +74,7 @@ test("verified subjects alone control account reads and deletion", async () => {
       const apiServer = createServer(createApp({
         accounts: createAccounts(database),
         authAdmin,
+        readiness: async () => undefined,
         verifyAccessToken,
       }));
       const apiBaseUrl = await listen(apiServer);

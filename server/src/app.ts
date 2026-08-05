@@ -18,6 +18,7 @@ function errorStatus(error: unknown) {
 export function createApp(dependencies?: {
   accounts: Accounts;
   authAdmin: AuthAdmin;
+  readiness: () => Promise<void>;
   verifyAccessToken: VerifyAccessToken;
 }) {
   const app = express();
@@ -27,6 +28,16 @@ export function createApp(dependencies?: {
 
   app.get("/health", (_request, response) => {
     response.json({ status: "ok" });
+  });
+
+  app.get("/ready", async (_request, response) => {
+    try {
+      await dependencies?.readiness();
+      if (!dependencies) throw new Error("Application dependencies are unavailable");
+      response.json({ status: "ready" });
+    } catch {
+      response.status(503).json({ error: "not_ready" });
+    }
   });
 
   if (dependencies) {
