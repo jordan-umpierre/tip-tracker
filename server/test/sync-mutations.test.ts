@@ -10,6 +10,10 @@ import { createApp } from "../src/app.ts";
 import { createAccessTokenVerifier } from "../src/auth.ts";
 import { applyMigrations } from "../src/migrations.ts";
 import { createSyncService } from "../src/sync.ts";
+// The client's decoder, reached across the package boundary. Both this file and
+// src/data/sync.ts are type-only imports all the way down, so nothing from Expo
+// or React Native comes with it and node --test can load it directly.
+import { decodeSyncPage } from "../../src/sync/wire.ts";
 import { poolAdapter, withTestDatabase } from "./database.ts";
 import { close, listen } from "./http.ts";
 
@@ -187,7 +191,19 @@ async function readAllChanges(baseUrl: string, token: string) {
   while (hasMore) {
     const response = await pull(baseUrl, token, `after=${cursor}&limit=2`);
     assert.equal(response.status, 200);
-    const page = await response.json() as ChangesBody;
+    const body = await response.json();
+
+    // The wire contract is written twice: once in src/syncContract.ts here and
+    // once in the client's src/sync/wire.ts. Until now each side was only ever
+    // tested against its own idea of the format, and the transport tests use a
+    // hand-written fake fetch, so the real serializer never met the real
+    // decoder. That is how the pulled-date defect shipped with both suites
+    // green. Running the real decoder over the real response is the check that
+    // fails when the two halves drift apart. It throws on anything malformed,
+    // which fails the test; cursor is the "after" we asked for on this page.
+    decodeSyncPage(body, cursor);
+
+    const page = body as ChangesBody;
     assert.equal(page.changes.length <= 2, true);
     assert.equal(page.changes.every((change) => change.changeSequence > cursor), true);
     pulled.push(...page.changes);
