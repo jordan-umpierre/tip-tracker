@@ -1386,3 +1386,77 @@ UI/UX bar from the product definition is achievable here.
 > **Revisit when:** social login becomes necessary, provider pricing or service
 > limits change materially, an AWS-only deployment becomes a requirement, or
 > measured conflict behavior shows that per-row versions are insufficient.
+
+### D23 — Track local sync intent inside SQLite (2026-08-05)
+
+> **Decision:** Schema version 5 adds the local facts required for later sync,
+> without adding authentication, network requests, or a second write path. The
+> existing jobs, shifts, and federal withholding settings remain the only local
+> source of truth. Database triggers write a compact dirty-row outbox after any
+> insert, update, or delete, so imports, backup restore, direct SQL, and future
+> writers receive the same atomic tracking as the current TypeScript functions.
+>
+> Repeated local changes to one row replace its pending outbox entry with a new
+> monotonic local sequence. A push acknowledgement may remove only the exact
+> sequence it sent; an edit made while that request was in flight therefore
+> remains pending. Per-row sync metadata stores the last server version and
+> change sequence acknowledged for that row. The outbox stores identity and
+> operation, not a second copy of financial data; a future push reads the
+> current domain row inside a consistent snapshot.
+>
+> Remote changes apply only through one exclusive SQLite transaction. That
+> transaction enables a singleton suppression flag, writes parent jobs before
+> settings and shifts, updates row metadata and the pull cursor, and disables
+> suppression before commit. The triggers ignore writes only while that flag is
+> set. Any failure rolls back the domain rows, metadata, cursor, and flag
+> together, so a pull cannot be mistaken for a new local mutation.
+>
+> The same singleton binds one device database to at most one canonical cloud
+> account id. A different authenticated subject is a conflict requiring an
+> explicit product choice; the sync layer must never upload one person's local
+> history into another account. Account binding and sync metadata are device
+> state and do not enter a portable backup.
+>
+> The 4-to-5 migration enqueues every existing job, shift, and withholding
+> setting, including archived jobs and tombstones. A fresh version-5 database
+> starts with an empty outbox. Backup format version 3 records schema version 5
+> and preserves the new withholding-setting tombstone. Strict version-1/schema-3
+> and version-2/schema-4 backups remain accepted and normalize missing newer
+> fields. Restore remains domain-empty-only; its ordinary inserts intentionally
+> enqueue restored rows and its existing transaction rolls those entries back
+> if restore fails.
+>
+> Federal withholding settings gain `deleted_at`. Active as-of reads exclude
+> tombstones, while backup and future sync reads retain them. Jobs continue
+> using `archived_at`, and shifts continue using `deleted_at`; remote changes
+> preserve those meanings instead of translating them into physical deletion.
+>
+> **Alternatives:**
+> - Add an explicit outbox write beside every TypeScript mutation
+> - Store a complete JSON payload for every local change
+> - Use device timestamps to order or resolve conflicts
+> - Let remote apply reuse ordinary writes and then clear their outbox entries
+> - Bind ownership only in transient authentication state
+>
+> **Why:** explicit companion writes are readable but fail silently when one
+> import, restore, migration, direct SQL statement, or future writer forgets
+> them. SQLite triggers make capture part of the same transaction as the data.
+> A compact dirty set avoids duplicated financial records while monotonic
+> sequences protect edits made during a network request. Server versions—not
+> phone clocks—remain the conflict authority established by D22.
+>
+> **Known cost:** database triggers and a narrowly scoped suppression flag are
+> less visible than ordinary function calls. Tests must therefore prove direct
+> SQL capture, compaction, migration bootstrap, restore/import rollback, remote
+> suppression, account mismatch rejection, and fresh-versus-migrated parity.
+> The singleton design also depends on the app's one cached SQLite connection
+> and exclusive remote-apply transaction.
+>
+> **Not included:** mobile sign-in, HTTP push or pull routes, retry scheduling,
+> conflict UI, provider setup, or deployment. Those remain separate phase-two
+> work after the external D22 gates are chosen.
+>
+> **Revisit when:** the app opens more than one SQLite connection, one local
+> database must intentionally sync to several accounts, a measured outbox size
+> requires compaction beyond one entry per row, or server retention requires
+> tombstone garbage collection.
