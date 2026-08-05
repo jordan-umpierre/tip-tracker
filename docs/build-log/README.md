@@ -100,3 +100,5 @@ name — the number adds sequence without costing you the description.
     tax claim (D20) and pure 2026 federal withholding calculator.
 21. [21-withholding-settings.md](21-withholding-settings.md) — effective-dated
     settings in schema version 4 and backward-compatible lossless backup (D21).
+22. [22-withholding-ui.md](22-withholding-ui.md) — the opt-in local settings
+    and one-paycheck federal-withholding surface.

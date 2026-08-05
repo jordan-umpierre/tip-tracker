@@ -119,14 +119,17 @@ Done:
   UI exists yet
 - Effective-dated per-job withholding-setting persistence ([D21](docs/decisions.md)):
   schema version 4 uses the first applicable paycheck pay date, and lossless
-  backup covers every stored field; no settings UI exists yet
+  backup covers every stored field
+- Opt-in local federal-withholding UI inside Manage data: save new W-4 history,
+  choose a 2026 paycheck pay date, enter federal taxable wages from the paystub,
+  and see one fully disclosed estimate without storing the wages or result
 
 Next:
 
-- Build the smallest opt-in local settings and one-paycheck withholding UI.
-  The isolated native restore/migration pass remains open, and optional
-  accounts plus authenticated cloud sync still precede public tax projections.
-  See
+- Run the isolated iOS/Android migration, settings, calculation, accessibility,
+  and version-2 restore pass. Optional accounts plus authenticated cloud sync
+  remain the next design phase after that evidence and still precede public tax
+  projections. See
   [docs/roadmap.md](docs/roadmap.md) for the exact evidence boundary.
 
 ## Stack

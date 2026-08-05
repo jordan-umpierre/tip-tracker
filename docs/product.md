@@ -97,7 +97,10 @@ being approximated under one number.
 D21 gives the W-4 settings a local, lossless persistence boundary. Each job can
 retain a history keyed by the first paycheck pay date a setting applies to, so
 a later W-4 does not rewrite older inputs. Schema version 4 and backup version
-2 are implemented, but no settings UI or paycheck record exists yet.
+2 are implemented. The opt-in Manage data surface now saves that history and
+calculates one disclosed 2026 regular-paycheck withholding estimate from
+user-entered paystub federal taxable wages. It does not store the paycheck
+wages or result, and it still does not create a paycheck record.
 
 ### Layer 3 — 1099 mode
 

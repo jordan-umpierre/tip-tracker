@@ -9,10 +9,10 @@ Last updated: 2026-08-05
 
 ## NEXT
 
-**The automated overtime, first pure tax math, and lossless tax-settings
-persistence scopes are complete. Schema version 4 stores effective-dated W-4
-settings, and backup version 2 preserves them while still restoring version 1.
-No tax settings UI or stored paychecks exist yet.**
+**The first complete local federal-withholding slice is implemented: bounded
+2026 math, effective-dated per-job settings, lossless backup, and an opt-in
+one-paycheck UI. No paycheck, taxable-wage input, or calculated result is
+stored. Native interaction evidence is the next gate.**
 
 Two product decisions were made on 2026-08-04 and are already recorded, so they
 do not need re-deciding: overtime adjusts the gross shown on screen rather than
@@ -133,13 +133,40 @@ dependency check, Doctor 20/20, and web/iOS/Android exports pass. Create and
 pay-date lookup functions were not left as unused production APIs; the schema
 test pins the as-of query until the tax UI supplies their real caller.
 
-**Do this next:** define and build the smallest opt-in local tax UI that calls
-the settings create/as-of data operations and D20's calculator. It must ask for
-the first paycheck pay date, actual W-4 values, pay frequency, and user-entered
-federal taxable wages; show one explicitly labeled 2026 federal withholding
-estimate; and keep every D20 exclusion visible. Do not add paycheck storage,
-settings correction/deletion, derived taxable wages, backend, authentication,
-or a broader tax result in that slice.
+`cf30b1b` adds the opt-in Federal withholding surface inside Manage data. It
+saves a new settings row with a plain bound `INSERT`, rejects duplicate
+job/effective-date history instead of overwriting it, loads the newest setting
+on or before the paycheck pay date, and passes user-entered paystub federal
+taxable wages to D20's calculator. The result repeats every calculation input
+and remains labeled “Estimated 2026 federal withholding.” The complete D20
+exclusion disclosure is visible before entry. Nothing stores the paycheck
+wages or result.
+
+Pure assertions cover strict optional/required dollar parsing, date and year
+rejection, row-to-calculator mapping, exemption, disclosure language, and
+SQLite duplicate-error recognition. The full hook, TypeScript, Expo dependency
+check, Doctor 20/20, and web/iOS/Android exports pass. Fallow reports no dead
+code or duplication. Its changed-file audit retains three unsuppressed native
+complexity estimates: the form, save handler, and calculate handler. Those are
+not suppressed because their alerts, keyboard/picker behavior, SQLite writes,
+and result transitions have not run on a device.
+
+**Do this next:** run the isolated native acceptance pass before adding more
+features. On iOS and Android, verify the schema-3-to-4 migration preserves the
+real database; open/close the opt-in tool; use both date fields and keyboard;
+save ordinary, Step-2, Step-3/4, and exempt settings; prove a duplicate date
+does not overwrite; calculate before the first setting and on both sides of a
+settings change; reject invalid money/date and a non-2026 pay date; confirm a
+zero exempt result; inspect all input/result/disclosure text at large text; and
+exercise VoiceOver/TalkBack focus, labels, radio state, switches, and 44pt
+targets. Export backup v2, restore it only into an isolated empty install, and
+compare every ordered column from all three tables plus `user_version`,
+`integrity_check`, and `foreign_key_check`.
+
+After that native gate, the next design phase is optional accounts and
+authenticated Node/Express/PostgreSQL sync. It must settle recovery, retention,
+account deletion, server-version conflict handling, and local-data ownership
+before backend code or public tax projections begin.
 
 The isolated native restore acceptance pass remains open: export the real
 845-row database on a fresh install, restore it, then compare
@@ -801,3 +828,12 @@ Trends scope is complete.
     rollback, fresh/migrated parity, strict codec failures, foreign keys, and
     exact three-table restore. No tax UI, paycheck, result, backend, account,
     dependency, or unused create/lookup API was added.
+75. Added the complete local one-paycheck withholding surface in `cf30b1b`.
+    Manage data now opts into per-active-job W-4 history and a 2026 regular-pay
+    estimate using paystub federal taxable wages. Bound data operations create
+    history without overwrite and select settings as of the paycheck pay date.
+    Pure tests cover input/date/year/exempt/disclosure/error mapping, and all
+    static, repository, and platform-export gates pass. Three native form/save/
+    calculate Fallow estimates remain deliberately unsuppressed until the iOS
+    and Android acceptance pass. No paycheck, result, backend, auth, or new
+    dependency was added.
