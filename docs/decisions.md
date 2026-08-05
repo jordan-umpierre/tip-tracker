@@ -1460,3 +1460,59 @@ UI/UX bar from the product definition is achievable here.
 > database must intentionally sync to several accounts, a measured outbox size
 > requires compaction beyond one entry per row, or server retention requires
 > tombstone garbage collection.
+
+### D24 — Sync one complete local mutation through the authenticated API (2026-08-05)
+
+> **Decision:** The first sync API accepts one mutation per request. The
+> authenticated token subject is the only account identity; account ids are
+> absent from mutation and pull input. Each mutation carries the local outbox
+> sequence as a positive safe-integer `operationId`, one entity type and id,
+> the outbox operation, the last acknowledged `baseServerVersion`, and the
+> complete current row for an upsert. Entity-specific records reject missing
+> or unknown fields rather than silently dropping data.
+>
+> `baseServerVersion: null` means the device has never acknowledged that row.
+> A positive value may replace only that exact server version. A missing row,
+> an existing create id, a stale version, or a second withholding-setting id
+> for the same job and effective date returns an explicit conflict with the
+> current remote fact where one exists. Similar content never triggers guessed
+> deduplication.
+>
+> Device `createdAt` and `updatedAt` values are stored as separate client
+> timestamps. PostgreSQL's server timestamps, version, and change sequence stay
+> server authority and are never overwritten by a phone clock. Pull returns
+> both sets of facts so a new device can reconstruct the local row.
+>
+> Idempotency is scoped by verified account plus `operationId`. The canonical
+> request checksum and original success or conflict response commit with the
+> mutation attempt. An identical retry returns that response; reuse with
+> different content returns `idempotency_key_reused`.
+>
+> `GET /v1/sync/changes` takes a nonnegative safe-integer `after` and optional
+> `limit` from 1 through 200, defaulting to 100. It unions all three entity
+> tables, orders by `change_sequence`, reads one extra row for `hasMore`, and
+> returns the last emitted sequence as `nextCursor`. Gaps from other accounts
+> are valid. Archives and retained tombstones travel as ordinary row facts.
+>
+> Ordinary API JSON remains limited to 32 KiB. The mutation route has an exact
+> 10,500,000-byte ceiling so any single row admitted by the existing
+> 10,000,000-byte portable-backup boundary fits with its envelope. Larger input
+> returns `413 body_too_large`; it is never truncated, partly accepted, or
+> removed from the device outbox.
+>
+> A synced shift or setting physical delete becomes a retained server tombstone
+> using its existing remote row. An unsynced physical delete is a cloud no-op.
+> Jobs cannot be physically deleted because archive is their history policy.
+> Normal archived and tombstoned rows travel as full upserts.
+>
+> **Why:** one mutation per transaction makes authorization, optimistic
+> concurrency, idempotency, and crash recovery independently provable without
+> inventing partial-batch semantics. Strict full records prevent schema drift
+> from becoming silent data loss. Separate client and server timestamps retain
+> history while keeping server versions as the only conflict authority.
+>
+> **Not included:** mobile authentication, an HTTP client, retry scheduling,
+> conflict UI, provider resources, deployment, or tombstone retention cleanup.
+>
+> **Revisit when:** measured seed latency justifies batching, a real record
+> exceeds the ceiling, or sequences approach JavaScript's safe-integer limit.
