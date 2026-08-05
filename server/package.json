@@ -1,0 +1,23 @@
+{
+  "name": "tip-tracker-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/*.test.ts",
+    "verify": "npm run typecheck && npm test"
+  },
+  "dependencies": {
+    "express": "5.2.1"
+  },
+  "devDependencies": {
+    "@types/express": "5.0.6",
+    "@types/node": "26.1.2",
+    "typescript": "6.0.3"
+  }
+}
