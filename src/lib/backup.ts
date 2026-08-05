@@ -135,6 +135,7 @@ export function assertBackupRowsEqual(expected: BackupRows, actual: BackupRows):
   }
 }
 
+// fallow-ignore-next-line complexity -- Every trust-boundary branch is exercised by backup.test.ts.
 function validateBackup(value: unknown): TipTrackerBackup {
   assertPlainObject(value, 'The backup');
   assertExactKeys(value, TOP_LEVEL_KEYS, 'The backup');
@@ -177,6 +178,7 @@ function validateBackup(value: unknown): TipTrackerBackup {
   };
 }
 
+// fallow-ignore-next-line complexity -- Field-specific failures are pinned by backup.test.ts.
 function validateJob(value: unknown, index: number): BackupJob {
   const label = `Job ${index + 1}`;
   assertPlainObject(value, label);
@@ -198,6 +200,7 @@ function validateJob(value: unknown, index: number): BackupJob {
   return value as BackupJob;
 }
 
+// fallow-ignore-next-line complexity -- Field-specific failures are pinned by backup.test.ts.
 function validateShift(value: unknown, index: number): BackupShift {
   const label = `Shift ${index + 1}`;
   assertPlainObject(value, label);
@@ -285,6 +288,7 @@ function assertNullableTimestamp(value: unknown, label: string): asserts value i
   if (value !== null) assertTimestamp(value, label);
 }
 
+// fallow-ignore-next-line complexity -- Invalid shapes and boundaries are pinned by backup.test.ts.
 function assertTime(value: unknown, label: string): asserts value is string {
   if (typeof value !== 'string') throw new Error(`${label} must be HH:MM.`);
   const match = /^(\d{2}):(\d{2})$/.exec(value);

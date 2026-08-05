@@ -25,6 +25,10 @@ const SHIFTS_SQL = `
   ORDER BY id;`;
 
 type RowReader = Pick<SQLite.SQLiteDatabase, 'getAllAsync'>;
+type RestoreDatabase = Pick<
+  SQLite.SQLiteDatabase,
+  'getAllAsync' | 'getFirstAsync' | 'runAsync'
+>;
 
 export async function createBackupJson(exportedAt = new Date()): Promise<string> {
   const db = await getDb();
@@ -44,69 +48,80 @@ export async function restoreBackup(backup: TipTrackerBackup): Promise<BackupRow
   let restored!: BackupRows;
 
   await db.withExclusiveTransactionAsync(async (transaction) => {
-    const counts = await transaction.getFirstAsync<{ job_count: number; shift_count: number }>(
-      `SELECT (SELECT COUNT(*) FROM jobs) AS job_count,
-              (SELECT COUNT(*) FROM shifts) AS shift_count;`
-    );
-    if (!counts || counts.job_count !== 0 || counts.shift_count !== 0) {
-      throw new Error('Restore requires an empty Tip Tracker database.');
-    }
-
-    // Jobs are parents of shifts. Ordinary INSERT is deliberate: replacing or
-    // merging a matching id could destroy data, which empty-only restore forbids.
-    for (const job of backup.jobs) {
-      await transaction.runAsync(
-        `INSERT INTO jobs
-           (id, name, hourly_rate_cents, archived_at, created_at, updated_at,
-            overtime_enabled, workweek_start_weekday, workweek_start_time)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-        job.id,
-        job.name,
-        job.hourly_rate_cents,
-        job.archived_at,
-        job.created_at,
-        job.updated_at,
-        job.overtime_enabled,
-        job.workweek_start_weekday,
-        job.workweek_start_time
-      );
-    }
-
-    for (const shift of backup.shifts) {
-      await transaction.runAsync(
-        `INSERT INTO shifts
-           (id, job_id, shift_date, duration_seconds, tips_cents,
-            hourly_rate_cents, note, deleted_at, created_at, updated_at,
-            start_time, end_time)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-        shift.id,
-        shift.job_id,
-        shift.shift_date,
-        shift.duration_seconds,
-        shift.tips_cents,
-        shift.hourly_rate_cents,
-        shift.note,
-        shift.deleted_at,
-        shift.created_at,
-        shift.updated_at,
-        shift.start_time,
-        shift.end_time
-      );
-    }
-
-    const foreignKeyProblems = await transaction.getAllAsync<Record<string, unknown>>(
-      'PRAGMA foreign_key_check;'
-    );
-    if (foreignKeyProblems.length !== 0) {
-      throw new Error('The restored rows failed the foreign-key check.');
-    }
-
-    const actual = await readBackupRows(transaction);
-    assertBackupRowsEqual(backup, actual);
-    restored = actual;
+    restored = await restoreRows(transaction, backup);
   });
 
   return restored;
+}
+
+// The branches below are the safety boundary: empty-only, parent-first,
+// foreign-key clean, and exact parity. The database script exercises the same
+// success and rollback paths against real SQLite.
+// fallow-ignore-next-line complexity -- Covered by test-backup-restore.sh and backup.test.ts.
+async function restoreRows(
+  transaction: RestoreDatabase,
+  backup: TipTrackerBackup
+): Promise<BackupRows> {
+  const counts = await transaction.getFirstAsync<{ job_count: number; shift_count: number }>(
+    `SELECT (SELECT COUNT(*) FROM jobs) AS job_count,
+            (SELECT COUNT(*) FROM shifts) AS shift_count;`
+  );
+  if (!counts || counts.job_count !== 0 || counts.shift_count !== 0) {
+    throw new Error('Restore requires an empty Tip Tracker database.');
+  }
+
+  // Jobs are parents of shifts. Ordinary INSERT is deliberate: replacing or
+  // merging a matching id could destroy data, which empty-only restore forbids.
+  for (const job of backup.jobs) {
+    await transaction.runAsync(
+      `INSERT INTO jobs
+         (id, name, hourly_rate_cents, archived_at, created_at, updated_at,
+          overtime_enabled, workweek_start_weekday, workweek_start_time)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+      job.id,
+      job.name,
+      job.hourly_rate_cents,
+      job.archived_at,
+      job.created_at,
+      job.updated_at,
+      job.overtime_enabled,
+      job.workweek_start_weekday,
+      job.workweek_start_time
+    );
+  }
+
+  for (const shift of backup.shifts) {
+    await transaction.runAsync(
+      `INSERT INTO shifts
+         (id, job_id, shift_date, duration_seconds, tips_cents,
+          hourly_rate_cents, note, deleted_at, created_at, updated_at,
+          start_time, end_time)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+      shift.id,
+      shift.job_id,
+      shift.shift_date,
+      shift.duration_seconds,
+      shift.tips_cents,
+      shift.hourly_rate_cents,
+      shift.note,
+      shift.deleted_at,
+      shift.created_at,
+      shift.updated_at,
+      shift.start_time,
+      shift.end_time
+    );
+  }
+
+  const foreignKeyProblems = await transaction.getAllAsync<Record<string, unknown>>(
+    'PRAGMA foreign_key_check;'
+  );
+  if (foreignKeyProblems.length !== 0) {
+    throw new Error('The restored rows failed the foreign-key check.');
+  }
+
+  const actual = await readBackupRows(transaction);
+  assertBackupRowsEqual(backup, actual);
+  return actual;
 }
 
 async function readBackupRows(database: RowReader): Promise<BackupRows> {
