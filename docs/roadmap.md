@@ -9,14 +9,15 @@ Last updated: 2026-08-05
 
 ## NEXT
 
-**The provider-free backend, sync foundations, and D25 mobile account boundary
-are implemented and locally verified. Accounts remain optional. The app now
-supports Supabase email/password signup and sign-in, encrypted native session
-persistence, `/v1/me` identity verification, deliberate one-account SQLite
-binding, and local-only sign-out. Express is still the only domain API and
-SQLite is still the offline source. No external provider resource, deployed
-API, SMTP configuration, mobile sync transport, recovery flow, deletion UI, or
-native account evidence exists yet.**
+**The provider-free backend, sync foundations, the D25 mobile account boundary,
+and the D26 foreground sync transport are implemented and locally verified.
+Accounts remain optional. The app now supports Supabase email/password signup
+and sign-in, encrypted native session persistence, `/v1/me` identity
+verification, deliberate one-account SQLite binding, local-only sign-out, and a
+serialized push/pull sync run with bounded Manage data status. Express is still
+the only domain API and SQLite is still the offline source. No external provider
+resource, deployed API, SMTP configuration, recovery flow, deletion UI, conflict
+editor, or native account evidence exists yet.**
 
 `bc8e170` recorded D22. Email/password verification and reset belong to the
 managed auth provider, with custom SMTP required for reliable delivery. Cloud
@@ -95,20 +96,53 @@ SQLite bootstrap reaches `src/data/db.ts` through `expo-file-system`, which is
 unsupported on web and throws `File.validatePath`. The production web bundle
 compiles, but that is not a working-web-runtime claim.
 
-**Do this next:** implement D26's provider-free mobile sync transport as a
-locally verified unit. Add the atomic D24 SQLite snapshot, serialized exact-body
-push and strict paged pull, bounded authenticated retries, durable blocked
-facts, foreground/manual triggers, and minimal Manage data status. This changes
-no provider resource and makes no native-network claim.
+`bae28cb` recorded D26. `972f034` added the atomic D24 mutation snapshot and
+durable blocked-mutation storage. `ff40764` added the injected authenticated
+transport: exact-body serialized push, strict paged pull, bounded transient
+retry, one refresh-after-401, and a process mutex. `00bdc91` triggered the run
+after verified connection, explicit **Sync now**, and signed-in foreground
+entry, and surfaced bounded status in Manage data. Nine transport tests plus
+thirteen local sync tests, the full repository hook, and the server suite pass.
 
-After the local transport passes, complete one staging infrastructure and
-native acceptance unit. Choose the Supabase and API plans, regions,
-availability/budget limits, retention policies, and SMTP provider; create
-least-privilege resources; apply the server migrations; supply only the three
-public Expo variables; then verify auth plus push/pull, interruption, offline
-relaunch, and cross-device convergence on iOS and Android. Password recovery,
-account deletion, and conflict resolution remain later lifecycle units with
-their own evidence.
+`4ecaeb1` then fixed the first real cross-boundary defect, which no test on
+either side could see. `pg` parses Postgres `date` columns into local-midnight
+`Date` objects, so `shift_date` and `effective_from` were serialized as full
+JavaScript date strings rather than `YYYY-MM-DD`. The client decoder rejects
+anything else, so every pulled shift and withholding setting would have failed
+as malformed. The server now reads those columns as raw wire text, and the pull
+assertions cover them.
+
+That defect is the important lesson of this unit: the wire contract is written
+twice, in `server/src/syncContract.ts` and `src/sync/wire.ts`, and both sides
+were tested only against their own idea of it. The transport tests use a
+hand-written fake `fetch`, so the real serializer never met the real decoder.
+Both suites passed while the feature was broken end to end.
+
+**Do this next:** close that gap before staging, because staging will otherwise
+be the first place these two halves meet. Add one round-trip check that feeds a
+real server pull response into the real client decoder for all three entity
+types, using the existing temporary-PostgreSQL helpers rather than new
+scaffolding.
+
+Three smaller review findings from D26 are open and deliberately not yet fixed,
+since two are product judgment rather than defects:
+
+1. `AuthProvider` catches every unexpected sync error as `blocked`, which tells
+   the user a record needs review even when the cause was a failed database
+   open. An unknown failure and a real conflict are not the same state.
+2. Supabase emits a new session object on `TOKEN_REFRESHED`, which re-runs the
+   sync effect. That is a fourth trigger D26 does not list, roughly hourly while
+   the app is foregrounded.
+3. `applySyncResult` is defined after the component's `return`, so the file no
+   longer reads top to bottom.
+
+After those, complete one staging infrastructure and native acceptance unit.
+Choose the Supabase and API plans, regions, availability/budget limits,
+retention policies, and SMTP provider; create least-privilege resources; apply
+the server migrations; supply only the three public Expo variables; then verify
+auth plus push/pull, interruption, offline relaunch, and cross-device
+convergence on iOS and Android. Password recovery, account deletion, and
+conflict resolution remain later lifecycle units with their own evidence.
 
 The first complete local federal-withholding slice remains implemented: bounded
 2026 math, effective-dated per-job settings, lossless backup, and an opt-in
