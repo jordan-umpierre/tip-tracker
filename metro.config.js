@@ -2,9 +2,9 @@ const { getDefaultConfig } = require('expo/metro-config');
 
 const config = getDefaultConfig(__dirname);
 
-// Without this, Metro tries to parse schema and migration SQL as JavaScript
-// when db.ts imports them. Adding "sql" to assetExts treats each file as a
-// bundled asset instead, the same way it already treats .png or .ttf files.
-config.resolver.assetExts.push('sql');
+// SQL files are bundled schema assets, and expo-sqlite's alpha web build loads
+// its database engine from WebAssembly. Metro must copy both instead of trying
+// to parse either one as JavaScript.
+config.resolver.assetExts.push('sql', 'wasm');
 
 module.exports = config;
