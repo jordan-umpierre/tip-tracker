@@ -31,3 +31,25 @@ end populated the correct fields, and each dialog stayed closed after OK.
 Logcat showed no datetime deprecation warning or runtime error. TypeScript, the
 date and picker-cancel assertions, the full tracked hook, and the Fallow
 changed-file audit passed.
+
+## Full API 36 emulator regression (2026-08-04)
+
+The final pass exercised the current `main` checkout end to end. A temporary
+shift used 9pm and 5am with hours left blank; the list showed the derived 8.0
+hours and $72.00 at the stored $9.00 rate. A developer reload returned to the
+app with that shift still in SQLite. Editing its end time to 6am recalculated
+the row to 9.0 hours and $81.00. A left swipe exposed Edit and Delete, the
+native confirmation opened, and deleting the temporary shift returned the
+visible 2026 count and gross to 134 and $13,625.75.
+
+The collapsed Log layout, calendar picker, next-month button, right-swipe month
+paging, and chart scrubbing all behaved on the emulator. The interactions that
+request haptics did not crash, which is the only claim an emulator can support;
+tactile feedback itself was not verified. TalkBack was not enabled and remains
+a separate accessibility check.
+
+Expo Go logged `ReactNoCrashSoftException` lifecycle noise while developer
+reloads destroyed and recreated React instances. The app reopened each time.
+After clearing logcat, a steady-state pass through chart scrubbing, tab changes,
+and row swipes produced no app error, datetime deprecation warning, SQLite
+exception, or host error.

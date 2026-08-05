@@ -9,8 +9,9 @@ Last updated: 2026-08-04
 
 ## NEXT
 
-**Overtime is in progress. Schema version 3, its data-layer wiring, and native
-shift-time entry are committed. Next is the pure overtime calculation.**
+**Overtime is in progress. Schema version 3, its data-layer wiring, native
+shift-time entry, and the full Android regression are complete. Next is the
+pure overtime calculation.**
 
 Two product decisions were made on 2026-08-04 and are already recorded, so they
 do not need re-deciding: overtime adjusts the gross shown on screen rather than
@@ -47,13 +48,16 @@ received `1-to-2.sql` and a version-3 marker.
    refuses (D13).
 7. Add times to the CSV export.
 
-The Android regression is now in progress. `f57e776` enlarged the weekday
-chart's shift counts after the API 36 emulator showed that its 10sp captions
-could auto-shrink to 7.5sp. The imported 845-shift breakdown now renders all
-seven counts clearly without clipping. `00bac2c` then moved Android's shift-time
-picker to the library's imperative dialog API; cancel and both time fields
-passed without the deprecated callback warning or a reopened dialog. The rest
-of the Android pass remains.
+The Android regression is complete. `f57e776` enlarged the weekday chart's
+shift counts after the API 36 emulator showed that its 10sp captions could
+auto-shrink to 7.5sp. `00bac2c` then moved Android's shift-time picker to the
+library's imperative dialog API. The final emulator pass covered create/edit,
+picker cancellation, derived overnight hours, the Log layout, calendar button
+and swipe paging, chart scrubbing, row swipe/reveal/delete, and SQLite survival
+across a developer reload. A clean steady-state log window had no app errors,
+datetime deprecation warning, or SQLite exception. Haptics are only a no-crash
+result because an emulator cannot prove tactile feedback; TalkBack remains a
+separate accessibility check.
 
 **After overtime:**
 
@@ -67,12 +71,8 @@ of the Android pass remains.
    importer this format or moving both sides onto one contract, and place
    optional cloud backup/sync before public tax projections either way.
 
-**Android is still the stale platform, with its regression now underway.** The
-weekday breakdown and native shift-time picker have passed, but the calendar
-picker, haptics, animated month paging, both gesture fixes and the Log layout
-still need the Android pass. The gesture work is exactly the kind that behaves
-differently there. Finish this pass before the overtime calculation. Neither
-platform has a VoiceOver or TalkBack claim.
+Android is no longer the stale platform. Its full regression passed on the API
+36 emulator. Neither platform has a VoiceOver or TalkBack claim.
 
 ---
 
@@ -654,3 +654,11 @@ Trends scope is complete.
     callback. On the API 36 emulator, cancel preserved the blank field, start
     and end selections populated independently, the dialog stayed closed after
     confirmation, and no deprecated-callback or runtime error appeared.
+67. Completed the Android regression on the API 36 ARM64 emulator. A temporary
+    overnight shift derived eight hours from 9pm to 5am, survived a developer
+    reload, edited to nine hours at 6am, and then soft-deleted through the
+    concealed row swipe, returning visible totals to their baseline. The Log
+    layout, calendar button and swipe month paging, chart scrubbing, and gesture
+    ownership all passed. A clean post-reload log window had no app errors,
+    datetime deprecation warning, or SQLite exception. Haptics remain a
+    no-crash result and TalkBack remains untested.
