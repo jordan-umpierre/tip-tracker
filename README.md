@@ -179,6 +179,7 @@ app/                  Expo Router entry, native tab layout, and thin routes
 src/
   screens/            route-level SQLite reads and screen composition
   components/         focused pieces of screen UI
+  auth/               optional Supabase account/session boundary
   data/               SQLite: db.ts, schema.sql, and one file per table
   lib/                pure calculation and formatting -- no I/O, so testable
                       on Node with no device and no database
@@ -202,6 +203,9 @@ All run by the pre-commit hook:
 ./scripts/test-schema.sh               # every constraint in schema.sql rejects bad data
 ./scripts/test-migration.sh            # upgrades, rollback, preservation, and schema parity
 ./scripts/test-backup-restore.sh        # backup row parity, foreign keys, integrity, rollback
+for t in src/auth/*.test.ts; do         # public config and encrypted session adapter
+  node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON "$t"
+done
 for t in src/lib/*.test.ts; do          # dates, editable-value round trips, money arithmetic
   node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON "$t"
 done
