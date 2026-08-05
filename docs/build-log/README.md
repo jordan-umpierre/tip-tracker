@@ -102,3 +102,6 @@ name — the number adds sequence without costing you the description.
     settings in schema version 4 and backward-compatible lossless backup (D21).
 22. [22-withholding-ui.md](22-withholding-ui.md) — the opt-in local settings
     and one-paycheck federal-withholding surface.
+23. [23-authenticated-backend-foundation.md](23-authenticated-backend-foundation.md)
+    — D22, the isolated Express process, account-owned Postgres schema, and
+    verified cloud account lifecycle.

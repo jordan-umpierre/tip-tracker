@@ -9,10 +9,53 @@ Last updated: 2026-08-05
 
 ## NEXT
 
-**The first complete local federal-withholding slice is implemented: bounded
+**The authenticated backend foundation is implemented and locally verified:
+D22, an isolated Node/Express process, private account-owned PostgreSQL schema,
+Supabase JWT/JWKS verification, and the cloud account lifecycle. SQLite remains
+the offline source. No mobile auth, sync route, deployment configuration, or
+external provider resource exists yet.**
+
+`bc8e170` recorded D22. Email/password verification and reset belong to the
+managed auth provider, with custom SMTP required for reliable delivery. Cloud
+account deletion cascades cloud rows but preserves local SQLite unless the user
+separately erases the device. Conflicts use server versions and a server change
+sequence; tombstones travel through sync; equal-looking shifts are never merged
+without a shared source id. Provider plan, region, retention, budget, SMTP, and
+deployment choices remain explicit gates.
+
+`314537e` added the isolated TypeScript/Express package and wired its narrow
+verification into the repository hook. `/health`, strict configuration, a
+32-KB JSON boundary, bounded public errors, and graceful process shutdown pass
+three built-in Node assertions without adding a test framework or HTTP client.
+
+`ee9891a` added the private `app` schema for accounts and account-owned jobs,
+shifts, and federal withholding settings. Composite foreign keys prevent
+cross-account children; server versions, one change sequence, timestamps, and
+tombstones preserve the future sync facts. A real temporary PostgreSQL database
+proves migration rollback, constraints, same-looking shift preservation,
+version/sequence updates, tenant ownership, and account cascade deletion.
+
+`8451e78` added remote-JWKS token verification plus `GET /v1/me` and
+`DELETE /v1/me`. A locally generated RSA key and served JWKS prove the valid
+path and reject a missing token, bad signature, issuer, audience, and expiry.
+The real-Postgres test proves request-body identity cannot cross accounts and
+account deletion cascades jobs, shifts, and settings. All five server tests,
+existing repository checks, and Fallow dead-code/duplication checks pass.
+`5d8cf93` and `dcd724d` then simplified the configuration and parser-error
+branches found by the final static health pass; Fallow now reports no server
+health finding without a suppression.
+
+**Do this next:** complete the already-open native withholding and isolated
+restore acceptance passes. Before any hosted or mobile-auth work, choose the
+Supabase and Render plans, database/API regions, availability and budget,
+backup/tombstone/log/deletion retention, and SMTP provider. Then create the
+external resources and least-privilege roles before implementing the mobile
+email/password flow and explicit push/pull sync contracts.
+
+The first complete local federal-withholding slice remains implemented: bounded
 2026 math, effective-dated per-job settings, lossless backup, and an opt-in
 one-paycheck UI. No paycheck, taxable-wage input, or calculated result is
-stored. Native interaction evidence is the next gate.**
+stored. Native interaction evidence remains open.
 
 Two product decisions were made on 2026-08-04 and are already recorded, so they
 do not need re-deciding: overtime adjusts the gross shown on screen rather than
@@ -151,8 +194,8 @@ complexity estimates: the form, save handler, and calculate handler. Those are
 not suppressed because their alerts, keyboard/picker behavior, SQLite writes,
 and result transitions have not run on a device.
 
-**Do this next:** run the isolated native acceptance pass before adding more
-features. On iOS and Android, verify the schema-3-to-4 migration preserves the
+**Native acceptance detail:** run the isolated native acceptance pass before
+adding more features. On iOS and Android, verify the schema-3-to-4 migration preserves the
 real database; open/close the opt-in tool; use both date fields and keyboard;
 save ordinary, Step-2, Step-3/4, and exempt settings; prove a duplicate date
 does not overwrite; calculate before the first setting and on both sides of a
@@ -163,10 +206,10 @@ targets. Export backup v2, restore it only into an isolated empty install, and
 compare every ordered column from all three tables plus `user_version`,
 `integrity_check`, and `foreign_key_check`.
 
-After that native gate, the next design phase is optional accounts and
-authenticated Node/Express/PostgreSQL sync. It must settle recovery, retention,
-account deletion, server-version conflict handling, and local-data ownership
-before backend code or public tax projections begin.
+The backend design and local foundation are now complete under D22. After the
+native gate and external provider choices, the next implementation phase is the
+optional mobile email/password flow followed by explicit push/pull sync,
+idempotency, retry, bootstrap, and conflict UI contracts.
 
 The isolated native restore acceptance pass remains open: export the real
 845-row database on a fresh install, restore it, then compare
@@ -176,10 +219,10 @@ Also verify picker cancellation, invalid-file messaging, and the nonempty-
 database refusal on iOS and Android.
 
 Optional accounts and authenticated cloud sync do not block pure local tax
-math. They still must precede any public tax projection or launch. The remaining
-decisions are the auth provider/recovery flow, hosting and retention, account-
-deletion treatment of local data, and an explicit server-version conflict
-policy; client clock-based last-write-wins is not sufficient for income history.
+math. They still must precede any public tax projection or launch. D22 settles
+the provider, recovery ownership, cloud/local deletion boundary, and conflict
+authority. Hosting plans, regions, retention, SMTP, deployment, and the sync
+wire contract remain open; client clocks are never conflict authority.
 
 Android is no longer the stale platform. Its full regression passed on the API
 36 emulator. Neither platform has a VoiceOver or TalkBack claim.
@@ -208,8 +251,8 @@ reason.
 - **Framework/tooling:** Expo (D2)
 - **Navigation:** Expo Router with native peer tabs (D7, D11)
 - **Storage:** SQLite on device via `expo-sqlite` (D1)
-- **Backend:** none for MVP. Node + Express + Postgres later, sign-in
-  optional (D1)
+- **Backend:** optional-account Node/Express/Postgres foundation, not deployed;
+  no mobile auth or sync routes yet (D1, D22)
 
 ---
 
@@ -226,12 +269,12 @@ to verify, because rows show hours, tips, and rate but not their own gross.
 D5's correctness argument doesn't depend on this, but the feature would make
 the total checkable at a glance. Deliberately not built as part of Layer 0.
 
-**Exactly when does cloud backup and sync ship?** D1 settles the architecture:
-optional accounts, an API, and Postgres while every device keeps SQLite.
-The remaining product decision is placement. Current direction is after
-Trends and before strangers are asked to trust the app with years of income
-history; decide whether that becomes Layer 1.5 or part of Layer 2 after the
-Trends scope is complete.
+**Exactly when does cloud backup and sync ship?** D1 and D22 settle the
+architecture, and the local backend foundation now exists. Cloud backup has
+not shipped: there is no hosted service, mobile login, or sync endpoint. Those
+follow the native acceptance gate and the provider plan, region, retention,
+SMTP, and budget choices recorded above, before public tax projections or
+launch.
 
 ---
 
