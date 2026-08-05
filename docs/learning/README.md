@@ -37,12 +37,11 @@ just having working code for.
   the expensive part, and how that shapes MVP decisions
 - App store submission process for both platforms
 - W4 withholding math, and self-employment tax for 1099 (Layers 2 and 3)
-- `PRAGMA user_version` as a migration guard — right now it's a blunt 0/1
-  switch in `src/data/db.ts`, but the real pattern (every local-first sync
-  library uses it) is a ladder: `if (currentVersion < 1) { ... }`,
-  `if (currentVersion < 2) { ... }`, so a database can upgrade incrementally no
-  matter which version it started at. Matters for real the first time a column
-  gets added to `src/data/schema.sql` after the app has shipped
+- `PRAGMA user_version` as a migration guard — it began as a blunt 0/1 switch,
+  then schema version 3 required the real ladder now implemented in
+  `src/data/db.ts`: apply every pending migration in order and stamp each step
+  inside one transaction, so a database upgrades correctly from any supported
+  version
 - `expo-sqlite`'s read/write API split — `runAsync`/`execAsync` for writes,
   `getAllAsync`/`getFirstAsync` for reads. Mixed these up writing the first
   draft of `listActiveJobs`, which stayed a copy-pasted `INSERT` under a new

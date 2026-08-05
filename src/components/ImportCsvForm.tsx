@@ -178,9 +178,9 @@ function ImportPanel({
     <View style={styles.content}>
       <Text style={styles.title}>Import CSV</Text>
       <Text style={styles.explanation}>
-        Supports Date, Wage, Cash Tips, Credit Tips, Hours, Note, Daily Income,
+        Requires Date, Wage, Cash Tips, Credit Tips, Hours, Note, Daily Income,
         Start Time, and End Time. Cash and credit tips are combined. Daily Income
-        and “no data” times are checked but not stored.
+        is checked but not stored. Start and end times must still say “no data.”
       </Text>
       <JobChoices
         jobs={jobs}

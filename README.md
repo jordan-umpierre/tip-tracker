@@ -40,10 +40,19 @@ a left swipe on a row reveals Edit and Delete, with tap, long-press and
 screen-reader alternatives. Those flows, the opaque tab bar, and remove-job
 confirmation passed in Android; preservation is schema-tested.
 
-**Everything above is verified on a physical iPhone as of 2026-08-04**, which
-also produced the CSV export, a calendar date picker for the shift date field,
-and haptic feedback. Android's last cold run predates that work — see the
-roadmap's NEXT section, which puts an Android pass before the next feature.
+**The shared Log and Trends flows are verified on a physical iPhone and an
+Android API 36 emulator as of 2026-08-04.** The iPhone pass produced the CSV
+export, calendar picker, and haptic-feedback evidence. The later Android pass
+covered the picker, calendar paging, chart and row gestures, overnight shift
+times, editing, deletion, and SQLite survival across a developer reload.
+VoiceOver and TalkBack remain separate unverified accessibility gates, and an
+emulator cannot prove that haptics were felt.
+
+**Overtime is in progress.** Schema version 3 stores optional shift times and
+per-job overtime/workweek settings, the data layer exposes them, native shift
+time entry works on iOS and Android, and the pure configured-workweek
+calculator is asserted. The per-job settings UI and adjusted gross display are
+the next app steps; CSV import/export do not preserve shift times yet.
 
 Done:
 
@@ -80,13 +89,16 @@ Done:
   ([D17](docs/decisions.md)): days that already have a shift are dotted,
   months page by animated swipe or arrows, and the header opens a month and
   year chooser. Typing a date still works and is still the primary path
+- Overtime foundations: schema version 3, optional native shift times,
+  per-job workweek fields, chained migrations, and the pure overtime
+  calculator ([`overtime.ts`](src/lib/overtime.ts), [D14 and D18](docs/decisions.md))
 
 Next:
 
-- Confirm the profile-driven overtime and federal-only W2 tax scope in D14,
-  then implement it as a separate money phase. A physical-iPhone regression
-  still covers CSV import, graph and delete gestures, and VoiceOver. See
-  [docs/roadmap.md](docs/roadmap.md).
+- Add the per-job overtime settings UI inside Manage data, then show an
+  explicitly estimated overtime-adjusted gross without changing recorded CSV
+  exports. See [docs/roadmap.md](docs/roadmap.md) for the exact order and
+  remaining device/accessibility gates.
 
 ## Stack
 
@@ -150,8 +162,9 @@ All run by the pre-commit hook:
 ```sh
 ./scripts/check-docs.sh                # duplicate headings, dead references, broken links
 ./scripts/test-schema.sh               # every constraint in schema.sql rejects bad data
+./scripts/test-migration.sh            # upgrades, rollback, preservation, and schema parity
 for t in src/lib/*.test.ts; do          # dates, editable-value round trips, money arithmetic
-  node "$t"
+  node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON "$t"
 done
 ```
 
