@@ -1518,3 +1518,60 @@ UI/UX bar from the product definition is achievable here.
 >
 > **Revisit when:** measured seed latency justifies batching, a real record
 > exceeds the ceiling, or sequences approach JavaScript's safe-integer limit.
+
+### D25 — Keep mobile accounts optional and bind local data deliberately (2026-08-05)
+
+> **Decision:** Add email/password accounts as an optional layer inside Manage
+> data. Trends, Log, SQLite writes, backup, and export remain usable without
+> configuration, a provider session, or a network. Supabase Auth owns signup,
+> email verification, password sessions, and later recovery. The mobile app
+> sends its Supabase access token only to the Express API; Express remains the
+> sole domain-data API and the verified token subject remains account authority.
+>
+> The Expo bundle may contain only `EXPO_PUBLIC_SUPABASE_URL`, the Supabase
+> publishable key, and `EXPO_PUBLIC_API_URL`. Those are public connection
+> coordinates, not secrets. Supabase service-role keys, database and migration
+> URLs, SMTP credentials, and signing secrets remain server/provider inputs and
+> must never use Expo's public prefix or enter SecureStore.
+>
+> A restored or new session calls authenticated `GET /v1/me` before SQLite is
+> bound. The returned account id must exactly equal `session.user.id`. An empty,
+> unbound database may bind immediately. A nonempty, unbound database requires
+> explicit confirmation because that choice assigns its existing financial
+> history to one cloud account. A database already bound to the same subject is
+> allowed; a different subject is a hard conflict that signs the new session
+> out locally and never rewrites the binding, data, cursor, metadata, or outbox.
+>
+> Signing out removes only this installation's persisted auth session. Local
+> SQLite, its account binding, and pending outbox remain. The UI states that
+> before confirmation. Missing public config, provider failure, an unavailable
+> API, or an unreadable secure session disables or degrades only account status;
+> it never blocks the local app or deletes financial history.
+>
+> Supabase's current React Native guidance requires persisted sessions,
+> automatic token refresh, `processLock`, and foreground/background refresh
+> control. Auth event callbacks update state synchronously; backend and SQLite
+> work runs afterward so an awaited auth call cannot deadlock the client. The
+> native storage adapter uses Expo SecureStore and bounded chunks because the
+> full Supabase session string is not guaranteed to fit one secure value. Web
+> uses its platform local storage so the existing web build remains supported.
+> See the official [Supabase React Native auth guide](https://supabase.com/docs/guides/auth/quickstarts/react-native),
+> [Supabase session documentation](https://supabase.com/docs/guides/auth/sessions),
+> and [Expo SDK 57 SecureStore documentation](https://docs.expo.dev/versions/v57.0.0/sdk/securestore/).
+>
+> **Not included:** account deletion UI, password recovery links, sync traffic,
+> retry scheduling, conflict resolution, provider resources, SMTP, deployment,
+> or claims that a session survived on real hardware. Those are separate units
+> with their own destructive-action, deep-link, network, and native evidence.
+>
+> **External and native gates:** choose and create the Supabase/API resources;
+> configure email verification and custom SMTP; supply the three public build
+> variables; verify signup, confirmation, sign-in, relaunch persistence,
+> foreground refresh, offline local use, sign-out preservation, and
+> different-account rejection on both native platforms. VoiceOver and TalkBack
+> remain separate accessibility evidence.
+>
+> **Revisit when:** recovery or account deletion is implemented, web accounts
+> require a different persistence policy, a measured session exceeds the
+> bounded chunk contract, or product research supports switching one device
+> database between accounts.

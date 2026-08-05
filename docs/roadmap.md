@@ -76,9 +76,15 @@ unique conflicts, replay misuse, invalid input, payload ceilings, transaction
 rollback, pagination, cursor order, and account spoofing. Eleven server tests,
 the full repository hook, and the server Fallow health/duplication checks pass.
 
-**Do this next:** complete the already-open native withholding and isolated
-restore acceptance passes. Mobile authentication and the HTTP client remain
-unimplemented. Before that hosted/mobile work, choose the
+D25 now fixes the next mobile boundary: accounts remain optional, Express stays
+the only domain-data API, public Expo configuration contains no server secrets,
+and `/v1/me` verification precedes deliberate one-account SQLite binding.
+Sign-out preserves local data and sync state. Recovery, deletion, sync traffic,
+provider resources, deployment, and native evidence remain later units.
+
+**Do this next:** implement D25's mobile email/password account slice without
+adding sync traffic. Complete the already-open native withholding and isolated
+restore acceptance passes separately. Before hosted/mobile verification, choose the
 Supabase and Render plans, database/API regions, availability and budget,
 backup/tombstone/log/deletion retention, and SMTP provider. Then create the
 external resources and least-privilege roles before implementing email/password
