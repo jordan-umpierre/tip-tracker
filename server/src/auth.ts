@@ -21,7 +21,7 @@ export function createAccessTokenVerifier(options: {
       issuer: options.issuer,
     });
 
-    if (!payload.sub) throw new Error("Access token is missing sub");
+    if (!isCanonicalUuid(payload.sub)) throw new Error("Access token sub is not a canonical UUID");
     const passwordAuthenticatedAt = latestPasswordAuthentication(payload.amr);
     return { passwordAuthenticatedAt, subject: payload.sub };
   };
@@ -29,23 +29,24 @@ export function createAccessTokenVerifier(options: {
 
 function latestPasswordAuthentication(value: unknown) {
   if (!Array.isArray(value)) return null;
-  const timestamps: number[] = [];
-  for (const entry of value) {
-    const timestamp = passwordTimestamp(entry);
-    if (timestamp !== null) timestamps.push(timestamp);
-  }
-  return timestamps.length === 0 ? null : Math.max(...timestamps);
+  const timestamp = Math.max(...value.map(passwordTimestamp));
+  return Number.isFinite(timestamp) ? timestamp : null;
 }
 
 function passwordTimestamp(value: unknown) {
-  if (readProperty(value, "method") !== "password") return null;
+  if (readProperty(value, "method") !== "password") return Number.NEGATIVE_INFINITY;
   const timestamp = readProperty(value, "timestamp");
-  return typeof timestamp === "number" ? timestamp : null;
+  return typeof timestamp === "number" ? timestamp : Number.NEGATIVE_INFINITY;
 }
 
 function readProperty(value: unknown, key: string) {
   if (typeof value !== "object" || value === null) return undefined;
   return key in value ? value[key as keyof typeof value] : undefined;
+}
+
+function isCanonicalUuid(value: unknown): value is string {
+  return typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value);
 }
 
 export function wasRecentlyPasswordAuthenticated(

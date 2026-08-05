@@ -108,6 +108,8 @@ test("verified subjects alone control account reads and deletion", async () => {
           await signToken(signingKeys.privateKey, accountA, { issuer: "https://wrong.example/auth/v1" }),
           await signToken(signingKeys.privateKey, accountA, { audience: "wrong" }),
           await signToken(signingKeys.privateKey, accountA, { expiresAt: Math.floor(Date.now() / 1000) - 1 }),
+          await signToken(signingKeys.privateKey, "not-a-uuid"),
+          await signToken(signingKeys.privateKey, "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA"),
         ];
 
         for (const token of invalidTokens) {
