@@ -4,6 +4,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Job } from '../data/jobs';
 import { importShifts } from '../data/shifts';
 import type { Shift } from '../data/shifts';
+import { timeInputValue } from '../lib/dates';
 import { formatCents, formatHours } from '../lib/format';
 import {
   inspectShiftImportConflicts,
@@ -180,7 +181,8 @@ function ImportPanel({
       <Text style={styles.explanation}>
         Requires Date, Wage, Cash Tips, Credit Tips, Hours, Note, Daily Income,
         Start Time, and End Time. Cash and credit tips are combined. Daily Income
-        is checked but not stored. Start and end times must still say “no data.”
+        is checked but not stored. Start and end must both be blank/“no data” or
+        use h:mm AM/PM.
       </Text>
       <JobChoices
         jobs={jobs}
@@ -360,6 +362,7 @@ function PreviewRows({ rows }: { rows: ShiftImportParseResult['rows'] }) {
       {rows.slice(0, 5).map((row) => (
         <Text selectable key={row.sourceRow} style={styles.rowPreview}>
           {row.shiftDate} · {formatHours(row.durationSeconds)} · {formatCents(row.tipsCents)} tips · {formatCents(row.hourlyRateCents)}/hr
+          {' · '}{row.startTime && row.endTime ? `${timeInputValue(row.startTime)}–${timeInputValue(row.endTime)}` : 'no times'}
         </Text>
       ))}
       {rows.length > 5 ? <Text style={styles.hint}>And {rows.length - 5} more rows.</Text> : null}

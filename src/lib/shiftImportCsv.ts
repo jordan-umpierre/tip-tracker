@@ -19,6 +19,8 @@ type ExpectedHeader = (typeof EXPECTED_HEADERS)[number];
 export type ShiftImportRow = {
   sourceRow: number;
   shiftDate: string;
+  startTime: string | null;
+  endTime: string | null;
   durationSeconds: number;
   tipsCents: number;
   hourlyRateCents: number;
@@ -56,6 +58,8 @@ export type ShiftImportConflicts = {
 type ExistingShift = {
   job_id: string;
   shift_date: string;
+  start_time: string | null;
+  end_time: string | null;
   duration_seconds: number;
   tips_cents: number;
   hourly_rate_cents: number;
@@ -173,6 +177,8 @@ function parseShiftRecord(
   const creditTipsCents = parseCents(field('Credit Tips'));
   const durationSeconds = parseDurationSeconds(field('Hours'));
   const dailyIncomeCents = parseCents(field('Daily Income'));
+  const startTime = parseSourceTime(field('Start Time'));
+  const endTime = parseSourceTime(field('End Time'));
 
   if (!shiftDate) errors.push({ sourceRow, message: 'Date must be a real MM/DD/YYYY date.' });
   if (hourlyRateCents === null) errors.push({ sourceRow, message: 'Wage must be nonnegative with at most two decimals.' });
@@ -181,14 +187,21 @@ function parseShiftRecord(
   if (durationSeconds === null) errors.push({ sourceRow, message: 'Hours must be greater than 0, no more than 24, and use at most two decimals.' });
   if (dailyIncomeCents === null) errors.push({ sourceRow, message: 'Daily Income must be nonnegative with at most two decimals.' });
 
-  for (const header of ['Start Time', 'End Time'] as const) {
-    const value = field(header);
-    if (value !== '' && value.toLowerCase() !== 'no data') {
-      errors.push({
-        sourceRow,
-        message: `${header} contains a real time, which this importer cannot preserve yet.`,
-      });
-    }
+  if (startTime === undefined) {
+    errors.push({ sourceRow, message: 'Start Time must be blank, “no data,” or h:mm AM/PM.' });
+  }
+  if (endTime === undefined) {
+    errors.push({ sourceRow, message: 'End Time must be blank, “no data,” or h:mm AM/PM.' });
+  }
+  if (
+    startTime !== undefined &&
+    endTime !== undefined &&
+    (startTime === null) !== (endTime === null)
+  ) {
+    errors.push({
+      sourceRow,
+      message: 'Start Time and End Time must both contain a time or both be blank/“no data.”',
+    });
   }
 
   if (
@@ -198,7 +211,9 @@ function parseShiftRecord(
     cashTipsCents === null ||
     creditTipsCents === null ||
     durationSeconds === null ||
-    dailyIncomeCents === null
+    dailyIncomeCents === null ||
+    startTime === undefined ||
+    endTime === undefined
   ) {
     return { errors };
   }
@@ -226,6 +241,8 @@ function parseShiftRecord(
     row: {
       sourceRow,
       shiftDate,
+      startTime,
+      endTime,
       durationSeconds,
       tipsCents,
       hourlyRateCents,
@@ -276,6 +293,20 @@ function parseSourceDate(value: string): string | null {
   return parseCalendarDate(isoDate) ? isoDate : null;
 }
 
+// The explicit blank, format, AM/PM, and 12-hour conversion branches are
+// pinned by shiftImportCsv.test.ts.
+// fallow-ignore-next-line complexity -- Source-time branches have direct parser coverage.
+function parseSourceTime(value: string): string | null | undefined {
+  if (value === '' || value.toLowerCase() === 'no data') return null;
+
+  const match = /^(0?[1-9]|1[0-2]):([0-5]\d) (am|pm)$/i.exec(value);
+  if (!match) return undefined;
+
+  const sourceHour = Number(match[1]);
+  const hour = sourceHour % 12 + (match[3].toLowerCase() === 'pm' ? 12 : 0);
+  return `${String(hour).padStart(2, '0')}:${match[2]}`;
+}
+
 function summarize(
   rows: ShiftImportRow[],
   sourceRows: number,
@@ -322,6 +353,8 @@ function repeatedValueCount(sortedValues: string[]): number {
 function shiftKey(shift: ExistingShift): string {
   return [
     shift.shift_date,
+    shift.start_time ?? '',
+    shift.end_time ?? '',
     shift.duration_seconds,
     shift.tips_cents,
     shift.hourly_rate_cents,
@@ -332,6 +365,8 @@ function shiftKey(shift: ExistingShift): string {
 function importRowKey(row: ShiftImportRow): string {
   return [
     row.shiftDate,
+    row.startTime ?? '',
+    row.endTime ?? '',
     row.durationSeconds,
     row.tipsCents,
     row.hourlyRateCents,

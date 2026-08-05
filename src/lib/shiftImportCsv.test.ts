@@ -24,6 +24,8 @@ assert.equal(exact.rows.length, 1);
 assert.deepEqual(exact.rows[0], {
   sourceRow: 2,
   shiftDate: '2022-06-29',
+  startTime: null,
+  endTime: null,
   durationSeconds: 26460,
   tipsCents: 16300,
   hourlyRateCents: 900,
@@ -83,7 +85,34 @@ for (const badMoney of ['-1.00', '1.001', 'five']) {
 for (const badHours of ['0', '24.01', '1.001']) {
   assert.match(parseShiftImportCsv(file(row({ 4: badHours }))).errors[0].message, /Hours must/);
 }
-assert.match(parseShiftImportCsv(file(row({ 7: '09:00 AM' }))).errors[0].message, /cannot preserve yet/);
+const midnightToNoon = parseShiftImportCsv(file(row({ 7: '12:00 AM', 8: '12:00 PM' })));
+assert.deepEqual(midnightToNoon.errors, []);
+assert.equal(midnightToNoon.rows[0].startTime, '00:00');
+assert.equal(midnightToNoon.rows[0].endTime, '12:00');
+
+const overnight = parseShiftImportCsv(file(row({ 7: '9:15 PM', 8: '5:05 AM' })));
+assert.equal(overnight.rows[0].startTime, '21:15');
+assert.equal(overnight.rows[0].endTime, '05:05');
+
+const caseAndLeadingZero = parseShiftImportCsv(file(row({ 7: '09:05 pm', 8: '05:10 Am' })));
+assert.equal(caseAndLeadingZero.rows[0].startTime, '21:05');
+assert.equal(caseAndLeadingZero.rows[0].endTime, '05:10');
+
+for (const oneSided of [
+  row({ 7: '9:00 AM' }),
+  row({ 7: '', 8: '5:00 PM' }),
+]) {
+  assert.match(parseShiftImportCsv(file(oneSided)).errors.at(-1)!.message, /must both contain a time/);
+}
+
+for (const malformedTime of ['00:00 AM', '13:00 PM', '9:5 AM', '9:00AM', '9:60 AM', '21:00']) {
+  assert.match(parseShiftImportCsv(file(row({ 7: malformedTime, 8: '5:00 PM' }))).errors[0].message, /Start Time/);
+}
+
+const absentTimes = parseShiftImportCsv(file(row({ 7: '', 8: 'NO DATA' })));
+assert.deepEqual(absentTimes.errors, []);
+assert.equal(absentTimes.rows[0].startTime, null);
+assert.equal(absentTimes.rows[0].endTime, null);
 
 // One bad row blocks an all-or-nothing import, but valid rows remain available
 // for an error summary instead of disappearing from the result.
@@ -91,6 +120,14 @@ const mixed = parseShiftImportCsv(file(row(), row({ 0: 'not-a-date' })));
 assert.equal(mixed.rows.length, 1);
 assert.equal(mixed.errors.length, 1);
 assert.equal(mixed.summary.sourceRows, 2);
+
+// ImportPreview refuses the entire parsed result whenever errors exist, so a
+// valid timed row beside a malformed row never reaches the SQLite transaction.
+const mixedTimes = parseShiftImportCsv(
+  file(row({ 7: '9:00 AM', 8: '5:00 PM' }), row({ 7: '9:00 AM', 8: 'bad' }))
+);
+assert.equal(mixedTimes.rows.length, 1);
+assert.equal(mixedTimes.errors.length, 1);
 
 // Daily Income is a source-side check, not stored truth. The attached file has
 // one one-cent disagreement, so a mismatch warns while keeping the row valid.
@@ -114,6 +151,8 @@ const conflicts = inspectShiftImportConflicts(exact.rows, [
   {
     job_id: 'job-a',
     shift_date: '2022-06-29',
+    start_time: null,
+    end_time: null,
     duration_seconds: 26460,
     tips_cents: 16300,
     hourly_rate_cents: 900,
@@ -122,6 +161,8 @@ const conflicts = inspectShiftImportConflicts(exact.rows, [
   {
     job_id: 'job-b',
     shift_date: '2022-06-29',
+    start_time: null,
+    end_time: null,
     duration_seconds: 26460,
     tips_cents: 16300,
     hourly_rate_cents: 900,
@@ -129,6 +170,34 @@ const conflicts = inspectShiftImportConflicts(exact.rows, [
   },
 ], 'job-a');
 assert.deepEqual(conflicts, { existingDates: ['2022-06-29'], possibleDuplicates: 1 });
+
+const timedConflict = inspectShiftImportConflicts(overnight.rows, [
+  {
+    job_id: 'job-a',
+    shift_date: '2022-06-29',
+    start_time: '21:15',
+    end_time: '05:05',
+    duration_seconds: 26460,
+    tips_cents: 16300,
+    hourly_rate_cents: 900,
+    note: null,
+  },
+], 'job-a');
+assert.equal(timedConflict.possibleDuplicates, 1);
+
+const differentTimeConflict = inspectShiftImportConflicts(overnight.rows, [
+  {
+    job_id: 'job-a',
+    shift_date: '2022-06-29',
+    start_time: '20:15',
+    end_time: '04:05',
+    duration_seconds: 26460,
+    tips_cents: 16300,
+    hourly_rate_cents: 900,
+    note: null,
+  },
+], 'job-a');
+assert.equal(differentTimeConflict.possibleDuplicates, 0);
 
 assert.match(parseShiftImportCsv('').errors[0].message, /empty/);
 assert.match(parseShiftImportCsv('x'.repeat(1_000_001)).errors[0].message, /too large/);

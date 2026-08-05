@@ -145,11 +145,13 @@ export async function importShifts(jobId: string, rows: ShiftImportRow[]): Promi
     for (const row of rows) {
       await transaction.runAsync(
         `INSERT INTO shifts
-           (id, job_id, shift_date, duration_seconds, tips_cents, hourly_rate_cents, note, deleted_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?);`,
+           (id, job_id, shift_date, start_time, end_time, duration_seconds, tips_cents, hourly_rate_cents, note, deleted_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?);`,
         Crypto.randomUUID(),
         jobId,
         row.shiftDate,
+        row.startTime,
+        row.endTime,
         row.durationSeconds,
         row.tipsCents,
         row.hourlyRateCents,
