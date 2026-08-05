@@ -53,8 +53,8 @@ per-job overtime/workweek settings, the data layer exposes them, native shift
 time entry works on iOS and Android, and the pure configured-workweek
 calculator is asserted. Manage data now has the per-job opt-in settings UI; the
 same configured estimate now drives Log and Trends with explicit labeling while
-CSV export keeps recorded gross. CSV import/export do not preserve shift times
-yet.
+CSV export keeps recorded gross. CSV import now preserves paired 12-hour shift
+times; CSV export does not include them yet.
 
 Done:
 
@@ -83,7 +83,8 @@ Done:
   breakdown
 - Exact nine-column CSV import on the Log screen: choose one job, validate and
   preview every row, review overlaps, then append the whole file atomically
-  ([D13](docs/decisions.md))
+  ([D13](docs/decisions.md)); paired `h:mm AM/PM` times normalize to stored
+  `HH:MM`, though the supplied Breadmaker file has no real timed rows
 - CSV export of every logged shift to a folder the user picks, in the app's own
   lossless format rather than the import contract ([D16](docs/decisions.md))
 - A calendar picker for the shift date ([`CalendarPicker.tsx`](src/components/CalendarPicker.tsx),
@@ -98,9 +99,9 @@ Done:
 
 Next:
 
-- Preserve imported Start Time and End Time values, then add both fields to the
-  recorded CSV export. See [docs/roadmap.md](docs/roadmap.md) for the exact order
-  and remaining device/accessibility gates.
+- Add Start Time and End Time to the recorded CSV export. See
+  [docs/roadmap.md](docs/roadmap.md) for the exact order and remaining
+  device/accessibility gates.
 
 ## Stack
 

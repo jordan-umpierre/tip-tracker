@@ -10,8 +10,9 @@ Last updated: 2026-08-04
 ## NEXT
 
 **Overtime is in progress. Its storage, data-layer wiring, native shift-time
-entry, pure calculation, per-job settings UI, adjusted gross display, and the
-earlier full Android regression are complete. Next is CSV time import.**
+entry, pure calculation, per-job settings UI, adjusted gross display, CSV time
+import, and the earlier full Android regression are complete. Next is CSV time
+export.**
 
 Two product decisions were made on 2026-08-04 and are already recorded, so they
 do not need re-deciding: overtime adjusts the gross shown on screen rather than
@@ -47,6 +48,14 @@ the export test pins a 41-hour shift to recorded gross rather than its displayed
 overtime estimate. Static checks and all three platform exports pass; the new
 labels and totals still need native runtime verification.
 
+`4173c44` now accepts paired Breadmaker-style `h:mm AM/PM` start/end values,
+normalizes them to stored `HH:MM`, includes them in duplicate detection and the
+preview, and writes them inside the existing all-or-nothing transaction. Direct
+assertions cover midnight, noon, overnight shifts, case, leading zeroes,
+one-sided fields, malformed fields, and the invalid-file gate that prevents any
+write. This is synthetic contract coverage: the supplied Breadmaker export has
+only `no data`, so a real timed Breadmaker export remains unverified.
+
 **Then, in order:**
 
 1. ~~Data layer — `shifts.ts` and `jobs.ts` expose the new columns, and shift
@@ -62,9 +71,10 @@ labels and totals still need native runtime verification.
    `0097a76`.
 5. ~~Show the adjusted gross with an explicit estimate label while keeping CSV
    export on recorded gross.~~ Done in `5642874`.
-6. **Do this now:** teach the CSV importer the Start Time and End Time columns
-   it currently refuses (D13).
-7. Add times to the CSV export.
+6. ~~Teach the CSV importer the Start Time and End Time columns it previously
+   refused (D13).~~ Done in `4173c44` with synthetic contract coverage; a real
+   timed Breadmaker export is not available for source-format verification.
+7. **Do this now:** add times to the CSV export.
 
 The Android regression is complete. `f57e776` enlarged the weekday chart's
 shift counts after the API 36 emulator showed that its 10sp captions could
@@ -699,3 +709,9 @@ Trends scope is complete.
     Expo's build-time `uuid` chain and has no non-breaking fix; the Fallow
     complexity findings are documented in build-log phase 18 rather than
     triggering an unrelated UI refactor.
+70. Preserved paired CSV shift times in `4173c44`. The known nine-column
+    adapter accepts only blank/`no data` pairs or strict 12-hour `h:mm AM/PM`
+    pairs, normalizes real values to `HH:MM`, previews and stores them, and
+    includes them in exact-duplicate warnings. Synthetic assertions cover the
+    conversion and invalid-file gate; the supplied Breadmaker file contains no
+    real times, so real timed-source evidence remains open.

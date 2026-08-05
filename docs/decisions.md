@@ -733,8 +733,13 @@ UI/UX bar from the product definition is achievable here.
 > The adapter parses money and duration as integers. Cash and credit tips are
 > combined because the current schema stores one tip total. `Daily Income` is
 > checked but recalculated under D5 because the supplied file has one one-cent
-> disagreement. Blank or `no data` start/end times are accepted; real times
-> block the import because the current schema cannot preserve them. A private,
+> disagreement. Blank or `no data` start/end times must appear as a pair and
+> become null. Otherwise both fields must use strict 12-hour `h:mm AM/PM`
+> values; the importer normalizes them to stored `HH:MM`. One-sided or
+> malformed times block the entire file. This bounded contract is pinned by
+> synthetic midnight, noon, overnight, case, leading-zero, malformed, and
+> rollback-gate assertions. The supplied Breadmaker export contains only `no
+> data`, so a real timed Breadmaker file still needs evidence. A private,
 > tested RFC 4180 state machine is smaller than a production dependency for
 > one known layout.
 >

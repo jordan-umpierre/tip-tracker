@@ -287,6 +287,14 @@ a midnight-to-midnight assumption is exactly what stored shift times would
 replace. Whenever times get stored, this importer rule is the first thing that
 should change.
 
+**2026-08-04 update:** `4173c44` made that change after schema version 3 added
+paired time columns. The importer now accepts a deliberately narrow,
+case-insensitive `h:mm AM/PM` pair and stores normalized `HH:MM`; blank/`no
+data` pairs remain null. One-sided or malformed values still block the whole
+file. Tests cover synthetic midnight, noon, overnight, case, and leading-zero
+examples, but the supplied Breadmaker export contains no real times, so its
+actual timed-source format remains unverified.
+
 ### 2026-08-04 — "Forget what D16 says. What would a real engineer do about the export filename collision?"
 
 Asked after the second export of a day failed: `createFile` refuses an existing

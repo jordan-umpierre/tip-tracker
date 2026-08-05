@@ -114,3 +114,20 @@ $10/hour still exports its recorded $410 gross. The full tracked hook,
 TypeScript, Expo dependency check, Expo Doctor 20/20, Fallow's changed-file,
 dead-code, and duplication gates, and fresh web, iOS, and Android exports pass.
 Native display and accessibility verification remain open.
+
+## `4173c44` — feat: import shift times from CSV (2026-08-04)
+
+The existing nine-column adapter now preserves paired Start Time and End Time
+values. Blank or case-insensitive `no data` pairs remain null; otherwise both
+fields must use `h:mm AM/PM` with an optional leading zero. Accepted values are
+normalized to stored `HH:MM`, shown in the preview, included in exact-duplicate
+comparison, and written inside the existing exclusive transaction.
+
+Direct assertions cover midnight, noon, overnight shifts, letter case, leading
+zeroes, one-sided values, malformed values, and the invalid-file gate that
+offers no import transaction when any row fails. The full tracked hook,
+TypeScript, Expo dependency check, Expo Doctor 20/20, Fallow's changed-file,
+dead-code, and duplication gates, and fresh web, iOS, and Android exports pass.
+This proves the synthetic contract, not a real timed Breadmaker file: the
+supplied export contains only `no data` in both time columns. Native import and
+preview verification for a timed file remains open.
