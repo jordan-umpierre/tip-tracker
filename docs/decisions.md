@@ -870,8 +870,12 @@ UI/UX bar from the product definition is achievable here.
 ### D16 — Export in the app's own CSV format, not the import contract (2026-08-03; revised 2026-08-04)
 
 > **Decision:** Exported CSVs use their own columns — `Date`, `Job`, `Hours`,
-> `Duration Seconds`, `Hourly Rate`, `Tips`, `Gross`, `Note` — rather than the
-> nine-column contract D13 defined for import. Duration appears twice: `Hours`
+> `Duration Seconds`, `Hourly Rate`, `Tips`, `Gross`, `Note`, `Start Time`, and
+> `End Time` — rather than the nine-column contract D13 defined for import.
+> The two time columns were appended in 2026-08-04 so the established column
+> order did not move. Timed shifts emit stored `HH:MM`; untimed shifts emit
+> blanks. `Gross` remains recorded D5 gross, never the overtime estimate shown
+> on screen. Duration appears twice: `Hours`
 > to two decimals for people and spreadsheets, `Duration Seconds` as the exact
 > stored value. Rows are oldest first, tie-broken by id, so two exports of the
 > same data are byte-identical. Files are written wherever the user chooses via
@@ -901,9 +905,11 @@ UI/UX bar from the product definition is achievable here.
 > exact seconds costs one extra column.
 >
 > Round-tripping was the real thing given up, and it is worth being clear that
-> it was a choice: an exported file cannot currently be re-imported, because
-> the importer only accepts D13's contract. Restoring from an export needs an
-> importer for this format, which does not exist yet.
+> it was a choice: this spreadsheet export cannot currently be re-imported,
+> because the importer only accepts D13's contract. It now preserves shift
+> times, duration, money, and notes, but it is not a complete database backup:
+> stable ids, timestamps, tombstones, jobs, and job settings are absent.
+> Lossless backup/restore therefore needs a separate versioned JSON contract.
 >
 > `Directory.pickDirectoryAsync` over the sharing alternatives because
 > `expo-file-system` is already a dependency for the import picker, so this
@@ -966,8 +972,9 @@ UI/UX bar from the product definition is achievable here.
 >
 > **Known cost:** two duration columns is redundancy a reader has to have
 > explained, and nothing enforces that they agree — a future edit could write
-> one and not the other. The export also has no importer, so "export" currently
-> means "get your data out", not "restore your data".
+> one and not the other. Two trailing time columns widen the spreadsheet. The
+> export also has no importer, so "export" currently means "get readable data
+> out", not "restore the database".
 >
 > Cancel detection depends on a message string this project does not own, and
 > an Expo reword would break it silently. `pickerCancel.test.ts` pins both real
@@ -980,9 +987,9 @@ UI/UX bar from the product definition is achievable here.
 > exception and then loses the code on the way to JavaScript. Worth reporting,
 > not worth blocking on.
 >
-> **Revisit when:** restore is built. That is the point to decide whether this
-> format grows an importer or whether both sides move to one shared contract,
-> and D13's contract should be re-examined at the same time. Re-check the cancel
+> **Revisit when:** spreadsheet round-trip becomes a real user need. Lossless
+> backup/restore should use its own versioned JSON contract rather than making
+> this human-readable CSV carry database internals. Re-check the cancel
 > message on any `expo-file-system` upgrade, and drop the heuristic entirely if
 > the error code ever starts reaching JavaScript.
 

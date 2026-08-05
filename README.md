@@ -48,13 +48,15 @@ times, editing, deletion, and SQLite survival across a developer reload.
 VoiceOver and TalkBack remain separate unverified accessibility gates, and an
 emulator cannot prove that haptics were felt.
 
-**Overtime is in progress.** Schema version 3 stores optional shift times and
+**The automated overtime scope is complete.** Schema version 3 stores optional shift times and
 per-job overtime/workweek settings, the data layer exposes them, native shift
 time entry works on iOS and Android, and the pure configured-workweek
 calculator is asserted. Manage data now has the per-job opt-in settings UI; the
 same configured estimate now drives Log and Trends with explicit labeling while
-CSV export keeps recorded gross. CSV import now preserves paired 12-hour shift
-times; CSV export does not include them yet.
+CSV export keeps recorded gross. CSV import preserves paired 12-hour shift
+times, and CSV export appends their stored `HH:MM` values without changing its
+existing column order. Native verification of the new settings, estimate
+labels, timed import/export, and screen-reader behavior remains open.
 
 Done:
 
@@ -86,7 +88,8 @@ Done:
   ([D13](docs/decisions.md)); paired `h:mm AM/PM` times normalize to stored
   `HH:MM`, though the supplied Breadmaker file has no real timed rows
 - CSV export of every logged shift to a folder the user picks, in the app's own
-  lossless format rather than the import contract ([D16](docs/decisions.md))
+  spreadsheet format rather than the import contract, including exact duration
+  seconds and optional shift times ([D16](docs/decisions.md))
 - A calendar picker for the shift date ([`CalendarPicker.tsx`](src/components/CalendarPicker.tsx),
   [`monthGrid.ts`](src/lib/monthGrid.ts)), built rather than depended on
   ([D17](docs/decisions.md)): days that already have a shift are dotted,
@@ -99,9 +102,9 @@ Done:
 
 Next:
 
-- Add Start Time and End Time to the recorded CSV export. See
-  [docs/roadmap.md](docs/roadmap.md) for the exact order and remaining
-  device/accessibility gates.
+- Add versioned, lossless JSON backup/restore with atomic validation and parity
+  checks. See [docs/roadmap.md](docs/roadmap.md) for its exact acceptance
+  boundary and the remaining native/accessibility gates.
 
 ## Stack
 

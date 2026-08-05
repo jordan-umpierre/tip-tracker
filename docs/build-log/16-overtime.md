@@ -131,3 +131,23 @@ dead-code, and duplication gates, and fresh web, iOS, and Android exports pass.
 This proves the synthetic contract, not a real timed Breadmaker file: the
 supplied export contains only `no data` in both time columns. Native import and
 preview verification for a timed file remains open.
+
+## `3a80cac` — feat: include shift times in CSV exports (2026-08-04)
+
+`Start Time` and `End Time` now follow `Note`, leaving every established CSV
+column in place. Timed rows emit the canonical stored `HH:MM` values; untimed
+history emits two blanks, including for older migrated rows. Overnight shifts
+remain an ordinary pair such as `21:00,05:00` because the date and duration
+already carry the rest of the record.
+
+The export assertions cover daytime, untimed, and overnight rows while keeping
+oldest-first/id-tiebreak ordering, exact duration seconds, RFC 4180 escaping,
+and the recorded-pay boundary. A 41-hour shift at $10/hour still exports D5's
+recorded `$410.00`, never the `$415.00` overtime estimate shown on screen.
+
+The full tracked hook, TypeScript, Expo dependency check, Expo Doctor 20/20,
+Fallow's changed-file/dead-code/duplication gates, and fresh web, iOS, and
+Android exports pass. This closes the automated overtime scope. Creating and
+inspecting a timed export on native hardware, exercising the timed import
+preview, verifying the overtime settings and labels, and VoiceOver/TalkBack
+remain manual evidence gates.

@@ -9,10 +9,10 @@ Last updated: 2026-08-04
 
 ## NEXT
 
-**Overtime is in progress. Its storage, data-layer wiring, native shift-time
-entry, pure calculation, per-job settings UI, adjusted gross display, CSV time
-import, and the earlier full Android regression are complete. Next is CSV time
-export.**
+**The automated overtime scope is complete: storage, data-layer wiring, native
+shift-time entry, pure calculation, per-job settings, adjusted Log/Trends
+gross, and CSV time import/export are implemented and checked. Next is a
+versioned, lossless JSON backup/restore contract.**
 
 Two product decisions were made on 2026-08-04 and are already recorded, so they
 do not need re-deciding: overtime adjusts the gross shown on screen rather than
@@ -56,6 +56,12 @@ one-sided fields, malformed fields, and the invalid-file gate that prevents any
 write. This is synthetic contract coverage: the supplied Breadmaker export has
 only `no data`, so a real timed Breadmaker export remains unverified.
 
+`3a80cac` appends `Start Time` and `End Time` to the existing export order.
+Timed shifts emit stored `HH:MM`; untimed history emits blanks. Assertions keep
+sorting and RFC 4180 escaping intact and pin Gross to recorded D5 pay even when
+the screen shows an overtime estimate. Static checks and all platform exports
+pass. Creating and inspecting a timed CSV on a native device remains open.
+
 **Then, in order:**
 
 1. ~~Data layer — `shifts.ts` and `jobs.ts` expose the new columns, and shift
@@ -74,7 +80,8 @@ only `no data`, so a real timed Breadmaker export remains unverified.
 6. ~~Teach the CSV importer the Start Time and End Time columns it previously
    refused (D13).~~ Done in `4173c44` with synthetic contract coverage; a real
    timed Breadmaker export is not available for source-format verification.
-7. **Do this now:** add times to the CSV export.
+7. ~~Add times to the CSV export.~~ Done in `3a80cac` without moving the
+   existing columns or changing recorded Gross.
 
 The Android regression is complete. `f57e776` enlarged the weekday chart's
 shift counts after the API 36 emulator showed that its 10sp captions could
@@ -87,17 +94,19 @@ datetime deprecation warning, or SQLite exception. Haptics are only a no-crash
 result because an emulator cannot prove tactile feedback; TalkBack remains a
 separate accessibility check.
 
-**After overtime:**
+**Do this next:** define and implement a versioned JSON backup/restore contract
+that preserves jobs, shifts, stable ids, timestamps, tombstones, overtime
+settings, and exact integer fields. Restore must validate the whole document
+before one atomic transaction, reject unsupported versions, and prove
+fresh-versus-restored parity plus rollback. Keep CSV as the readable
+spreadsheet export (D16).
 
-5. Confirm the first tax slice: opt-in 2026 federal W2 estimates using filing
-   status, pay frequency, W-4 inputs, other income/adjustments, and actual
-   withholding. Do not substitute one flat percentage; state/local, 1099, and
-   tipped-credit edge cases remain explicit later scope.
-6. Export now exists but restore does not. An exported file cannot be
-   re-imported, because the importer only accepts D13's contract and the export
-   uses its own columns (D16). Decide whether restore means teaching the
-   importer this format or moving both sides onto one contract, and place
-   optional cloud backup/sync before public tax projections either way.
+**After backup/restore:** confirm the first tax slice: opt-in 2026 federal W2
+estimates using filing status, pay frequency, W-4 inputs, other
+income/adjustments, and actual withholding. Do not substitute one flat
+percentage; state/local, 1099, and tipped-credit edge cases remain explicit
+later scope. Optional accounts/sync still arrive with the Node/Express/Postgres
+boundary rather than being pulled into local backup.
 
 Android is no longer the stale platform. Its full regression passed on the API
 36 emulator. Neither platform has a VoiceOver or TalkBack claim.
@@ -715,3 +724,9 @@ Trends scope is complete.
     includes them in exact-duplicate warnings. Synthetic assertions cover the
     conversion and invalid-file gate; the supplied Breadmaker file contains no
     real times, so real timed-source evidence remains open.
+71. Appended stored Start Time and End Time to CSV export in `3a80cac` without
+    moving the existing columns. Assertions cover timed, untimed, and overnight
+    shifts while retaining stable ordering, escaping, exact seconds, and
+    recorded rather than overtime-estimated Gross. This closes the automated
+    overtime scope; native timed-import/export and accessibility evidence stays
+    open.
