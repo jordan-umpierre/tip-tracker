@@ -89,3 +89,5 @@ name — the number adds sequence without costing you the description.
 16. [16-overtime.md](16-overtime.md) — schema version 3 stores the timing inputs
     required for overtime and fixes chained migrations before the data layer
     begins consuming them.
+17. [17-android-regression.md](17-android-regression.md) — the deferred Android
+    pass, beginning with readable weekday-chart sample counts.

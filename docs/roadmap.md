@@ -48,8 +48,10 @@ received `1-to-2.sql` and a version-3 marker.
    refuses (D13).
 7. Add times to the CSV export.
 
-Android is still unverified against everything since 2026-08-03 and was
-deferred deliberately, not forgotten.
+The Android regression is now in progress. `f57e776` enlarged the weekday
+chart's shift counts after the API 36 emulator showed that its 10sp captions
+could auto-shrink to 7.5sp. The imported 845-shift breakdown now renders all
+seven counts clearly without clipping. The rest of the Android pass remains.
 
 **After overtime:**
 
@@ -63,12 +65,12 @@ deferred deliberately, not forgotten.
    importer this format or moving both sides onto one contract, and place
    optional cloud backup/sync before public tax projections either way.
 
-**Android is now the stale platform.** Everything above was verified on a
-physical iPhone only. Android last passed a cold run on 2026-08-03, which
-predates the calendar picker, the haptics, the animated month paging, both
-gesture fixes and the Log layout change — and the gesture work is exactly the
-kind that behaves differently there. An Android pass is worth doing before the
-overtime slice, not after. Neither platform has a VoiceOver or TalkBack claim.
+**Android is still the stale platform, with its regression now underway.** The
+weekday breakdown has passed after its caption fix, but the calendar picker,
+haptics, animated month paging, both gesture fixes and the Log layout still
+need the Android pass. The gesture work is exactly the kind that behaves
+differently there. Finish this pass before the overtime calculation. Neither
+platform has a VoiceOver or TalkBack claim.
 
 ---
 
@@ -640,3 +642,8 @@ Trends scope is complete.
     flow passed on a physical iPhone. Android support comes from the same native
     module but remains unverified; its documented imperative dialog path is
     deferred with the rest of the Android pass.
+65. Began the deferred Android regression with an API 36 ARM64 emulator and the
+    verified 845-shift CSV. The weekday breakdown exposed unreadable sample
+    counts: 10sp text could auto-shrink to 7.5sp. `f57e776` removed that shrink,
+    raised the captions to 13sp semibold text, and passed a live screenshot
+    check with all seven counts visible and unclipped.
