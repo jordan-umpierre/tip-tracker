@@ -1176,3 +1176,65 @@ UI/UX bar from the product definition is achievable here.
 > backup can become automatic and authenticated merge/conflict behavior can be
 > defined. Add encryption only with a recovery-key design that still works after
 > the phone is lost; encrypting solely with a device-held key defeats restore.
+
+### D20 — Start with regular-paycheck federal withholding, not take-home (2026-08-04)
+
+> **Decision:** The first tax calculation is an opt-in **2026 federal income-tax
+> withholding estimate for one regular W2 paycheck**. It runs on-device from a
+> user-entered federal taxable-wages amount and the values on the 2020-or-later
+> Form W-4 actually on file for that job: filing status, pay frequency, Step 2's
+> checkbox, Step 3 credits, and Steps 4(a), 4(b), and 4(c). An exempt W-4 returns
+> zero for regular wages. The calculation implements Worksheet 1A and the 2026
+> Percentage Method tables for automated payroll systems from
+> [IRS Publication 15-T](https://www.irs.gov/publications/p15t).
+>
+> This first result is **not** take-home pay, total payroll tax, annual tax
+> liability, a refund, or an amount due. It explicitly excludes Social Security
+> and Medicare taxes, state and local taxes, 1099 income, supplemental wages,
+> nonresident-alien adjustments, part-year and cumulative-wage methods, and
+> every other special withholding method. It accepts the user's Step 4(b) total
+> but does not decide whether tips, overtime, or another deduction qualifies.
+> Those eligibility rules require separate inputs, tests, and qualified tax
+> review. The current [2026 Form W-4](https://www.irs.gov/pub/irs-pdf/fw4.pdf)
+> remains the source for what each entered value means.
+>
+> **Alternatives:**
+> - Derive taxable wages directly from logged shift gross
+> - Add FICA and call the result take-home pay
+> - Project annual tax liability and refund or amount due in the same release
+> - Wait for Node, accounts, and cloud sync before writing any tax calculation
+>
+> **Why:** app gross is not a payroll tax boundary. The app does not know the
+> employer's federal taxable-wages figure, pretax benefits, allocated tips,
+> service charges, payroll adjustments, or supplemental-wage treatment. Asking
+> for the paystub's federal taxable wages keeps that uncertainty outside the
+> formula instead of hiding it inside a precise-looking result. This narrows
+> D14: overtime-adjusted app gross may become an editable convenience later,
+> but it is not the authoritative input to this first withholding estimate.
+>
+> Withholding is also not final income tax. Publication 15-T tells an employer
+> what to withhold from a paycheck; it does not compute the employee's completed
+> Form 1040. Likewise, a take-home claim would need FICA and payroll deductions.
+> [IRS Publication 15](https://www.irs.gov/publications/p15) separately defines
+> the 2026 Social Security and Medicare rules, so omitting them while saying
+> “take-home” would be materially misleading.
+>
+> The pure calculator stays on-device under D1 so it works without an account or
+> network. Its rules are explicitly versioned to 2026 and reject other years
+> instead of silently reusing stale tables. Publication 15-T permits employers
+> to round wages or pay-period withholding to whole dollars if they do so
+> consistently. This app keeps integer cents and rounds once, at the final cent;
+> that deterministic product rule is disclosed because a valid employer result
+> may differ slightly.
+>
+> **Known cost:** the first slice asks the user to copy a paystub amount instead
+> of promising an automatic estimate from shifts. It also cannot support public
+> tax projections until the settings and paystub facts have lossless backup and
+> authenticated sync. Local calculator work can proceed now; managed accounts
+> and sync remain a trust and launch gate, not a prerequisite for pure math.
+>
+> **Revisit when:** schema version 4 defines tax-setting history and the backup
+> contract can preserve it without dropping unknown fields; a qualified tax
+> professional reviews the supported inputs, exclusions, result wording, and
+> test vectors; or a later slice adds FICA, paycheck records, annual liability,
+> or an editable app-derived taxable-wage prefill.

@@ -9,9 +9,10 @@ Last updated: 2026-08-04
 
 ## NEXT
 
-**The automated overtime and local backup/restore scopes are complete. Next is
-an isolated native restore acceptance pass; no physical-device restore claim
-exists yet.**
+**The automated overtime and local backup/restore scopes are complete. D20 now
+bounds the first tax claim, so the next implementation is its pure local 2026
+federal withholding calculator. No tax settings, stored paychecks, or tax UI
+exist yet.**
 
 Two product decisions were made on 2026-08-04 and are already recorded, so they
 do not need re-deciding: overtime adjusts the gross shown on screen rather than
@@ -107,24 +108,30 @@ trust-boundary branches for Fallow without suppressing the two unverified native
 UI handlers. Expo dependencies, Doctor, TypeScript, every tracked check, and
 web/iOS/Android exports pass.
 
-**Do this next:** on an isolated fresh native install, export the real 845-row
-database, restore it, then compare `PRAGMA user_version`, `integrity_check`,
-`foreign_key_check`, and every ordered column from all jobs and shifts. Do not
-run the restore drill against the only copy. Also verify picker cancellation,
-invalid-file messaging, and the nonempty-database refusal on iOS and Android.
+**Do this next:** implement D20's pure, asserted 2026 Publication 15-T
+Worksheet 1A calculator. It takes user-entered federal taxable wages and actual
+2020-or-later W-4 values for one regular paycheck. It does not persist anything
+or claim take-home, FICA, state/local tax, liability/refund, supplemental wages,
+1099 handling, nonresident-alien/special methods, or automatic tip/overtime
+deductions.
 
-**After native restore acceptance:** define optional accounts and authenticated
-cloud sync before public tax projections. The remaining decisions are the auth
-provider/recovery flow, hosting and retention, account-deletion treatment of
-local data, and an explicit server-version conflict policy; client clock-based
-last-write-wins is not sufficient for income history.
+**Then:** design schema version 4 and a lossless backup-format evolution before
+adding tax persistence or UI. The existing version-1 backup rejects unknown
+fields, so adding tax tables without a format decision would make a supposedly
+complete backup incomplete.
 
-**After backup/restore:** confirm the first tax slice: opt-in 2026 federal W2
-estimates using filing status, pay frequency, W-4 inputs, other
-income/adjustments, and actual withholding. Do not substitute one flat
-percentage; state/local, 1099, and tipped-credit edge cases remain explicit
-later scope. Optional accounts/sync still arrive with the Node/Express/Postgres
-boundary rather than being pulled into local backup.
+The isolated native restore acceptance pass remains open: export the real
+845-row database on a fresh install, restore it, then compare
+`PRAGMA user_version`, `integrity_check`, `foreign_key_check`, and every ordered
+column from all jobs and shifts. Do not run the drill against the only copy.
+Also verify picker cancellation, invalid-file messaging, and the nonempty-
+database refusal on iOS and Android.
+
+Optional accounts and authenticated cloud sync do not block pure local tax
+math. They still must precede any public tax projection or launch. The remaining
+decisions are the auth provider/recovery flow, hosting and retention, account-
+deletion treatment of local data, and an explicit server-version conflict
+policy; client clock-based last-write-wins is not sufficient for income history.
 
 Android is no longer the stale platform. Its full regression passed on the API
 36 emulator. Neither platform has a VoiceOver or TalkBack claim.
@@ -160,9 +167,10 @@ reason.
 
 ## Open questions
 
-**Where does the tax logic live?** With no backend, it runs on-device. That
-means tax rules ship inside app versions, and updating rates for a new tax year
-requires an app store release. Needs an answer before Layer 2.
+**Where does the tax logic live?** Resolved by D20: the versioned pure
+calculator runs on-device so an optional account never becomes a network
+requirement. Supporting a new tax year requires reviewed tables and an app
+release; unsupported years fail instead of reusing stale rules.
 
 **Should each shift row show its own gross?** Raised 2026-07-30 while writing
 D5. The totals row claims a number the list underneath can't currently be used

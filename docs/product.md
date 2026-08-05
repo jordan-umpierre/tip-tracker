@@ -87,6 +87,13 @@ exactly why it's Layer 1 and not MVP — it can't block anything.
 - Projected paycheck amount (weekly / biweekly / semimonthly)
 - Year-end estimate: refund or amount due
 
+The first bounded tax slice is smaller than the full Layer 2 described above. D20
+starts with a 2026 federal income-tax withholding estimate for one regular W2
+paycheck, using user-entered federal taxable wages and the actual 2020-or-later
+W-4 values for that job. It does not claim take-home pay, total payroll tax,
+annual liability, refund, or amount due. Those remain later slices rather than
+being approximated under one number.
+
 ### Layer 3 — 1099 mode
 
 - Mark a job as 1099 instead of W2
@@ -127,8 +134,9 @@ Mitigations to build in from day one of Layer 2:
   failure than under-estimating.
 - Federal only, at first. Fifty states of tax law is not a v1 problem, and
   pretending to handle a state you handle badly is worse than saying you don't.
-- Overtime-adjusted wages feed the tax estimate only after the job's workweek
-  and overtime terms are configured; never infer them from a calendar week.
+- Do not treat app gross as federal taxable wages. D20 starts from the paystub's
+  entered taxable-wages amount; an overtime-adjusted app value can become an
+  editable prefill only after its assumptions are visible.
 
 App store review may also scrutinize a finance app more closely. Worth knowing
 before submission, not during.
