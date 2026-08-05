@@ -111,11 +111,18 @@ Done:
   [D19](docs/decisions.md)): strict bounded validation, all-row SQLite
   snapshots, one restore transaction, foreign-key checking, and exact row
   parity without merging or replacing existing data
+- Pure 2026 federal withholding math
+  ([`federalWithholding2026.ts`](src/lib/federalWithholding2026.ts),
+  [D20](docs/decisions.md)) for one regular paycheck using user-entered federal
+  taxable wages and actual 2020-or-later W-4 values; no settings or paycheck
+  records are stored yet
 
 Next:
 
-- Run the isolated native restore acceptance pass, then define optional accounts
-  and authenticated cloud sync before public tax projections. See
+- Design schema version 4 and a lossless backup-format evolution before adding
+  tax persistence or UI. The isolated native restore pass remains open, and
+  optional accounts plus authenticated cloud sync still precede public tax
+  projections. See
   [docs/roadmap.md](docs/roadmap.md) for the exact evidence boundary.
 
 ## Stack

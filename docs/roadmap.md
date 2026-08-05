@@ -3,16 +3,16 @@
 Where this project is, what's next, and everything done so far in order.
 This is the file to open first, every session.
 
-Last updated: 2026-08-04
+Last updated: 2026-08-05
 
 ---
 
 ## NEXT
 
-**The automated overtime and local backup/restore scopes are complete. D20 now
-bounds the first tax claim, so the next implementation is its pure local 2026
-federal withholding calculator. No tax settings, stored paychecks, or tax UI
-exist yet.**
+**The automated overtime, local backup/restore, and first pure tax-math scopes
+are complete. The next implementation boundary is the persistence contract:
+schema version 4 plus a lossless backup-format evolution. No tax settings,
+stored paychecks, or tax UI exist yet.**
 
 Two product decisions were made on 2026-08-04 and are already recorded, so they
 do not need re-deciding: overtime adjusts the gross shown on screen rather than
@@ -108,17 +108,24 @@ trust-boundary branches for Fallow without suppressing the two unverified native
 UI handlers. Expo dependencies, Doctor, TypeScript, every tracked check, and
 web/iOS/Android exports pass.
 
-**Do this next:** implement D20's pure, asserted 2026 Publication 15-T
-Worksheet 1A calculator. It takes user-entered federal taxable wages and actual
-2020-or-later W-4 values for one regular paycheck. It does not persist anything
-or claim take-home, FICA, state/local tax, liability/refund, supplemental wages,
-1099 handling, nonresident-alien/special methods, or automatic tip/overtime
-deductions.
+`738f86c` recorded D20's bounded claim. `565967c` then added the pure 2026
+Publication 15-T Worksheet 1A calculator. It accepts user-entered federal
+taxable wages and actual 2020-or-later W-4 values for one regular paycheck,
+uses integer/rational arithmetic with one final cent rounding step, and rejects
+unsupported years and invalid inputs. Assertions pin every filing-status and
+Step-2 table, every supported pay frequency, worksheet adjustments, exemption,
+bracket boundaries, rounding, and failure cases. TypeScript and the repository
+checks pass. Nothing persists yet, and the app still makes none of D20's
+excluded claims.
 
-**Then:** design schema version 4 and a lossless backup-format evolution before
-adding tax persistence or UI. The existing version-1 backup rejects unknown
-fields, so adding tax tables without a format decision would make a supposedly
-complete backup incomplete.
+**Do this next:** design schema version 4 and the lossless backup-format
+evolution before adding tax persistence or UI. W-4 elections change over time,
+so decide whether settings are effective-dated rather than overwriting the
+history used for an older paycheck. Backup version 1 is an exact schema-3
+jobs/shifts contract and rejects unknown fields; the next format must preserve
+new tax records without making old backups invalid or silently incomplete.
+Record the migration, ownership, and compatibility decisions before writing
+tables. Do not add persistence as part of that decision commit.
 
 The isolated native restore acceptance pass remains open: export the real
 845-row database on a fresh install, restore it, then compare
@@ -765,3 +772,10 @@ Trends scope is complete.
     complete-row parity, integrity, and rollback. All platform exports pass;
     the real 845-row isolated native restore drill remains next rather than
     being inferred from automated fixtures.
+73. Bounded the first tax claim in D20 (`738f86c`) and added its pure 2026
+    federal withholding calculator in `565967c`. The implementation follows
+    Publication 15-T Worksheet 1A and the automated percentage tables for one
+    regular paycheck, keeps intermediate math exact, and rounds once to cents.
+    Direct assertions cover every supported status, Step-2 schedule, pay
+    frequency, W-4 adjustment, boundary, and rejection path. No schema,
+    persistence, UI, or broader tax claim was added.

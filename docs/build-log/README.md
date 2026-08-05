@@ -36,7 +36,7 @@ Not automated on purpose: deciding whether a commit is "real work" or
 bookkeeping needs a judgment a script can't make, and a check that guessed
 would either nag constantly or pass while missing things.
 
-Last updated: 2026-08-04
+Last updated: 2026-08-05
 
 ---
 
@@ -96,3 +96,5 @@ name — the number adds sequence without costing you the description.
 19. [19-backup-and-restore.md](19-backup-and-restore.md) — the versioned lossless
     JSON contract, all-row snapshot, empty-only atomic restore, and Manage data
     recovery controls (D19).
+20. [20-federal-withholding.md](20-federal-withholding.md) — the bounded first
+    tax claim (D20) and pure 2026 federal withholding calculator.
