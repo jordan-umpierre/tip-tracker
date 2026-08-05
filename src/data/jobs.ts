@@ -99,3 +99,28 @@ export async function archiveJob(id: string): Promise<void> {
     id
   );
 }
+
+export async function updateOvertimeSettings(
+  id: string,
+  enabled: boolean,
+  workweekStartWeekday: number,
+  workweekStartTime: string
+): Promise<void> {
+  const db = await getDb();
+  const now = new Date().toISOString();
+
+  // Keep all three settings in one write. Saving the boundary while overtime
+  // is off means turning it back on restores the employer's real workweek
+  // instead of quietly resetting it to Sunday at midnight.
+  await db.runAsync(
+    `UPDATE jobs
+     SET overtime_enabled = ?, workweek_start_weekday = ?,
+         workweek_start_time = ?, updated_at = ?
+     WHERE id = ? AND archived_at IS NULL;`,
+    enabled ? 1 : 0,
+    workweekStartWeekday,
+    workweekStartTime,
+    now,
+    id
+  );
+}

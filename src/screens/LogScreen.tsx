@@ -7,6 +7,7 @@ import CreateJobForm from '../components/CreateJobForm';
 import ExportCsvButton from '../components/ExportCsvButton';
 import ImportCsvForm from '../components/ImportCsvForm';
 import LogShiftForm from '../components/LogShiftForm';
+import OvertimeSettingsForm from '../components/OvertimeSettingsForm';
 import ShiftList from '../components/ShiftList';
 import { getDb } from '../data/db';
 import { archiveJob, Job, listActiveJobs, listJobs } from '../data/jobs';
@@ -247,7 +248,7 @@ function LogControls({
                 onPress={() => setAddingJob((current) => !current)}
               >
                 <Text style={styles.manageJobsButtonText}>
-                  {addingJob ? 'Close job manager' : 'Add or remove jobs'}
+                  {addingJob ? 'Close job manager' : 'Manage jobs'}
                 </Text>
               </Pressable>
               {addingJob ? (
@@ -260,22 +261,25 @@ function LogControls({
                   />
                   <Text style={styles.jobManagerTitle}>Current jobs</Text>
                   {jobs.map((job) => (
-                    <View key={job.id} style={styles.jobRow}>
-                      <View style={styles.jobText}>
-                        <Text style={styles.jobName}>{job.name}</Text>
-                        <Text style={styles.jobRate}>
-                          {formatCents(job.hourly_rate_cents)}/hr
-                        </Text>
+                    <View key={`${job.id}:${job.updated_at}`}>
+                      <View style={styles.jobRow}>
+                        <View style={styles.jobText}>
+                          <Text style={styles.jobName}>{job.name}</Text>
+                          <Text style={styles.jobRate}>
+                            {formatCents(job.hourly_rate_cents)}/hr
+                          </Text>
+                        </View>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`Remove ${job.name}`}
+                          hitSlop={8}
+                          style={styles.removeJobButton}
+                          onPress={() => handleRemoveJob(job)}
+                        >
+                          <Text style={styles.removeJobText}>Remove</Text>
+                        </Pressable>
                       </View>
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={`Remove ${job.name}`}
-                        hitSlop={8}
-                        style={styles.removeJobButton}
-                        onPress={() => handleRemoveJob(job)}
-                      >
-                        <Text style={styles.removeJobText}>Remove</Text>
-                      </Pressable>
+                      <OvertimeSettingsForm job={job} onSaved={refresh} />
                     </View>
                   ))}
                 </View>
