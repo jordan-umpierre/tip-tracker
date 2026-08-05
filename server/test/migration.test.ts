@@ -2,30 +2,13 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 
-import pg from "pg";
+import { withTestDatabase } from "./database.ts";
 
-const { Client } = pg;
 const migrationUrl = new URL("../migrations/001_initial.sql", import.meta.url);
-const adminUrl = new URL(process.env.TEST_DATABASE_URL ?? "postgresql://localhost/postgres");
-const databaseName = `tip_tracker_test_${process.pid}_${Date.now()}`;
-
-function quoteIdentifier(value: string) {
-  return `"${value.replaceAll('"', '""')}"`;
-}
 
 test("migration preserves ownership, versions, tombstones, and rollback", async () => {
   const migration = await readFile(migrationUrl, "utf8");
-  const admin = new Client({ connectionString: adminUrl.toString() });
-  await admin.connect();
-
-  try {
-    await admin.query(`CREATE DATABASE ${quoteIdentifier(databaseName)}`);
-    const databaseUrl = new URL(adminUrl);
-    databaseUrl.pathname = `/${databaseName}`;
-    const database = new Client({ connectionString: databaseUrl.toString() });
-    await database.connect();
-
-    try {
+  await withTestDatabase(async (database) => {
       await database.query("BEGIN");
       await database.query(migration);
       await database.query("ROLLBACK");
@@ -125,15 +108,5 @@ test("migration preserves ownership, versions, tombstones, and rollback", async 
         shifts: "0",
         settings: "0",
       });
-    } finally {
-      await database.end();
-    }
-  } finally {
-    await admin.query(
-      `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1`,
-      [databaseName],
-    );
-    await admin.query(`DROP DATABASE IF EXISTS ${quoteIdentifier(databaseName)}`);
-    await admin.end();
-  }
+  });
 });

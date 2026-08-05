@@ -1,8 +1,14 @@
 import express, { type ErrorRequestHandler } from "express";
 
+import type { Accounts } from "./accounts.ts";
+import { requireAuth, type VerifyAccessToken } from "./auth.ts";
+
 const JSON_BODY_LIMIT = "32kb";
 
-export function createApp() {
+export function createApp(dependencies?: {
+  accounts: Accounts;
+  verifyAccessToken: VerifyAccessToken;
+}) {
   const app = express();
 
   app.disable("x-powered-by");
@@ -11,6 +17,18 @@ export function createApp() {
   app.get("/health", (_request, response) => {
     response.json({ status: "ok" });
   });
+
+  if (dependencies) {
+    app.get("/v1/me", requireAuth(dependencies.verifyAccessToken), async (_request, response) => {
+      const account = await dependencies.accounts.findOrCreate(response.locals.auth.subject);
+      response.json({ createdAt: account.created_at.toISOString(), id: account.id });
+    });
+
+    app.delete("/v1/me", requireAuth(dependencies.verifyAccessToken), async (_request, response) => {
+      await dependencies.accounts.delete(response.locals.auth.subject);
+      response.status(204).end();
+    });
+  }
 
   app.use((_request, response) => {
     response.status(404).json({ error: "not_found" });
