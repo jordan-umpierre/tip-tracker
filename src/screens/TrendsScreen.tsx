@@ -383,8 +383,6 @@ function WeekdayBars({ weekdays }: { weekdays: WeekdayTrend[] }) {
                   there is no width limit. */}
               <Text
                 selectable
-                adjustsFontSizeToFit
-                minimumFontScale={0.75}
                 numberOfLines={2}
                 style={styles.weekdayContext}
               >
@@ -530,11 +528,12 @@ const styles = StyleSheet.create({
     // line would otherwise donate the spare line to its bar -- which made a
     // short "6 shifts" render taller and lower than the wrapped ones beside
     // it, comparing rates against a baseline that was not shared.
-    height: 24,
-    color: '#6b7280',
-    fontSize: 10,
+    height: 36,
+    color: '#4b5563',
+    fontSize: 13,
+    fontWeight: '600',
     fontVariant: ['tabular-nums'],
-    lineHeight: 12,
+    lineHeight: 18,
     textAlign: 'center',
   },
   context: { color: '#6b7280', fontSize: 13, fontVariant: ['tabular-nums'] },
