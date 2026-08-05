@@ -95,16 +95,20 @@ SQLite bootstrap reaches `src/data/db.ts` through `expo-file-system`, which is
 unsupported on web and throws `File.validatePath`. The production web bundle
 compiles, but that is not a working-web-runtime claim.
 
-**Do this next:** complete one staging infrastructure and native-auth acceptance
-unit. Choose the Supabase and API plans, regions, availability/budget limits,
-retention policies, and SMTP provider; create least-privilege resources; apply
-the server migrations; supply only the three public Expo variables; then verify
-signup, email confirmation, sign-in, relaunch persistence, refresh, offline
-local use, sign-out preservation, populated-data consent, and different-account
-rejection on iOS and Android. Keep the existing withholding and isolated-restore
-native passes separate. After staging auth passes, implement mobile push/pull
-transport and retry scheduling. Password recovery, account deletion, and
-conflict resolution remain later lifecycle units with their own evidence.
+**Do this next:** implement D26's provider-free mobile sync transport as a
+locally verified unit. Add the atomic D24 SQLite snapshot, serialized exact-body
+push and strict paged pull, bounded authenticated retries, durable blocked
+facts, foreground/manual triggers, and minimal Manage data status. This changes
+no provider resource and makes no native-network claim.
+
+After the local transport passes, complete one staging infrastructure and
+native acceptance unit. Choose the Supabase and API plans, regions,
+availability/budget limits, retention policies, and SMTP provider; create
+least-privilege resources; apply the server migrations; supply only the three
+public Expo variables; then verify auth plus push/pull, interruption, offline
+relaunch, and cross-device convergence on iOS and Android. Password recovery,
+account deletion, and conflict resolution remain later lifecycle units with
+their own evidence.
 
 The first complete local federal-withholding slice remains implemented: bounded
 2026 math, effective-dated per-job settings, lossless backup, and an opt-in

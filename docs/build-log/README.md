@@ -110,3 +110,7 @@ name — the number adds sequence without costing you the description.
     backward-compatible backup version 3.
 25. [25-server-sync-api.md](25-server-sync-api.md) — D24, durable multi-device
     mutation replay, optimistic conflicts, and paged account-owned pull.
+26. [26-mobile-auth.md](26-mobile-auth.md) — D25, optional persisted mobile
+    sessions, verified account binding, and local-only sign-out.
+27. [27-mobile-sync.md](27-mobile-sync.md) — D26, serialized foreground push
+    and pull over the authenticated API while SQLite remains authoritative.

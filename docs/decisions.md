@@ -1575,3 +1575,76 @@ UI/UX bar from the product definition is achievable here.
 > require a different persistence policy, a measured session exceeds the
 > bounded chunk contract, or product research supports switching one device
 > database between accounts.
+
+### D26 — Run foreground sync as a serialized SQLite-to-HTTP exchange (2026-08-05)
+
+> **Decision:** Cloud sync remains an optional foreground activity around the
+> local-first app. Local jobs, shifts, settings, imports, restores, and deletes
+> commit to SQLite without awaiting a token, network request, or sync run. One
+> process-wide mutex permits only one sync run at a time. A run may start after
+> a verified account connection, from an explicit **Sync now** action, or when
+> the signed-in app enters the foreground. There is no background task, timer,
+> push notification, NetInfo dependency, or alternate cloud write path.
+>
+> Each run verifies the durable SQLite account binding before any HTTP call,
+> then pushes before pulling. Push reads the oldest unblocked outbox row and
+> its base server version plus complete current domain record inside one SQLite
+> read transaction. It closes that transaction before HTTP. One exact mutation
+> is serialized once and sent per request, oldest first, with D24's stable
+> device id and local sequence idempotency key. A retry reuses those exact
+> bytes. Acknowledgement removes only the captured sequence, so an edit made
+> during the request remains pending. Push never advances the pull cursor.
+>
+> Unsynced physical shift or setting deletes are sent as D24 cloud no-ops only
+> when there is no acknowledged server version. A physical delete with a known
+> server version sends the retained delete contract. Normal archived jobs and
+> tombstoned shifts or settings remain full upserts. The app does not hold a
+> SQLite transaction open while awaiting HTTP.
+>
+> Network failures, `429`, and `5xx` receive a small bounded exponential-jitter
+> retry inside the foreground run. One `401` refreshes the authenticated
+> session and retries the exact body once; a second `401` stops with a
+> sign-in-again state. `409`, `400`, `413`, idempotency misuse, and other
+> permanent mutation responses persist a bounded decoded response beside only
+> the exact outbox sequence and stop the run. Offline or exhausted transient
+> retries preserve the outbox and signed-in state. `410` removes the local
+> cloud session but preserves SQLite, its binding, cursor, metadata, and outbox.
+>
+> Pull begins only after no pushable mutation remains. It requests strict pages
+> from `GET /v1/sync/changes?after=<cursor>&limit=100` until `hasMore` is false.
+> All entity records, timestamps, identifiers, and integers are decoded before
+> apply. Empty or nonadvancing continued pages are rejected so malformed
+> pagination cannot loop. Each valid page applies jobs, settings, then shifts
+> through the existing exclusive SQLite transaction; only that committed page
+> advances the cursor. A pending local row blocks remote overwrite and retains
+> the bounded remote fact durably without moving the cursor, so review survives
+> restart.
+>
+> The first UI exposes only operational truth: syncing, up to date,
+> pending/offline, review needed for blocked conflicts or permanent failures,
+> sign in again, and account mismatch. It provides **Sync now** but no conflict
+> editor, automatic retry loop, or destructive resolution shortcut.
+>
+> **Why:** this preserves D23's single local source of truth and D24's exact
+> replay guarantees while keeping failure recovery inspectable. Serial push
+> avoids dependency ordering and concurrent acknowledgement races. Push before
+> pull prevents a remote page from overwriting unsent local intent. Per-page
+> pull transactions make the cursor an honest record of committed local state.
+>
+> **Known cost:** a large first upload is deliberately one request at a time,
+> foregrounding can perform work the user did not explicitly request, and one
+> blocked row stops later work until review. Those costs are smaller than
+> inventing batching, background scheduling, merge policy, or unsafe automatic
+> conflict resolution before real staging measurements exist.
+>
+> **Evidence boundary:** real SQLite with injected tokens, fetch, clock,
+> sleep, and randomness may prove local snapshots, replay, retry limits,
+> pagination, rollback, restart persistence, and serialization. It does not
+> prove a Supabase project, hosted API, SMTP, provider refresh, device network,
+> OS foreground behavior, cross-device convergence, retention, deployment, or
+> native accessibility. A temporary local PostgreSQL round trip is added only
+> if the existing server helpers can support it without new scaffolding.
+>
+> **Revisit when:** staging measurements justify batching or background work,
+> conflict-resolution product rules exist, provider/native acceptance passes,
+> or tombstone retention and multi-device convergence have end-to-end evidence.
