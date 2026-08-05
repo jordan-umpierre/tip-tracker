@@ -13,7 +13,7 @@ type SessionStorage = {
   setItem(key: string, value: string): Promise<void>;
 };
 
-export function createSupabaseAuthClient(
+function createSupabaseAuthClient(
   config: AuthConfig,
   storage: SessionStorage = sessionStorage
 ): SupabaseClient {
@@ -30,6 +30,15 @@ export function createSupabaseAuthClient(
 
 // A missing or invalid cloud configuration must not prevent the local app from
 // starting. Account UI checks this nullable singleton before offering sign-in.
-export const supabaseClient = authSetup.config
-  ? createSupabaseAuthClient(authSetup.config)
-  : null;
+export const supabaseClient = createConfiguredClient();
+
+function createConfiguredClient(): SupabaseClient | null {
+  if (!authSetup.config) return null;
+  try {
+    return createSupabaseAuthClient(authSetup.config);
+  } catch {
+    // A provider setup failure must not prevent the SQLite-only app from
+    // opening. The account panel reports the feature as unavailable instead.
+    return null;
+  }
+}

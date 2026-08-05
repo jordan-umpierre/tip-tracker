@@ -1,4 +1,8 @@
 {
-  "entry": ["src/lib/*.test.ts"],
-  "ignoreDependencies": ["expo", "react-native-web"]
+  "entry": ["src/auth/*.test.ts", "src/data/sync.test.ts", "src/lib/*.test.ts"],
+  "ignoreDependencies": ["expo", "react-native-web"],
+  "ignoreExports": [
+    { "file": "src/auth/sessionStorage.native.ts", "exports": ["*"] },
+    { "file": "src/auth/sessionStorage.web.ts", "exports": ["*"] }
+  ]
 }

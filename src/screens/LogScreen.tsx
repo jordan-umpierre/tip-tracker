@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BackupRestore from '../components/BackupRestore';
+import AccountPanel from '../components/AccountPanel';
 import CreateJobForm from '../components/CreateJobForm';
 import ExportCsvButton from '../components/ExportCsvButton';
 import FederalWithholdingForm from '../components/FederalWithholdingForm';
@@ -269,6 +270,7 @@ function LogControls({
           empty database is the only one D19 allows it to write into. */}
       {managingData ? (
         <>
+          <AccountPanel />
           {jobs.length > 0 ? (
             <>
               <Pressable
