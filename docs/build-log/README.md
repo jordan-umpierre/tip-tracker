@@ -93,3 +93,6 @@ name — the number adds sequence without costing you the description.
     pass, beginning with readable weekday-chart sample counts.
 18. [18-project-audit.md](18-project-audit.md) — the whole-repository staleness,
     test-integrity, dependency, documentation, and three-platform export audit.
+19. [19-backup-and-restore.md](19-backup-and-restore.md) — the versioned lossless
+    JSON contract, all-row snapshot, empty-only atomic restore, and Manage data
+    recovery controls (D19).

@@ -58,6 +58,14 @@ times, and CSV export appends their stored `HH:MM` values without changing its
 existing column order. Native verification of the new settings, estimate
 labels, timed import/export, and screen-reader behavior remains open.
 
+**Lossless local backup and empty-database restore are implemented.** Manage
+data writes a versioned JSON snapshot containing every job and shift column,
+including archived jobs and deleted-shift tombstones. Restore rejects malformed
+or unsupported files before one exclusive transaction, then checks foreign keys
+and complete ordered-row parity before commit ([D19](docs/decisions.md)). Pure
+and SQLite fixture checks pass; the real 845-row fresh-install native restore
+drill is still required before claiming device-verified recovery.
+
 Done:
 
 - Product definition and MVP scope
@@ -99,12 +107,16 @@ Done:
   per-job workweek fields and settings UI, chained migrations, and the pure
   overtime calculator plus adjusted Log/Trends estimates ([`overtime.ts`](src/lib/overtime.ts),
   [D14 and D18](docs/decisions.md))
+- Versioned JSON backup and empty-only restore ([`backup.ts`](src/lib/backup.ts),
+  [D19](docs/decisions.md)): strict bounded validation, all-row SQLite
+  snapshots, one restore transaction, foreign-key checking, and exact row
+  parity without merging or replacing existing data
 
 Next:
 
-- Add versioned, lossless JSON backup/restore with atomic validation and parity
-  checks. See [docs/roadmap.md](docs/roadmap.md) for its exact acceptance
-  boundary and the remaining native/accessibility gates.
+- Run the isolated native restore acceptance pass, then define optional accounts
+  and authenticated cloud sync before public tax projections. See
+  [docs/roadmap.md](docs/roadmap.md) for the exact evidence boundary.
 
 ## Stack
 
@@ -169,6 +181,7 @@ All run by the pre-commit hook:
 ./scripts/check-docs.sh                # duplicate headings, dead references, broken links
 ./scripts/test-schema.sh               # every constraint in schema.sql rejects bad data
 ./scripts/test-migration.sh            # upgrades, rollback, preservation, and schema parity
+./scripts/test-backup-restore.sh        # backup row parity, foreign keys, integrity, rollback
 for t in src/lib/*.test.ts; do          # dates, editable-value round trips, money arithmetic
   node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON "$t"
 done

@@ -9,10 +9,9 @@ Last updated: 2026-08-04
 
 ## NEXT
 
-**The automated overtime scope is complete: storage, data-layer wiring, native
-shift-time entry, pure calculation, per-job settings, adjusted Log/Trends
-gross, and CSV time import/export are implemented and checked. Next is a
-versioned, lossless JSON backup/restore contract.**
+**The automated overtime and local backup/restore scopes are complete. Next is
+an isolated native restore acceptance pass; no physical-device restore claim
+exists yet.**
 
 Two product decisions were made on 2026-08-04 and are already recorded, so they
 do not need re-deciding: overtime adjusts the gross shown on screen rather than
@@ -94,12 +93,31 @@ datetime deprecation warning, or SQLite exception. Haptics are only a no-crash
 result because an emulator cannot prove tactile feedback; TalkBack remains a
 separate accessibility check.
 
-**Do this next:** define and implement a versioned JSON backup/restore contract
-that preserves jobs, shifts, stable ids, timestamps, tombstones, overtime
-settings, and exact integer fields. Restore must validate the whole document
-before one atomic transaction, reject unsupported versions, and prove
-fresh-versus-restored parity plus rollback. Keep CSV as the readable
-spreadsheet export (D16).
+`db8ac8b` recorded D19's separation between readable CSV and exact JSON
+recovery. `741bccb` added the strict version-1 codec; `7f5de6c` added all-row
+snapshot reads and empty-only atomic restore; and `67b1547` exposed both paths
+inside Manage data, including when the app has no jobs. The contract preserves
+every job and shift column, including archives and tombstones, and rejects
+unknown versions, fields, unsafe integers, invalid dates/times, duplicate ids,
+and orphan shifts before SQLite opens a restore transaction.
+
+The automated database fixture proves complete ordered-row parity, integrity,
+foreign keys, and rollback after a bad final row. `a34d940` records those tested
+trust-boundary branches for Fallow without suppressing the two unverified native
+UI handlers. Expo dependencies, Doctor, TypeScript, every tracked check, and
+web/iOS/Android exports pass.
+
+**Do this next:** on an isolated fresh native install, export the real 845-row
+database, restore it, then compare `PRAGMA user_version`, `integrity_check`,
+`foreign_key_check`, and every ordered column from all jobs and shifts. Do not
+run the restore drill against the only copy. Also verify picker cancellation,
+invalid-file messaging, and the nonempty-database refusal on iOS and Android.
+
+**After native restore acceptance:** define optional accounts and authenticated
+cloud sync before public tax projections. The remaining decisions are the auth
+provider/recovery flow, hosting and retention, account-deletion treatment of
+local data, and an explicit server-version conflict policy; client clock-based
+last-write-wins is not sufficient for income history.
 
 **After backup/restore:** confirm the first tax slice: opt-in 2026 federal W2
 estimates using filing status, pay frequency, W-4 inputs, other
@@ -730,3 +748,12 @@ Trends scope is complete.
     recorded rather than overtime-estimated Gross. This closes the automated
     overtime scope; native timed-import/export and accessibility evidence stays
     open.
+72. Added versioned local backup and empty-only restore across `db8ac8b`,
+    `741bccb`, `7f5de6c`, and `67b1547` (D19). JSON preserves every stored job
+    and shift field while CSV remains the readable spreadsheet export. The
+    parser validates the whole bounded document before writes; SQLite restores
+    jobs before shifts in one exclusive transaction, checks foreign keys, and
+    compares every ordered row before commit. Direct tests cover the contract,
+    complete-row parity, integrity, and rollback. All platform exports pass;
+    the real 845-row isolated native restore drill remains next rather than
+    being inferred from automated fixtures.
