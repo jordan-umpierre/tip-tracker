@@ -91,3 +91,5 @@ name — the number adds sequence without costing you the description.
     configured-workweek calculator.
 17. [17-android-regression.md](17-android-regression.md) — the deferred Android
     pass, beginning with readable weekday-chart sample counts.
+18. [18-project-audit.md](18-project-audit.md) — the whole-repository staleness,
+    test-integrity, dependency, documentation, and three-platform export audit.

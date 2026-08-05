@@ -668,3 +668,16 @@ Trends scope is complete.
     40 hours. Assertions cover opt-in behavior, weekly reset, different shift
     rates, a threshold inside a shift, a non-midnight boundary, paid duration
     that differs from elapsed time, untimed history, and invalid dates.
+69. Audited the whole repository for stale code, comments, tests, dependencies,
+    and documentation. `f9029dd` aligned Expo SDK 57 patches; `bd492f8`
+    replaced stale per-test Fallow suppressions with one real entry-point rule;
+    `0288662` corrected current status and CSV-import wording; and `b7a7fa1`
+    restored the advertised web build with `react-native-web` and SQLite's
+    required WebAssembly asset handling. `6a72b00` records that implicit Expo
+    runtime dependency for Fallow, and `df72ade` refreshed the one compatible
+    stale type-definition lock entry. Clean-install iOS, Android, and web
+    exports pass. Mutation checks proved the money, schema, migration, and doc
+    checks reject deliberately broken copies. The remaining npm advisory is in
+    Expo's build-time `uuid` chain and has no non-breaking fix; the Fallow
+    complexity findings are documented in build-log phase 18 rather than
+    triggering an unrelated UI refactor.
