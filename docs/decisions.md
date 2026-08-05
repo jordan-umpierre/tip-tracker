@@ -1124,3 +1124,55 @@ UI/UX bar from the product definition is achievable here.
 > **Revisit when:** a user reports overtime that disagrees with their pay stub.
 > The first suspects are an overnight shift attributed to the wrong workweek,
 > or a boundary configured against history that predates times.
+
+### D19 — Separate lossless backup from readable CSV export (2026-08-04)
+
+> **Decision:** Keep D13's source-specific CSV import and D16's readable CSV
+> export, and add a separate versioned JSON backup contract for exact restore.
+> Version 1 identifies itself as `tip-tracker-backup`, records schema version 3,
+> and carries every stored column from every job and shift, including stable
+> ids, timestamps, archived jobs, shift tombstones, overtime settings, exact
+> integer cents and seconds, and optional shift times. It contains no derived
+> gross, totals, or display-only hours.
+>
+> Restore validates the complete document before touching SQLite, then inserts
+> jobs before shifts inside one exclusive transaction. It is empty-database
+> only: if either table already contains a row, restore stops without changing
+> anything. Ordinary `INSERT` statements, foreign-key checking, and a complete
+> ordered row comparison must all succeed before the transaction commits.
+>
+> **Alternatives:**
+> - Teach the app to restore from its readable CSV export
+> - Replace the existing CSV formats with one universal import/export format
+> - Merge a backup into the current database
+> - Delete or replace current data before restoring
+> - Export the SQLite database file directly
+>
+> **Why:** the readable CSV deliberately omits internal identity and lifecycle
+> state. Even with shift times added, it cannot preserve job ids, archived
+> status, overtime configuration, row timestamps, or deleted-shift tombstones.
+> Rebuilding those values would produce a similar-looking history, not the same
+> database, and missing tombstones could later resurrect deleted income rows.
+>
+> A separate machine-readable backup keeps the spreadsheet useful without
+> pretending it is lossless. Empty-only restore is the smallest safe recovery
+> boundary before sync exists. Merge needs conflict resolution and durable
+> source identity; replacement risks destroying the only good local copy.
+> Exporting the raw SQLite file preserves bytes but couples recovery to SQLite
+> internals and schema migration behavior instead of a small validated contract.
+>
+> Version 1 is bounded to 10,000,000 UTF-8 bytes, 1,000 jobs, and 20,000
+> shifts. That keeps whole-file parsing bounded on a phone while allowing more
+> than fifty years at one shift per day. Unknown versions or fields are rejected
+> rather than silently discarded by an older app.
+>
+> **Known cost:** JSON is for recovery, not spreadsheets, so Manage data now has
+> two exports with different jobs. Restore cannot combine a backup with shifts
+> already on the device; a user must use a fresh or otherwise empty database.
+> The first release is also unencrypted, like the existing CSV, so the chosen
+> destination must be treated as sensitive financial data.
+>
+> **Revisit when:** optional accounts and sync ship. That is when server-side
+> backup can become automatic and authenticated merge/conflict behavior can be
+> defined. Add encryption only with a recovery-key design that still works after
+> the phone is lost; encrypting solely with a device-held key defeats restore.
