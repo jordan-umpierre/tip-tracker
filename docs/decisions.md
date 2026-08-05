@@ -1238,3 +1238,62 @@ UI/UX bar from the product definition is achievable here.
 > professional reviews the supported inputs, exclusions, result wording, and
 > test vectors; or a later slice adds FICA, paycheck records, annual liability,
 > or an editable app-derived taxable-wage prefill.
+
+### D21 — Preserve effective-dated per-job withholding settings (2026-08-05)
+
+> **Decision:** Store federal withholding settings as an effective-dated
+> history per job. `effective_from` means the **first paycheck pay date** to
+> which that row applies. For any pay date, the applicable row is the newest
+> one for that job whose `effective_from` is on or before the pay date. A job
+> and effective date can have only one row.
+>
+> Each row stores the W-4 and payroll facts D20's calculator needs repeatedly:
+> filing status, pay periods per year, Step 2's checkbox, Step 3 credits, Steps
+> 4(a), 4(b), and 4(c), and exempt status. It does not store a tax year,
+> paycheck taxable wages, calculated withholding, or an annual projection. Tax
+> rules come from the paycheck pay date and the explicitly versioned
+> calculator; a W-4 election can remain in force across tax years.
+>
+> Schema version 4 adds one `federal_withholding_settings` table with a UUID
+> primary key, a restricted job foreign key, integer cents and booleans, and a
+> unique `(job_id, effective_from)` pair. That unique constraint also supplies
+> the index for the as-of lookup, so a second speculative index is not added.
+> The first version exposes only create and pay-date lookup operations. Update,
+> delete, list, paycheck storage, and UI behavior wait for a caller and a
+> deliberate correction/removal contract.
+>
+> Lossless backup format version 2 records schema version 4 and includes every
+> withholding-setting column. New code still accepts the exact version-1,
+> schema-3 jobs-and-shifts contract and normalizes it to an empty settings
+> collection. Version 2 requires the new collection; unknown versions and
+> fields still fail. Restore remains empty-only across all three tables and
+> inserts jobs, then settings, then shifts before foreign-key and exact-row
+> parity checks. Version 1 fixtures remain permanent compatibility evidence.
+>
+> **Alternatives:**
+> - Keep only one mutable settings row on each job
+> - Store both `effective_from` and `effective_to`
+> - Key settings by tax year
+> - Add tax columns directly to `jobs`
+> - Stop accepting version-1 backups
+>
+> **Why:** changing today's W-4 must not rewrite which inputs explain an older
+> paycheck. A sequence of start dates preserves that history without redundant
+> end dates or overlapping ranges: the next row closes the preceding interval.
+> Keeping the settings in their own table also avoids turning a job row into a
+> mixture of employer identity, mutable payroll configuration, and tax history.
+>
+> The pay date is explicit because a W-4 submission date and the first paycheck
+> that uses it can differ. The app asks for the latter rather than guessing an
+> employer's processing delay. Backward-compatible parsing keeps existing
+> recovery files useful, while a new format version makes older apps reject tax
+> history they cannot preserve instead of silently dropping it.
+>
+> **Known cost:** saving a change requires an effective pay date, and the first
+> persistence slice cannot edit or remove a mistaken row. Adding either action
+> requires a clear historical-correction and future sync policy rather than an
+> implicit overwrite or a delete that reactivates an older setting.
+>
+> **Revisit when:** the tax UI needs correction/removal, paycheck records need
+> to retain the exact settings used, tax years beyond 2026 ship, or authenticated
+> sync defines server conflict and tombstone behavior.

@@ -118,14 +118,12 @@ bracket boundaries, rounding, and failure cases. TypeScript and the repository
 checks pass. Nothing persists yet, and the app still makes none of D20's
 excluded claims.
 
-**Do this next:** design schema version 4 and the lossless backup-format
-evolution before adding tax persistence or UI. W-4 elections change over time,
-so decide whether settings are effective-dated rather than overwriting the
-history used for an older paycheck. Backup version 1 is an exact schema-3
-jobs/shifts contract and rejects unknown fields; the next format must preserve
-new tax records without making old backups invalid or silently incomplete.
-Record the migration, ownership, and compatibility decisions before writing
-tables. Do not add persistence as part of that decision commit.
+**Do this next:** implement D21's schema version 4 and lossless backup-format
+evolution before adding tax UI. Withholding settings are effective-dated by the
+first paycheck pay date they apply to, so a later W-4 does not overwrite the
+inputs for older paychecks. Backup version 2 must preserve those rows, while
+the app keeps accepting exact version-1/schema-3 backups as settings-free
+history.
 
 The isolated native restore acceptance pass remains open: export the real
 845-row database on a fresh install, restore it, then compare
