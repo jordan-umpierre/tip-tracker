@@ -4,6 +4,15 @@ import type { Accounts } from "./accounts.ts";
 import { requireAuth, type VerifyAccessToken } from "./auth.ts";
 
 const JSON_BODY_LIMIT = "32kb";
+const PUBLIC_PARSER_ERRORS = new Map([
+  [400, "invalid_json"],
+  [413, "body_too_large"],
+]);
+
+function errorStatus(error: unknown) {
+  if (typeof error !== "object" || error === null || !("status" in error)) return undefined;
+  return Number(error.status);
+}
 
 export function createApp(dependencies?: {
   accounts: Accounts;
@@ -37,12 +46,11 @@ export function createApp(dependencies?: {
   // Express identifies body-parser errors by status. Return one bounded public
   // message and keep parser details and stack traces on the server side.
   const handleError: ErrorRequestHandler = (error, _request, response, _next) => {
-    const status = typeof error === "object" && error !== null && "status" in error
-      ? Number(error.status)
-      : 500;
+    const status = errorStatus(error);
+    const publicError = PUBLIC_PARSER_ERRORS.get(status ?? 0);
 
-    if (status === 400 || status === 413) {
-      response.status(status).json({ error: status === 413 ? "body_too_large" : "invalid_json" });
+    if (status && publicError) {
+      response.status(status).json({ error: publicError });
       return;
     }
 
