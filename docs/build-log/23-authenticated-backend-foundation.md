@@ -84,6 +84,33 @@ dead code or duplication. Its whole-repository health command still reports the
 same pre-existing mobile UI complexity findings led by `LogShiftForm`; this
 backend phase does not suppress or rewrite them.
 
+## Backend review remediation (2026-08-05)
+
+`2023f23` made deletion durable and complete across both owned Postgres rows
+and the Supabase Auth identity. A recent password-authentication event gates the
+first deletion. The database tombstone survives the account cascade, blocks an
+old valid token from recreating the account, and lets a later request retry an
+unavailable identity provider.
+
+`0baac4b` rejects signed but noncanonical token subjects before PostgreSQL.
+`c3fd9d4` preserves the mobile contract by keeping local identifiers as
+non-empty text and exact `HH:MM` values as text. These corrections changed the
+initial migration before any hosted database existed; disposable databases
+created from the earlier draft must be recreated rather than treated as live
+migration evidence.
+
+`c42dac0` added the migration ledger and runner. Migrations are consecutive,
+checksum-verified, individually transactional, serialized with an advisory
+lock, and idempotent after success. A forced broken migration proves rollback.
+`2a426f1` separated process liveness at `/health` from database and exact-schema
+readiness at `/ready`; startup refuses a missing, stale, or unreachable schema.
+
+`7efc60b` covers malformed JSON, oversized bodies, missing routes, and bounded
+unexpected-error responses. `9926627` simplified migration validation after the
+final health scan without adding a suppression. The server suite now has seven
+passing tests, the full repository hook passes, and Fallow reports no server
+health finding.
+
 ## Still external or manual
 
 - Create and fund Supabase and Render accounts and projects.

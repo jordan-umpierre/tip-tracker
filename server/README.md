@@ -28,22 +28,46 @@ The server refuses to start unless all provider-dependent values are present:
 | `SUPABASE_ISSUER` | Exact expected access-token issuer |
 | `SUPABASE_AUDIENCE` | Exact expected access-token audience |
 | `SUPABASE_JWKS_URL` | HTTPS endpoint containing public signing keys |
+| `SUPABASE_URL` | HTTPS base URL used by the server-only Auth admin client |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only key used to delete the authenticated identity |
 | `HOST` | Listen address; defaults to `0.0.0.0` |
 | `PORT` | Listen port; defaults to `3000` |
 
 Apply migrations with owner credentials before starting the runtime process:
 
 ```sh
-psql "$MIGRATION_DATABASE_URL" -v ON_ERROR_STOP=1 \
-  -f migrations/001_initial.sql
+MIGRATION_DATABASE_URL="postgresql://..." npm run migrate
 npm start
 ```
 
 Migration-owner credentials and the database password are server secrets. They
 must never use Expo's `EXPO_PUBLIC_` prefix or enter the mobile application.
+The service-role key has the same server-only boundary.
 The runtime role should receive only the private `app` schema privileges its
 implemented queries need; role grants wait for the actual managed project roles
 instead of guessing provider-owned names locally.
+
+The migration runner records each file name and SHA-256 checksum in
+`app.schema_migrations`, runs each pending migration in its own transaction,
+and refuses missing, reordered, or modified history. Startup applies nothing:
+it refuses traffic until the tracked schema is current. `/health` proves only
+that the process is alive; `/ready` also proves PostgreSQL is reachable and the
+schema ledger exactly matches the server.
+
+`001_initial.sql` was corrected before any hosted database existed. The first
+managed database must therefore be created from the current migration set; no
+live migration or data conversion is claimed. If an earlier local scratch
+database used the old draft, drop and recreate that disposable database.
+
+## Account deletion
+
+`DELETE /v1/me` trusts only the verified token subject and requires a password
+authentication event from the preceding five minutes. It writes a durable
+server tombstone and removes the account-owned cloud rows before asking
+Supabase Auth to remove the identity. A provider outage returns
+`503 identity_deletion_pending`; repeating the authenticated request retries
+the provider deletion without recreating the account. The local SQLite database
+is intentionally unchanged.
 
 ## External gates
 

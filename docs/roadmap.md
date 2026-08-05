@@ -35,18 +35,18 @@ tombstones preserve the future sync facts. A real temporary PostgreSQL database
 proves migration rollback, constraints, same-looking shift preservation,
 version/sequence updates, tenant ownership, and account cascade deletion.
 
-`8451e78` added remote-JWKS token verification plus `GET /v1/me` and
-`DELETE /v1/me`. A locally generated RSA key and served JWKS prove the valid
-path and reject a missing token, bad signature, issuer, audience, and expiry.
-The real-Postgres test proves request-body identity cannot cross accounts and
-account deletion cascades jobs, shifts, and settings. All five server tests,
-existing repository checks, and Fallow dead-code/duplication checks pass.
-`5d8cf93` and `dcd724d` then simplified the configuration and parser-error
-branches found by the final static health pass; Fallow now reports no server
-health finding without a suppression.
+`8451e78` added remote-JWKS token verification plus the account lifecycle.
+The remediation series `2023f23` through `9926627` then closed the review
+blockers: durable deletion tombstones, recent-password proof, Supabase identity
+deletion with retry semantics, canonical UUID subjects, lossless local text IDs
+and `HH:MM` times, checksum-tracked transactional migrations, schema-aware
+readiness, and bounded HTTP failure coverage. Seven server tests use real
+temporary PostgreSQL databases where persistence matters. The full repository
+hook passes and Fallow reports no server health finding without a suppression.
 
 **Do this next:** complete the already-open native withholding and isolated
-restore acceptance passes. Before any hosted or mobile-auth work, choose the
+restore acceptance passes. Phase-two mobile authentication and push/pull sync
+remain unimplemented. Before that hosted/mobile work, choose the
 Supabase and Render plans, database/API regions, availability and budget,
 backup/tombstone/log/deletion retention, and SMTP provider. Then create the
 external resources and least-privilege roles before implementing the mobile

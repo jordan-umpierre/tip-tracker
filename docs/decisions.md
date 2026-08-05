@@ -1333,6 +1333,22 @@ UI/UX bar from the product definition is achievable here.
 > keeps account deletion from turning a network request into silent destruction
 > of the only offline copy. The product must state that boundary before final
 > confirmation and must not call cloud deletion “erase all my data.”
+> The server first writes a durable account tombstone and removes account-owned
+> rows, then asks Supabase Auth to delete the identity. A provider failure is a
+> retryable pending deletion, never permission to recreate the cloud account.
+> Starting deletion requires a password authentication event no more than five
+> minutes old; a tombstoned retry may finish provider deletion after that window.
+>
+> Mobile-generated job, shift, and settings identifiers remain non-empty text
+> in Postgres. Stored workweek and shift times use the same exact `HH:MM` text
+> contract as SQLite. PostgreSQL UUID and `time` coercion must not silently
+> narrow or rewrite the local-first contract.
+>
+> SQL migrations are consecutively numbered, transactional, and recorded with
+> file checksums. Runtime startup and readiness require an exact ledger match;
+> startup never mutates the schema. The initial migration was corrected before
+> any hosted database existed, so the first provider database starts fresh from
+> current history rather than pretending a live conversion occurred.
 >
 > **Alternatives:**
 > - Put Supabase database credentials or Data API access in the app
