@@ -77,6 +77,8 @@ type Props = {
   range: TrendChartRange;
   scopeLabel: string;
   series: TrendSeries;
+  estimated: boolean;
+  hasUntimedEstimate: boolean;
   onRangeChange: (range: TrendChartRange) => void;
 };
 
@@ -91,6 +93,8 @@ export default function IncomeTrendChart({
   range,
   scopeLabel,
   series,
+  estimated,
+  hasUntimedEstimate,
   onRangeChange,
 }: Props) {
   const [chartWidth, setChartWidth] = useState(0);
@@ -179,13 +183,13 @@ export default function IncomeTrendChart({
   const context = selectedPoint
     ? pointLabel(selectedPoint.period, series.bucket)
     : rangeLabel(range, series);
-  const accessibilityValue = `${context}. ${formatCents(displayed.grossCents)} gross income, ${formatCents(displayed.grossCents - displayed.tipsCents)} wages, ${formatCents(displayed.tipsCents)} tips, ${formatHours(displayed.durationSeconds)}.`;
+  const accessibilityValue = `${context}. ${formatCents(displayed.grossCents)} ${estimated ? 'estimated gross income' : 'gross income'}, ${formatCents(displayed.grossCents - displayed.tipsCents)} ${estimated ? 'estimated wages' : 'wages'}, ${formatCents(displayed.tipsCents)} tips, ${formatHours(displayed.durationSeconds)}.`;
   const selectedPosition = selectedIndex === null ? null : positions[selectedIndex] ?? null;
 
   return (
     <View style={styles.container}>
       <View style={styles.headingRow}>
-        <Text style={styles.eyebrow}>Gross income</Text>
+        <Text style={styles.eyebrow}>{estimated ? 'Estimated gross income' : 'Gross income'}</Text>
         <Text numberOfLines={1} style={styles.scope}>{scopeLabel}</Text>
       </View>
       <Text selectable adjustsFontSizeToFit numberOfLines={1} style={styles.value}>
@@ -193,9 +197,17 @@ export default function IncomeTrendChart({
       </Text>
       <Text style={styles.context}>{context}</Text>
       <Text selectable style={styles.breakdown}>
-        {formatCents(displayed.grossCents - displayed.tipsCents)} wages ·{' '}
+        {estimated ? 'Est. ' : ''}{formatCents(displayed.grossCents - displayed.tipsCents)} wages ·{' '}
         {formatCents(displayed.tipsCents)} tips · {formatHours(displayed.durationSeconds)}
       </Text>
+      {estimated ? (
+        <Text style={styles.estimateNote}>
+          Uses configured overtime.
+          {hasUntimedEstimate
+            ? ' Shifts without times count wholly on their logged date.'
+            : ''}
+        </Text>
+      ) : null}
 
       <View
         accessible
@@ -204,7 +216,7 @@ export default function IncomeTrendChart({
           { name: 'increment', label: 'Next income point' },
         ]}
         accessibilityHint="Swipe up or down to move between dates."
-        accessibilityLabel="Gross income chart"
+        accessibilityLabel={estimated ? 'Estimated gross income chart' : 'Gross income chart'}
         accessibilityRole="adjustable"
         accessibilityState={{ disabled: series.points.length === 0 }}
         accessibilityValue={{ text: accessibilityValue }}
@@ -439,6 +451,7 @@ const styles = StyleSheet.create({
   },
   context: { color: '#374151', fontSize: 15, marginTop: 2 },
   breakdown: { color: '#6b7280', fontSize: 13, fontVariant: ['tabular-nums'], marginTop: 4 },
+  estimateNote: { color: '#6b7280', fontSize: 12, lineHeight: 18, marginTop: 4 },
   chart: { height: GRAPH_HEIGHT, justifyContent: 'center', marginTop: 18 },
   empty: {
     position: 'absolute',

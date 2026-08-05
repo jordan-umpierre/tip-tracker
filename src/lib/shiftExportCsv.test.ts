@@ -81,6 +81,16 @@ assert.notEqual(Math.round(Number(lossy[2]) * 3600), 27300);
 // Gross still comes from the exact seconds, not the rounded hours.
 assert.equal(lossy[6], '117.54');
 
+// Export is recorded history, not the configured overtime estimate. A 41-hour
+// shift at $10 remains $410 here; the displayed estimate would be $415.
+assert.equal(
+  buildShiftExportCsv([shift('overtime', '2026-08-03', 41 * 3600, 0, 1000)], jobNames)
+    .trimEnd()
+    .split('\n')[1]
+    .split(',')[6],
+  '410.00'
+);
+
 // Sub-dollar and zero amounts keep both decimal places rather than becoming
 // "0.5" or "0", which a spreadsheet would read as a different number.
 assert.equal(

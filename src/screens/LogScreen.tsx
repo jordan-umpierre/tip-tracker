@@ -1,6 +1,6 @@
 import { useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CreateJobForm from '../components/CreateJobForm';
@@ -13,7 +13,9 @@ import { getDb } from '../data/db';
 import { archiveJob, Job, listActiveJobs, listJobs } from '../data/jobs';
 import { listShifts, Shift } from '../data/shifts';
 import { formatCents } from '../lib/format';
+import { calculateEstimatedGrossByShift, overtimeScope } from '../lib/overtime';
 
+// fallow-ignore-next-line complexity -- Native loading and estimate states require device checks.
 export default function LogScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,6 +58,19 @@ export default function LogScreen() {
     }, [refresh])
   );
 
+  const estimatedJobIds = useMemo(
+    () => new Set(allJobs.filter((job) => job.overtime_enabled === 1).map((job) => job.id)),
+    [allJobs]
+  );
+  const grossByShift = useMemo(
+    () => calculateEstimatedGrossByShift(shifts, allJobs),
+    [allJobs, shifts]
+  );
+  const estimateScope = useMemo(
+    () => overtimeScope(shifts, allJobs, null),
+    [allJobs, shifts]
+  );
+
   if (loading) {
     return (
       <SafeAreaView style={styles.centered} edges={['top']}>
@@ -84,9 +99,23 @@ export default function LogScreen() {
       <ShiftList
         shifts={shifts}
         jobs={allJobs}
+        grossByShift={grossByShift}
+        estimatedJobIds={estimatedJobIds}
         onShiftDeleted={refresh}
         onShiftPress={setEditingShift}
-        header={<Text style={styles.historyTitle}>Logged shifts</Text>}
+        header={
+          <View>
+            <Text style={styles.historyTitle}>Logged shifts</Text>
+            {estimateScope.estimated && shifts.length > 0 ? (
+              <Text style={styles.estimateNote}>
+                Est. gross includes configured overtime.
+                {estimateScope.hasUntimedEstimate
+                  ? ' Shifts without times count wholly on their logged date.'
+                  : ''}
+              </Text>
+            ) : null}
+          </View>
+        }
         footer={
           <LogControls
             jobs={jobs}
@@ -363,6 +392,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     padding: 16,
+  },
+  estimateNote: {
+    color: '#6b7280',
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: -8,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
   },
   manageJobsButton: {
     minHeight: 44,

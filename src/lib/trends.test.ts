@@ -113,6 +113,17 @@ assert.deepEqual(allJobTrends.weekdays[2], {
   durationSeconds: 60 * 60,
 });
 
+const adjustedGross = new Map([
+  ['a-july', 1800],
+  ['a-august', 3900],
+]);
+assert.equal(calculateTrends(scopedShifts, 'job-a', adjustedGross).headline.grossCents, 5700);
+assert.equal(
+  calculateTrendSeries(scopedShifts, 'all', 'job-a', adjustedGross).points
+    .reduce((total, point) => total + point.grossCents, 0),
+  5700
+);
+
 // D5's rounding boundary: each half-hour shift earns 750.5 wage cents, so
 // each rounds to 751 and the Monday total is 1502. Rounding after grouping
 // would lose one cent and produce a $15.01/hr weekday rate.

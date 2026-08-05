@@ -9,7 +9,11 @@ import { calculateShiftGrossCents } from './totals.ts';
 type GroupTotals = {
   shiftCount: number;
   grossCents: number;
+  estimated: boolean;
 };
+
+const NO_GROSS_OVERRIDES: ReadonlyMap<string, number> = new Map();
+const NO_ESTIMATED_JOBS: ReadonlySet<string> = new Set();
 
 // Every level carries the same totals so a collapsed row can still say what is
 // inside it. `period` is what gets displayed ("2026", "2026-08", "2026-08-02");
@@ -32,12 +36,18 @@ export type ShiftYear = ShiftGroup & {
   months: ShiftMonth[];
 };
 
-function addTo(totals: GroupTotals, grossCents: number): void {
+function addTo(totals: GroupTotals, grossCents: number, estimated: boolean): void {
   totals.shiftCount += 1;
   totals.grossCents += grossCents;
+  totals.estimated ||= estimated;
 }
 
-export function groupShifts(shifts: Shift[]): ShiftYear[] {
+// fallow-ignore-next-line complexity -- Group boundaries and estimate totals are asserted in shiftGroups.test.ts.
+export function groupShifts(
+  shifts: Shift[],
+  grossByShift: ReadonlyMap<string, number> = NO_GROSS_OVERRIDES,
+  estimatedJobIds: ReadonlySet<string> = NO_ESTIMATED_JOBS
+): ShiftYear[] {
   const years = new Map<string, ShiftYear>();
   const months = new Map<string, ShiftMonth>();
   const weeks = new Map<string, ShiftWeek>();
@@ -63,30 +73,31 @@ export function groupShifts(shifts: Shift[]): ShiftYear[] {
 
     let year = years.get(yearPeriod);
     if (!year) {
-      year = { key: yearPeriod, period: yearPeriod, months: [], shiftCount: 0, grossCents: 0 };
+      year = { key: yearPeriod, period: yearPeriod, months: [], shiftCount: 0, grossCents: 0, estimated: false };
       years.set(yearPeriod, year);
     }
 
     let month = months.get(monthPeriod);
     if (!month) {
-      month = { key: monthPeriod, period: monthPeriod, weeks: [], shiftCount: 0, grossCents: 0 };
+      month = { key: monthPeriod, period: monthPeriod, weeks: [], shiftCount: 0, grossCents: 0, estimated: false };
       months.set(monthPeriod, month);
       year.months.push(month);
     }
 
     let week = weeks.get(weekKey);
     if (!week) {
-      week = { key: weekKey, period: weekPeriod, shifts: [], shiftCount: 0, grossCents: 0 };
+      week = { key: weekKey, period: weekPeriod, shifts: [], shiftCount: 0, grossCents: 0, estimated: false };
       weeks.set(weekKey, week);
       month.weeks.push(week);
     }
 
     // Same D5 per-shift calculation the totals and Trends use, so no header can
     // ever disagree with the numbers on the other tab.
-    const grossCents = calculateShiftGrossCents(shift);
-    addTo(year, grossCents);
-    addTo(month, grossCents);
-    addTo(week, grossCents);
+    const grossCents = grossByShift.get(shift.id) ?? calculateShiftGrossCents(shift);
+    const estimated = estimatedJobIds.has(shift.job_id);
+    addTo(year, grossCents, estimated);
+    addTo(month, grossCents, estimated);
+    addTo(week, grossCents, estimated);
     week.shifts.push(shift);
   }
 
@@ -131,10 +142,12 @@ function groupRow(
     period: group.period,
     shiftCount: group.shiftCount,
     grossCents: group.grossCents,
+    estimated: group.estimated,
     expanded: toggled[group.key] === true,
   };
 }
 
+// fallow-ignore-next-line complexity -- Expansion branches are asserted in shiftGroups.test.ts.
 export function flattenShifts(
   years: ShiftYear[],
   toggled: Record<string, boolean>

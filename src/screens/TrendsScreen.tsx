@@ -9,6 +9,7 @@ import { Job, listJobs } from '../data/jobs';
 import { listShifts, Shift } from '../data/shifts';
 import { localDateString, MONTH_NAMES } from '../lib/dates';
 import { formatCents, formatHours } from '../lib/format';
+import { calculateEstimatedGrossByShift, overtimeScope } from '../lib/overtime';
 import {
   calculateTrends,
   calculateTrendSeries,
@@ -82,15 +83,18 @@ export default function TrendsScreen() {
   let trends: ReturnType<typeof calculateTrends>;
   let trendSeries: ReturnType<typeof calculateTrendSeries>;
   let rangeHeadline: HeadlineTrend;
+  let grossByShift: Map<string, number>;
   try {
-    trends = calculateTrends(shifts, selectedJobId);
-    trendSeries = calculateTrendSeries(shifts, chartRange, selectedJobId);
+    grossByShift = calculateEstimatedGrossByShift(shifts, jobs);
+    trends = calculateTrends(shifts, selectedJobId, grossByShift);
+    trendSeries = calculateTrendSeries(shifts, chartRange, selectedJobId, grossByShift);
     // The summary card describes the window the chart is showing, so it runs
     // the same calculation over just the shifts the chart drew. The breakdown
     // below deliberately keeps using the unfiltered `trends` -- see D10.
     rangeHeadline = calculateTrends(
       shiftsInWindow(shifts, trendSeries),
-      selectedJobId
+      selectedJobId,
+      grossByShift
     ).headline;
   } catch (cause) {
     console.error('Could not calculate trends.', cause);
@@ -108,6 +112,7 @@ export default function TrendsScreen() {
   const selectedJob = selectedJobId === null
     ? null
     : jobs.find((job) => job.id === selectedJobId);
+  const estimateScope = overtimeScope(shifts, jobs, selectedJobId);
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -121,6 +126,8 @@ export default function TrendsScreen() {
           range={chartRange}
           scopeLabel={selectedJob ? selectedJob.name : 'All jobs'}
           series={trendSeries}
+          estimated={estimateScope.estimated}
+          hasUntimedEstimate={estimateScope.hasUntimedEstimate}
           onRangeChange={setChartRange}
         />
 
@@ -129,10 +136,16 @@ export default function TrendsScreen() {
         <HeadlineCard
           mode={summaryMode}
           headline={rangeHeadline}
+          estimated={estimateScope.estimated}
           window={rangeLabel(chartRange, trendSeries)}
         />
         <BreakdownControls value={breakdown} onChange={setBreakdown} />
-        <BreakdownSection breakdown={breakdown} trends={trends} today={today} />
+        <BreakdownSection
+          breakdown={breakdown}
+          trends={trends}
+          today={today}
+          estimated={estimateScope.estimated}
+        />
       </ScrollView>
       <StatusBar style="auto" />
     </SafeAreaView>
@@ -238,12 +251,15 @@ type HeadlineContent = {
   note?: string;
 };
 
-function weeklyHeadline(headline: HeadlineTrend): HeadlineContent {
+// fallow-ignore-next-line complexity -- Empty and estimated label branches are covered by device checks.
+function weeklyHeadline(headline: HeadlineTrend, estimated: boolean): HeadlineContent {
   const grossPerWeek = headline.grossPerWorkedWeekCents;
   const durationPerWeek = headline.durationPerWorkedWeekSeconds;
   if (grossPerWeek === null || durationPerWeek === null) {
     return {
-      eyebrow: 'Average gross per worked week',
+      eyebrow: estimated
+        ? 'Estimated average gross per worked week'
+        : 'Average gross per worked week',
       value: 'No shifts',
       // The range can now be empty for a reason other than logging nothing:
       // a job filter whose shifts all fall outside the selected window.
@@ -252,35 +268,41 @@ function weeklyHeadline(headline: HeadlineTrend): HeadlineContent {
   }
 
   return {
-    eyebrow: 'Average gross per worked week',
+    eyebrow: estimated
+      ? 'Estimated average gross per worked week'
+      : 'Average gross per worked week',
     value: `${formatCents(grossPerWeek)}/week`,
     context: `${rateLabel(headline.grossPerHourCents)} · ${formatHours(durationPerWeek)}/week`,
     note: 'Uses weeks with at least one logged shift.',
   };
 }
 
-function allTimeHeadline(headline: HeadlineTrend): HeadlineContent {
+function allTimeHeadline(headline: HeadlineTrend, estimated: boolean): HeadlineContent {
   return {
-    eyebrow: 'Gross per hour',
+    eyebrow: estimated ? 'Estimated gross per hour' : 'Gross per hour',
     value: rateLabel(headline.grossPerHourCents),
     context: headline.durationSeconds === 0
       ? 'No shifts in this range.'
-      : `${formatCents(headline.grossCents)} gross · ${formatHours(headline.durationSeconds)}`,
+      : `${formatCents(headline.grossCents)} ${estimated ? 'estimated gross' : 'gross'} · ${formatHours(headline.durationSeconds)}`,
   };
 }
 
 function HeadlineCard({
   mode,
   headline,
+  estimated,
   window,
 }: {
   mode: SummaryMode;
   headline: HeadlineTrend;
+  estimated: boolean;
   // The chart's own window label, repeated here because this card is scoped to
   // the same range and the number would otherwise be unattributed.
   window: string;
 }) {
-  const content = mode === 'weekly' ? weeklyHeadline(headline) : allTimeHeadline(headline);
+  const content = mode === 'weekly'
+    ? weeklyHeadline(headline, estimated)
+    : allTimeHeadline(headline, estimated);
 
   return (
     <View style={styles.headlineCard}>
@@ -297,13 +319,15 @@ function BreakdownSection({
   breakdown,
   trends,
   today,
+  estimated,
 }: {
   breakdown: Breakdown;
   trends: Trends;
   today: string;
+  estimated: boolean;
 }) {
   if (breakdown === 'weekday') {
-    return <WeekdayBars weekdays={trends.weekdays} />;
+    return <WeekdayBars weekdays={trends.weekdays} estimated={estimated} />;
   }
 
   if (breakdown === 'month') {
@@ -312,6 +336,7 @@ function BreakdownSection({
         title="By month"
         rows={trends.months}
         currentPeriod={today.slice(0, 7)}
+        estimated={estimated}
         formatPeriod={formatMonth}
       />
     );
@@ -322,6 +347,7 @@ function BreakdownSection({
       title="By year"
       rows={trends.years}
       currentPeriod={today.slice(0, 4)}
+      estimated={estimated}
       formatPeriod={(period) => period}
     />
   );
@@ -340,16 +366,19 @@ function FilterChip({ label, selected, onPress }: { label: string; selected: boo
   );
 }
 
-function WeekdayBars({ weekdays }: { weekdays: WeekdayTrend[] }) {
+function WeekdayBars({ weekdays, estimated }: { weekdays: WeekdayTrend[]; estimated: boolean }) {
   const maxRate = Math.max(0, ...weekdays.map((day) => day.grossPerHourCents ?? 0));
 
   return (
     <View style={styles.section}>
-      <Text selectable style={styles.sectionTitle}>Gross per hour by weekday</Text>
+      <Text selectable style={styles.sectionTitle}>
+        {estimated ? 'Estimated gross per hour by weekday' : 'Gross per hour by weekday'}
+      </Text>
       <Text style={styles.sectionNote}>
         Hourly wages plus tips, weighted by time. Rates above; samples below.
       </Text>
       <View style={styles.weekdayChart}>
+        {/* fallow-ignore-next-line complexity -- Each visible bar state needs its matching accessibility text. */}
         {weekdays.map((day) => {
           const height =
             day.grossPerHourCents === null || maxRate === 0
@@ -360,7 +389,7 @@ function WeekdayBars({ weekdays }: { weekdays: WeekdayTrend[] }) {
             <View
               key={day.weekday}
               accessible
-              accessibilityLabel={`${day.weekday}: ${rateLabel(day.grossPerHourCents)}, ${sampleLabel(day.shiftCount, day.durationSeconds)}`}
+              accessibilityLabel={`${day.weekday}: ${estimated ? 'estimated ' : ''}${rateLabel(day.grossPerHourCents)}, ${sampleLabel(day.shiftCount, day.durationSeconds)}`}
               style={styles.weekdayColumn}
             >
               <Text
@@ -400,16 +429,20 @@ function CalendarSection({
   title,
   rows,
   currentPeriod,
+  estimated,
   formatPeriod,
 }: {
   title: string;
   rows: CalendarTrend[];
   currentPeriod: string;
+  estimated: boolean;
   formatPeriod: (period: string) => string;
 }) {
   return (
     <View style={styles.section}>
-      <Text selectable style={styles.sectionTitle}>{title}</Text>
+      <Text selectable style={styles.sectionTitle}>
+        {estimated ? `Estimated gross ${title.toLowerCase()}` : title}
+      </Text>
       {rows.length === 0 ? <Text style={styles.emptyText}>No shifts yet.</Text> : null}
       {rows.map((row) => (
         <View key={row.period} style={styles.periodRow}>
@@ -417,7 +450,13 @@ function CalendarSection({
             <Text style={styles.periodLabel}>
               {formatPeriod(row.period)}{row.period === currentPeriod ? ' · to date' : ''}
             </Text>
-            <Text selectable style={styles.periodGross}>{formatCents(row.grossCents)}</Text>
+            <Text
+              selectable
+              accessibilityLabel={`${formatCents(row.grossCents)} ${estimated ? 'estimated gross' : 'gross'}`}
+              style={styles.periodGross}
+            >
+              {estimated ? 'Est. ' : ''}{formatCents(row.grossCents)}
+            </Text>
           </View>
           <Text style={styles.context}>
             {formatCents(row.tipsCents)} tips · {formatHours(row.durationSeconds)} ·{' '}

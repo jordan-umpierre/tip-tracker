@@ -4,6 +4,8 @@ import type { Shift } from '../data/shifts';
 import { parseCalendarDate, weekStartString } from './dates.ts';
 import { calculateShiftGrossCents } from './totals.ts';
 
+const NO_GROSS_OVERRIDES: ReadonlyMap<string, number> = new Map();
+
 const WEEKDAYS = [
   'Sunday',
   'Monday',
@@ -193,10 +195,12 @@ function pointKeyForShift(
   return shift.shift_date.slice(0, 7);
 }
 
+// fallow-ignore-next-line complexity -- Range and gross-overlay branches are asserted in trends.test.ts.
 export function calculateTrendSeries(
   shifts: Shift[],
   range: TrendChartRange,
-  jobId: string | null = null
+  jobId: string | null = null,
+  grossByShift: ReadonlyMap<string, number> = NO_GROSS_OVERRIDES
 ): TrendSeries {
   const datedShifts = datedShiftsForJob(shifts, jobId);
   const bucket = bucketForRange(range);
@@ -215,7 +219,11 @@ export function calculateTrendSeries(
   for (const { shift, date } of datedShifts) {
     const totals = totalsByPoint.get(pointKeyForShift(bucket, shift, date));
     if (totals) {
-      addShift(totals, shift, calculateShiftGrossCents(shift));
+      addShift(
+        totals,
+        shift,
+        grossByShift.get(shift.id) ?? calculateShiftGrossCents(shift)
+      );
     }
   }
 
@@ -244,7 +252,12 @@ export function shiftsInWindow(shifts: Shift[], series: TrendSeries): Shift[] {
   );
 }
 
-export function calculateTrends(shifts: Shift[], jobId: string | null = null): Trends {
+// fallow-ignore-next-line complexity -- Scope and aggregation branches are asserted in trends.test.ts.
+export function calculateTrends(
+  shifts: Shift[],
+  jobId: string | null = null,
+  grossByShift: ReadonlyMap<string, number> = NO_GROSS_OVERRIDES
+): Trends {
   const allTotals = emptyTotals();
   const weekdayTotals = WEEKDAYS.map(() => emptyTotals());
   const monthTotals = new Map<string, TrendTotals>();
@@ -258,7 +271,7 @@ export function calculateTrends(shifts: Shift[], jobId: string | null = null): T
       continue;
     }
 
-    const grossCents = calculateShiftGrossCents(shift);
+    const grossCents = grossByShift.get(shift.id) ?? calculateShiftGrossCents(shift);
     const date = parseCalendarDate(shift.shift_date);
     if (!date) {
       // New writes are stopped at the form boundary. Throwing here also makes

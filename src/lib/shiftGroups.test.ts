@@ -73,6 +73,19 @@ assert.equal(august.weeks[0].period, july.weeks[0].period);
 assert.notEqual(august.weeks[0].key, july.weeks[0].key);
 assert.equal(august.grossCents, august.weeks[0].grossCents);
 
+// Display-only overtime values flow into every collapsed subtotal without
+// changing the stored Shift, and a mixed group is labeled estimated.
+const estimated = groupShifts(
+  [
+    shift('recorded', '2026-08-01', 3600, 0, 1000),
+    shift('adjusted', '2026-08-02', 3600, 0, 1000),
+  ],
+  new Map([['adjusted', 1500]]),
+  new Set(['job-a'])
+);
+assert.equal(estimated[0].grossCents, 2500);
+assert.equal(estimated[0].estimated, true);
+
 // Untouched, everything is shut: one row per year and nothing else, however
 // many shifts are underneath.
 assert.deepEqual(

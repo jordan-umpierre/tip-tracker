@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import type { Job } from '../data/jobs.ts';
 import type { Shift } from '../data/shifts.ts';
-import { calculateOvertime } from './overtime.ts';
+import { calculateEstimatedGrossByShift, calculateOvertime, overtimeScope } from './overtime.ts';
 
 const HOUR = 60 * 60;
 
@@ -147,4 +147,32 @@ assert.throws(
   /Invalid shift date: 2026-02-30/
 );
 
-console.log('overtime OK (10 checks)');
+// The screen overlay calculates each employer independently and leaves a
+// missing job on recorded gross rather than dropping or crashing the shift.
+const displayedGross = calculateEstimatedGrossByShift(
+  [
+    shift('job-a-40', '2026-08-02', 40 * HOUR),
+    shift('job-a-41', '2026-08-03', HOUR),
+    shift('job-b-one', '2026-08-03', HOUR, 1000, null, null, 'job-b'),
+    shift('orphan', '2026-08-03', HOUR, 1000, null, null, 'missing-job'),
+  ],
+  [job(), job({ id: 'job-b' })]
+);
+assert.equal(displayedGross.get('job-a-41'), 1500);
+assert.equal(displayedGross.get('job-b-one'), 1000);
+assert.equal(displayedGross.get('orphan'), 1000);
+
+// Any mixed scope containing a configured job is estimated. A selected
+// unconfigured job is not, and the untimed warning follows only applicable
+// configured shifts.
+const scopeJobs = [job(), job({ id: 'job-b', overtime_enabled: 0 })];
+assert.deepEqual(
+  overtimeScope([shift('old-a', '2026-08-03', HOUR)], scopeJobs, null),
+  { estimated: true, hasUntimedEstimate: true }
+);
+assert.deepEqual(
+  overtimeScope([shift('old-b', '2026-08-03', HOUR, 1000, null, null, 'job-b')], scopeJobs, 'job-b'),
+  { estimated: false, hasUntimedEstimate: false }
+);
+
+console.log('overtime OK (15 checks)');

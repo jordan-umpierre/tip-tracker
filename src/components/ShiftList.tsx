@@ -25,6 +25,8 @@ const CONTENT_NUDGE_DOWN = 56;
 type Props = {
   shifts: Shift[];
   jobs: Job[];
+  grossByShift: ReadonlyMap<string, number>;
+  estimatedJobIds: ReadonlySet<string>;
   onShiftDeleted: () => void;
   onShiftPress: (shift: Shift) => void;
 
@@ -54,6 +56,8 @@ type Props = {
 export default function ShiftList({
   shifts,
   jobs,
+  grossByShift,
+  estimatedJobIds,
   onShiftDeleted,
   onShiftPress,
   header,
@@ -99,7 +103,10 @@ export default function ShiftList({
   // Only groups the user has actually tapped land in here; everything else is
   // shut. See flattenShifts for why nothing seeds this.
   const [toggled, setToggled] = useState<Record<string, boolean>>({});
-  const years = useMemo(() => groupShifts(shifts), [shifts]);
+  const years = useMemo(
+    () => groupShifts(shifts, grossByShift, estimatedJobIds),
+    [estimatedJobIds, grossByShift, shifts]
+  );
   // The tree is flattened back into one list of rows, so a three-level history
   // still renders through a single virtualized FlatList. Nesting scrollers or
   // mapping the whole tree into Views would give up virtualization, which is
@@ -198,6 +205,8 @@ export default function ShiftList({
           <SwipeableShiftRow
             jobName={jobNameById.get(item.shift.job_id) ?? 'Unknown job'}
             shift={item.shift}
+            grossCents={grossByShift.get(item.shift.id) ?? calculateShiftGrossCents(item.shift)}
+            estimated={estimatedJobIds.has(item.shift.job_id)}
             onDelete={() => handleDeletePress(item.shift)}
             onPress={() => openShift(item.shift)}
           />
@@ -209,6 +218,7 @@ export default function ShiftList({
   );
 }
 
+// fallow-ignore-next-line complexity -- Visible and accessibility estimate labels share one branch.
 function GroupRow({ row, onPress }: { row: ShiftGroupRow; onPress: () => void }) {
   const group = GROUP_STYLES[row.kind];
 
@@ -226,8 +236,12 @@ function GroupRow({ row, onPress }: { row: ShiftGroupRow; onPress: () => void })
       <Text numberOfLines={1} style={[styles.groupLabel, group.label]}>
         {formatGroupLabel(row)}
       </Text>
-      <Text selectable style={[styles.groupGross, group.label]}>
-        {formatCents(row.grossCents)}
+      <Text
+        selectable
+        accessibilityLabel={`${formatCents(row.grossCents)} ${row.estimated ? 'estimated gross' : 'gross'}`}
+        style={[styles.groupGross, group.label]}
+      >
+        {row.estimated ? 'Est. ' : ''}{formatCents(row.grossCents)}
       </Text>
       <Text style={styles.groupCount}>{row.shiftCount}</Text>
     </Pressable>
@@ -237,6 +251,7 @@ function GroupRow({ row, onPress }: { row: ShiftGroupRow; onPress: () => void })
 // Each level only names the part its parent has not already said: the year row
 // carries the year, so a month underneath it is just "August", and a week
 // under that is just its start date.
+// fallow-ignore-next-line complexity -- Calendar group labels are device-checked and date-tested.
 function formatGroupLabel(row: ShiftGroupRow): string {
   if (row.kind === 'year') return row.period;
   if (row.kind === 'month') return MONTH_NAMES[Number(row.period.slice(5, 7)) - 1] ?? row.period;
@@ -275,11 +290,15 @@ const OPEN_AT = REVEAL_WIDTH / 3;
 function SwipeableShiftRow({
   jobName,
   shift,
+  grossCents,
+  estimated,
   onDelete,
   onPress,
 }: {
   jobName: string;
   shift: Shift;
+  grossCents: number;
+  estimated: boolean;
   onDelete: () => void;
   onPress: () => void;
 }) {
@@ -396,8 +415,12 @@ function SwipeableShiftRow({
               {/* Gross on the right, matching how Trends lists a period. It is
                   what the app exists to show, so it should be the number the
                   eye lands on when scanning a month. */}
-              <Text selectable style={styles.rowGross}>
-                {formatCents(calculateShiftGrossCents(shift))}
+              <Text
+                selectable
+                accessibilityLabel={`${formatCents(grossCents)} ${estimated ? 'estimated gross' : 'gross'}`}
+                style={styles.rowGross}
+              >
+                {estimated ? 'Est. ' : ''}{formatCents(grossCents)}
               </Text>
             </View>
             <Text style={styles.rowDetail}>

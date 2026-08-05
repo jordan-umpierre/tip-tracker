@@ -89,6 +89,7 @@ function shiftSegments(shift: Shift, job: Job, inputIndex: number): WorkSegment[
   ];
 }
 
+// fallow-ignore-next-line complexity -- Workweek branches are asserted in overtime.test.ts.
 export function calculateOvertime(shifts: Shift[], job: Job): OvertimeShift[] {
   const jobShifts = shifts.filter((shift) => shift.job_id === job.id);
   const results = new Map(
@@ -143,4 +144,46 @@ export function calculateOvertime(shifts: Shift[], job: Job): OvertimeShift[] {
   }
 
   return [...results.values()];
+}
+
+export function calculateEstimatedGrossByShift(
+  shifts: Shift[],
+  jobs: Job[]
+): Map<string, number> {
+  // Start with recorded D5 gross so an orphaned shift still renders safely and
+  // every job without overtime keeps the exact number the app already showed.
+  const grossByShift = new Map(
+    shifts.map((shift) => [shift.id, calculateShiftGrossCents(shift)])
+  );
+
+  // Overtime is calculated independently per employer. Running the existing
+  // one-job calculator once for each saved job prevents hours from unrelated
+  // jobs sharing a 40-hour threshold.
+  for (const job of jobs) {
+    for (const result of calculateOvertime(shifts, job)) {
+      grossByShift.set(result.shiftId, result.estimatedGrossCents);
+    }
+  }
+
+  return grossByShift;
+}
+
+export function overtimeScope(
+  shifts: Shift[],
+  jobs: Job[],
+  jobId: string | null
+): { estimated: boolean; hasUntimedEstimate: boolean } {
+  const enabledJobIds = new Set(
+    jobs.filter((job) => job.overtime_enabled === 1).map((job) => job.id)
+  );
+  const estimated = jobId === null ? enabledJobIds.size > 0 : enabledJobIds.has(jobId);
+  const hasUntimedEstimate = shifts.some(
+    // fallow-ignore-next-line complexity -- Mixed and selected scopes are asserted in overtime.test.ts.
+    (shift) =>
+      enabledJobIds.has(shift.job_id) &&
+      (jobId === null || shift.job_id === jobId) &&
+      (!shift.start_time || !shift.end_time)
+  );
+
+  return { estimated, hasUntimedEstimate };
 }
