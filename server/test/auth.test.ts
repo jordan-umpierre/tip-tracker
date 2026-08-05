@@ -138,14 +138,14 @@ test("verified subjects alone control account reads and deletion", async () => {
 
         await database.query(
           `INSERT INTO app.jobs (account_id, id, name, hourly_rate_cents)
-           VALUES ($1, '10000000-0000-4000-8000-000000000001', 'Bar', 1500)`,
+           VALUES ($1, 'legacy-job:bar', 'Bar', 1500)`,
           [accountA],
         );
         await database.query(
           `INSERT INTO app.shifts
             (account_id, id, job_id, shift_date, duration_seconds, tips_cents, hourly_rate_cents)
-           VALUES ($1, '20000000-0000-4000-8000-000000000001',
-             '10000000-0000-4000-8000-000000000001', '2026-08-05', 14400, 5000, 1500)`,
+           VALUES ($1, 'legacy-shift:one',
+             'legacy-job:bar', '2026-08-05', 14400, 5000, 1500)`,
           [accountA],
         );
         await database.query(
@@ -154,8 +154,8 @@ test("verified subjects alone control account reads and deletion", async () => {
              pay_periods_per_year, step2_checked, step3_credits_cents,
              step4a_other_income_cents, step4b_deductions_cents,
              step4c_extra_withholding_cents, exempt)
-           VALUES ($1, '30000000-0000-4000-8000-000000000001',
-             '10000000-0000-4000-8000-000000000001', '2026-01-01',
+           VALUES ($1, 'legacy-setting:one',
+             'legacy-job:bar', '2026-01-01',
              'single-or-married-filing-separately', 26, false, 0, 0, 0, 0, false)`,
           [accountA],
         );

@@ -21,8 +21,8 @@ test("migration preserves ownership, versions, tombstones, and rollback", async 
 
       const accountA = "00000000-0000-4000-8000-000000000001";
       const accountB = "00000000-0000-4000-8000-000000000002";
-      const jobA = "10000000-0000-4000-8000-000000000001";
-      const shiftA = "20000000-0000-4000-8000-000000000001";
+      const jobA = "legacy-job:breadmaker-7";
+      const shiftA = "legacy-shift:2026-08-05-am";
 
       await database.query("INSERT INTO app.accounts (id) VALUES ($1), ($2)", [accountA, accountB]);
       await database.query(
@@ -31,16 +31,57 @@ test("migration preserves ownership, versions, tombstones, and rollback", async 
       );
       await database.query(
         `INSERT INTO app.shifts
-          (account_id, id, job_id, shift_date, duration_seconds, tips_cents, hourly_rate_cents)
-         VALUES ($1, $2, $3, '2026-08-05', 14400, 5000, 1500)`,
+          (account_id, id, job_id, shift_date, duration_seconds, tips_cents,
+           hourly_rate_cents, start_time, end_time)
+         VALUES ($1, $2, $3, '2026-08-05', 14400, 5000, 1500, '09:30', '13:30')`,
         [accountA, shiftA, jobA],
+      );
+      const exactTimes = await database.query(
+        `SELECT workweek_start_time, start_time, end_time
+         FROM app.jobs JOIN app.shifts USING (account_id)
+         WHERE app.jobs.id = $1 AND app.shifts.id = $2`,
+        [jobA, shiftA],
+      );
+      assert.deepEqual(exactTimes.rows[0], {
+        end_time: "13:30",
+        start_time: "09:30",
+        workweek_start_time: "00:00",
+      });
+
+      await assert.rejects(
+        database.query(
+          `INSERT INTO app.jobs
+            (account_id, id, name, hourly_rate_cents, workweek_start_time)
+           VALUES ($1, 'bad-time-job', 'Bad', 0, '09:30:00')`,
+          [accountA],
+        ),
+        /check constraint/i,
+      );
+      await assert.rejects(
+        database.query(
+          `INSERT INTO app.shifts
+            (account_id, id, job_id, shift_date, duration_seconds, tips_cents,
+             hourly_rate_cents, start_time, end_time)
+           VALUES ($1, 'bad-time-shift', $2, '2026-08-05', 1, 0, 0,
+             '09:30:00', '10:30:00')`,
+          [accountA, jobA],
+        ),
+        /check constraint/i,
+      );
+      await assert.rejects(
+        database.query(
+          `INSERT INTO app.jobs (account_id, id, name, hourly_rate_cents)
+           VALUES ($1, '', 'Empty id', 0)`,
+          [accountA],
+        ),
+        /check constraint/i,
       );
 
       await assert.rejects(
         database.query(
           `INSERT INTO app.shifts
             (account_id, id, job_id, shift_date, duration_seconds, tips_cents, hourly_rate_cents)
-           VALUES ($1, '20000000-0000-4000-8000-000000000002', $2, '2026-08-05', 1, 0, 0)`,
+           VALUES ($1, 'cross-account-shift', $2, '2026-08-05', 1, 0, 0)`,
           [accountB, jobA],
         ),
         /foreign key/i,
@@ -49,7 +90,7 @@ test("migration preserves ownership, versions, tombstones, and rollback", async 
       await database.query(
         `INSERT INTO app.shifts
           (account_id, id, job_id, shift_date, duration_seconds, tips_cents, hourly_rate_cents)
-         VALUES ($1, '20000000-0000-4000-8000-000000000003', $2, '2026-08-05', 14400, 5000, 1500)`,
+         VALUES ($1, 'same-looking-shift', $2, '2026-08-05', 14400, 5000, 1500)`,
         [accountA, jobA],
       );
 
@@ -59,7 +100,7 @@ test("migration preserves ownership, versions, tombstones, and rollback", async 
            pay_periods_per_year, step2_checked, step3_credits_cents,
            step4a_other_income_cents, step4b_deductions_cents,
            step4c_extra_withholding_cents, exempt)
-         VALUES ($1, '30000000-0000-4000-8000-000000000001', $2, '2026-01-01',
+         VALUES ($1, 'legacy-setting:2026-01-01', $2, '2026-01-01',
            'single-or-married-filing-separately', 26, false, 0, 0, 0, 0, false)`,
         [accountA, jobA],
       );
@@ -71,7 +112,7 @@ test("migration preserves ownership, versions, tombstones, and rollback", async 
              pay_periods_per_year, step2_checked, step3_credits_cents,
              step4a_other_income_cents, step4b_deductions_cents,
              step4c_extra_withholding_cents, exempt)
-           VALUES ($1, '30000000-0000-4000-8000-000000000002', $2, '2026-01-01',
+           VALUES ($1, 'cross-account-setting', $2, '2026-01-01',
              'single-or-married-filing-separately', 26, false, 0, 0, 0, 0, false)`,
           [accountB, jobA],
         ),

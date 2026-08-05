@@ -32,14 +32,15 @@ CREATE TABLE app.deleted_accounts (
 
 CREATE TABLE app.jobs (
   account_id uuid NOT NULL,
-  id uuid NOT NULL,
+  id text NOT NULL CHECK (id <> ''),
   name text NOT NULL CHECK (name <> ''),
   hourly_rate_cents bigint NOT NULL CHECK (hourly_rate_cents >= 0),
   archived_at timestamptz,
   overtime_enabled boolean NOT NULL DEFAULT false,
   workweek_start_weekday smallint NOT NULL DEFAULT 0
     CHECK (workweek_start_weekday BETWEEN 0 AND 6),
-  workweek_start_time time NOT NULL DEFAULT '00:00',
+  workweek_start_time text NOT NULL DEFAULT '00:00'
+    CHECK (workweek_start_time ~ '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$'),
   server_version bigint NOT NULL DEFAULT 1 CHECK (server_version > 0),
   change_sequence bigint NOT NULL DEFAULT nextval('app.change_sequence'),
   created_at timestamptz NOT NULL DEFAULT transaction_timestamp(),
@@ -50,16 +51,16 @@ CREATE TABLE app.jobs (
 
 CREATE TABLE app.shifts (
   account_id uuid NOT NULL,
-  id uuid NOT NULL,
-  job_id uuid NOT NULL,
+  id text NOT NULL CHECK (id <> ''),
+  job_id text NOT NULL CHECK (job_id <> ''),
   shift_date date NOT NULL,
   duration_seconds bigint NOT NULL CHECK (duration_seconds > 0),
   tips_cents bigint NOT NULL CHECK (tips_cents >= 0),
   hourly_rate_cents bigint NOT NULL CHECK (hourly_rate_cents >= 0),
   note text,
   deleted_at timestamptz,
-  start_time time,
-  end_time time,
+  start_time text,
+  end_time text,
   server_version bigint NOT NULL DEFAULT 1 CHECK (server_version > 0),
   change_sequence bigint NOT NULL DEFAULT nextval('app.change_sequence'),
   created_at timestamptz NOT NULL DEFAULT transaction_timestamp(),
@@ -67,13 +68,15 @@ CREATE TABLE app.shifts (
   PRIMARY KEY (account_id, id),
   FOREIGN KEY (account_id, job_id)
     REFERENCES app.jobs(account_id, id) ON DELETE CASCADE,
-  CHECK ((start_time IS NULL) = (end_time IS NULL))
+  CHECK ((start_time IS NULL) = (end_time IS NULL)),
+  CHECK (start_time IS NULL OR start_time ~ '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$'),
+  CHECK (end_time IS NULL OR end_time ~ '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$')
 );
 
 CREATE TABLE app.federal_withholding_settings (
   account_id uuid NOT NULL,
-  id uuid NOT NULL,
-  job_id uuid NOT NULL,
+  id text NOT NULL CHECK (id <> ''),
+  job_id text NOT NULL CHECK (job_id <> ''),
   effective_from date NOT NULL,
   filing_status text NOT NULL CHECK (
     filing_status IN (
