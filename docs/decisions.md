@@ -1258,9 +1258,11 @@ UI/UX bar from the product definition is achievable here.
 > primary key, a restricted job foreign key, integer cents and booleans, and a
 > unique `(job_id, effective_from)` pair. That unique constraint also supplies
 > the index for the as-of lookup, so a second speculative index is not added.
-> The first version exposes only create and pay-date lookup operations. Update,
-> delete, list, paycheck storage, and UI behavior wait for a caller and a
-> deliberate correction/removal contract.
+> The first live data read exists only for lossless backup. Schema assertions
+> pin the future pay-date lookup, but its create and lookup functions wait for
+> the tax UI that will call them rather than landing as suppressed dead code.
+> Update, delete, list, paycheck storage, and UI behavior likewise wait for a
+> caller and a deliberate correction/removal contract.
 >
 > Lossless backup format version 2 records schema version 4 and includes every
 > withholding-setting column. New code still accepts the exact version-1,

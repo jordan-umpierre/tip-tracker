@@ -42,6 +42,7 @@ sql() { sqlite3 "$db" "PRAGMA foreign_keys = ON; $1"; }
 # Writing the column lists once means a rename breaks in one place, not fifteen.
 job_cols="id, name, hourly_rate_cents, archived_at, created_at, updated_at"
 shift_cols="id, job_id, shift_date, duration_seconds, tips_cents, hourly_rate_cents, note, deleted_at, created_at, updated_at"
+settings_cols="id, job_id, effective_from, filing_status, pay_periods_per_year, step2_checked, step3_credits_cents, step4a_other_income_cents, step4b_deductions_cents, step4c_extra_withholding_cents, exempt, created_at, updated_at"
 now="2026-07-30T09:00:00Z"
 
 passed=0
@@ -165,6 +166,52 @@ rejects "a workweek starting at 25:00" \
 
 rejects "a workweek start time that is not a time" \
   "UPDATE jobs SET workweek_start_time = 'morning' WHERE id = 'job-2';"
+
+# --- Version 4: effective-dated federal withholding settings --------------
+
+accepts "the first withholding settings for a job" \
+  "INSERT INTO federal_withholding_settings ($settings_cols) VALUES ('tax-1', 'job-2', '2026-08-15', 'single-or-married-filing-separately', 26, 0, 0, 0, 0, 2500, 0, '$now', '$now');"
+
+accepts "later withholding settings for the same job" \
+  "INSERT INTO federal_withholding_settings ($settings_cols) VALUES ('tax-2', 'job-2', '2026-10-01', 'head-of-household', 52, 1, 200000, 10000, 5000, 725, 1, '$now', '$now');"
+
+# effective_from is the first paycheck pay date the row applies to. Before the
+# first date there is no setting; between dates the first applies; on the later
+# date the newer row wins.
+as_of=$(sql "SELECT ifnull((SELECT id FROM federal_withholding_settings WHERE job_id = 'job-2' AND effective_from <= '2026-08-14' ORDER BY effective_from DESC LIMIT 1), 'NONE') || '|' || (SELECT id FROM federal_withholding_settings WHERE job_id = 'job-2' AND effective_from <= '2026-09-01' ORDER BY effective_from DESC LIMIT 1) || '|' || (SELECT id FROM federal_withholding_settings WHERE job_id = 'job-2' AND effective_from <= '2026-10-01' ORDER BY effective_from DESC LIMIT 1);")
+if [ "$as_of" = "NONE|tax-1|tax-2" ]; then
+  passed=$((passed + 1))
+else
+  printf 'FAIL  withholding settings as-of lookup returned: %s\n' "$as_of"
+  failed=$((failed + 1))
+fi
+
+rejects "two settings for one job and effective pay date" \
+  "INSERT INTO federal_withholding_settings ($settings_cols) VALUES ('tax-3', 'job-2', '2026-08-15', 'married-filing-jointly', 24, 0, 0, 0, 0, 0, 0, '$now', '$now');"
+rejects "an impossible effective pay date" \
+  "INSERT INTO federal_withholding_settings ($settings_cols) VALUES ('tax-bad', 'job-3', '2026-02-30', 'married-filing-jointly', 24, 0, 0, 0, 0, 0, 0, '$now', '$now');"
+rejects "an effective pay date with an impossible month" \
+  "INSERT INTO federal_withholding_settings ($settings_cols) VALUES ('tax-bad', 'job-3', '2026-13-01', 'married-filing-jointly', 24, 0, 0, 0, 0, 0, 0, '$now', '$now');"
+rejects "an unsupported filing status" \
+  "INSERT INTO federal_withholding_settings ($settings_cols) VALUES ('tax-bad', 'job-3', '2026-08-15', 'other', 24, 0, 0, 0, 0, 0, 0, '$now', '$now');"
+rejects "an unsupported pay frequency" \
+  "INSERT INTO federal_withholding_settings ($settings_cols) VALUES ('tax-bad', 'job-3', '2026-08-15', 'married-filing-jointly', 25, 0, 0, 0, 0, 0, 0, '$now', '$now');"
+rejects "a Step 2 flag that is neither on nor off" \
+  "INSERT INTO federal_withholding_settings ($settings_cols) VALUES ('tax-bad', 'job-3', '2026-08-15', 'married-filing-jointly', 24, 2, 0, 0, 0, 0, 0, '$now', '$now');"
+rejects "negative Step 3 credits" \
+  "INSERT INTO federal_withholding_settings ($settings_cols) VALUES ('tax-bad', 'job-3', '2026-08-15', 'married-filing-jointly', 24, 0, -1, 0, 0, 0, 0, '$now', '$now');"
+rejects "negative Step 4(a) income" \
+  "INSERT INTO federal_withholding_settings ($settings_cols) VALUES ('tax-bad', 'job-3', '2026-08-15', 'married-filing-jointly', 24, 0, 0, -1, 0, 0, 0, '$now', '$now');"
+rejects "negative Step 4(b) deductions" \
+  "INSERT INTO federal_withholding_settings ($settings_cols) VALUES ('tax-bad', 'job-3', '2026-08-15', 'married-filing-jointly', 24, 0, 0, 0, -1, 0, 0, '$now', '$now');"
+rejects "negative Step 4(c) withholding" \
+  "INSERT INTO federal_withholding_settings ($settings_cols) VALUES ('tax-bad', 'job-3', '2026-08-15', 'married-filing-jointly', 24, 0, 0, 0, 0, -1, 0, '$now', '$now');"
+rejects "a W-4 amount outside JavaScript's safe integer range" \
+  "INSERT INTO federal_withholding_settings ($settings_cols) VALUES ('tax-bad', 'job-3', '2026-08-15', 'married-filing-jointly', 24, 0, 9007199254740992, 0, 0, 0, 0, '$now', '$now');"
+rejects "an exempt flag that is neither on nor off" \
+  "INSERT INTO federal_withholding_settings ($settings_cols) VALUES ('tax-bad', 'job-3', '2026-08-15', 'married-filing-jointly', 24, 0, 0, 0, 0, 0, 2, '$now', '$now');"
+rejects "withholding settings for a missing job" \
+  "INSERT INTO federal_withholding_settings ($settings_cols) VALUES ('tax-bad', 'job-missing', '2026-08-15', 'married-filing-jointly', 24, 0, 0, 0, 0, 0, 0, '$now', '$now');"
 
 # --- Things that must be refused ------------------------------------------
 

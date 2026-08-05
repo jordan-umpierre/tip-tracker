@@ -35,7 +35,7 @@ export default function BackupRestore({ onRestored }: Props) {
 
       Alert.alert(
         'Backup created',
-        `${backup.jobs.length} ${countLabel(backup.jobs.length, 'job')} and ${backup.shifts.length} ${countLabel(backup.shifts.length, 'shift')} written to ${fileName}.`
+        `${backup.jobs.length} ${countLabel(backup.jobs.length, 'job')}, ${backup.shifts.length} ${countLabel(backup.shifts.length, 'shift')}, and ${backup.federal_withholding_settings.length} withholding ${countLabel(backup.federal_withholding_settings.length, 'setting')} written to ${fileName}.`
       );
     } catch (cause) {
       if (isPickerCancelled(cause)) return;
@@ -71,7 +71,7 @@ export default function BackupRestore({ onRestored }: Props) {
   function confirmRestore(backup: TipTrackerBackup, fileName: string) {
     Alert.alert(
       `Restore ${fileName}?`,
-      `This backup contains ${backup.jobs.length} ${countLabel(backup.jobs.length, 'job')} and ${backup.shifts.length} ${countLabel(backup.shifts.length, 'shift')}. Restore only works when this app has no jobs or shifts.`,
+      `This backup contains ${backup.jobs.length} ${countLabel(backup.jobs.length, 'job')}, ${backup.shifts.length} ${countLabel(backup.shifts.length, 'shift')}, and ${backup.federal_withholding_settings.length} withholding ${countLabel(backup.federal_withholding_settings.length, 'setting')}. Restore only works when this app has no jobs, shifts, or withholding settings.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -96,7 +96,7 @@ export default function BackupRestore({ onRestored }: Props) {
 
       Alert.alert(
         'Backup restored',
-        `${restored.jobs.length} ${countLabel(restored.jobs.length, 'job')} and ${restored.shifts.length} ${countLabel(restored.shifts.length, 'shift')} restored.${refreshNote}`
+        `${restored.jobs.length} ${countLabel(restored.jobs.length, 'job')}, ${restored.shifts.length} ${countLabel(restored.shifts.length, 'shift')}, and ${restored.federal_withholding_settings.length} withholding ${countLabel(restored.federal_withholding_settings.length, 'setting')} restored.${refreshNote}`
       );
     } catch (cause) {
       const message = cause instanceof Error && cause.message.includes('requires an empty')
@@ -115,8 +115,8 @@ export default function BackupRestore({ onRestored }: Props) {
     <View style={styles.container}>
       <Text style={styles.title}>Full backup</Text>
       <Text style={styles.note}>
-        Saves every job and shift exactly, including removed items and overtime settings.
-        The JSON file contains sensitive income data and is not encrypted.
+        Saves every job, shift, and withholding setting exactly, including removed items and
+        overtime settings. The JSON file contains sensitive income data and is not encrypted.
       </Text>
       <View style={styles.actions}>
         <ActionButton

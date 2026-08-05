@@ -1,5 +1,6 @@
 import type * as SQLite from 'expo-sqlite';
 import { getDb } from './db';
+import { readFederalWithholdingSettingsForBackup } from './federalWithholdingSettings';
 import {
   assertBackupRowsEqual,
   buildBackupJson,
@@ -40,7 +41,12 @@ export async function createBackupJson(exportedAt = new Date()): Promise<string>
     rows = await readBackupRows(transaction);
   });
 
-  return buildBackupJson(rows.jobs, rows.shifts, exportedAt);
+  return buildBackupJson(
+    rows.jobs,
+    rows.shifts,
+    rows.federal_withholding_settings,
+    exportedAt
+  );
 }
 
 export async function restoreBackup(backup: TipTrackerBackup): Promise<BackupRows> {
@@ -62,11 +68,22 @@ async function restoreRows(
   transaction: RestoreDatabase,
   backup: TipTrackerBackup
 ): Promise<BackupRows> {
-  const counts = await transaction.getFirstAsync<{ job_count: number; shift_count: number }>(
+  const counts = await transaction.getFirstAsync<{
+    job_count: number;
+    shift_count: number;
+    federal_withholding_settings_count: number;
+  }>(
     `SELECT (SELECT COUNT(*) FROM jobs) AS job_count,
-            (SELECT COUNT(*) FROM shifts) AS shift_count;`
+            (SELECT COUNT(*) FROM shifts) AS shift_count,
+            (SELECT COUNT(*) FROM federal_withholding_settings)
+              AS federal_withholding_settings_count;`
   );
-  if (!counts || counts.job_count !== 0 || counts.shift_count !== 0) {
+  if (
+    !counts ||
+    counts.job_count !== 0 ||
+    counts.shift_count !== 0 ||
+    counts.federal_withholding_settings_count !== 0
+  ) {
     throw new Error('Restore requires an empty Tip Tracker database.');
   }
 
@@ -87,6 +104,32 @@ async function restoreRows(
       job.overtime_enabled,
       job.workweek_start_weekday,
       job.workweek_start_time
+    );
+  }
+
+  // Settings depend only on jobs, so they restore after their parent and
+  // before shifts. Version-1 backups normalize to an empty array here.
+  for (const settings of backup.federal_withholding_settings) {
+    await transaction.runAsync(
+      `INSERT INTO federal_withholding_settings
+         (id, job_id, effective_from, filing_status, pay_periods_per_year,
+          step2_checked, step3_credits_cents, step4a_other_income_cents,
+          step4b_deductions_cents, step4c_extra_withholding_cents, exempt,
+          created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+      settings.id,
+      settings.job_id,
+      settings.effective_from,
+      settings.filing_status,
+      settings.pay_periods_per_year,
+      settings.step2_checked,
+      settings.step3_credits_cents,
+      settings.step4a_other_income_cents,
+      settings.step4b_deductions_cents,
+      settings.step4c_extra_withholding_cents,
+      settings.exempt,
+      settings.created_at,
+      settings.updated_at
     );
   }
 
@@ -125,9 +168,14 @@ async function restoreRows(
 }
 
 async function readBackupRows(database: RowReader): Promise<BackupRows> {
-  const [jobs, shifts] = await Promise.all([
+  const [jobs, shifts, federalWithholdingSettings] = await Promise.all([
     database.getAllAsync<BackupJob>(JOBS_SQL),
     database.getAllAsync<BackupShift>(SHIFTS_SQL),
+    readFederalWithholdingSettingsForBackup(database),
   ]);
-  return { jobs, shifts };
+  return {
+    jobs,
+    shifts,
+    federal_withholding_settings: federalWithholdingSettings,
+  };
 }

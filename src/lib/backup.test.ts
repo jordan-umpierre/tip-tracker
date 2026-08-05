@@ -8,11 +8,17 @@ import {
   backupFileName,
   buildBackupJson,
   MAX_BACKUP_BYTES,
+  MAX_BACKUP_FEDERAL_WITHHOLDING_SETTINGS,
   MAX_BACKUP_JOBS,
   MAX_BACKUP_SHIFTS,
   parseBackupJson,
 } from './backup.ts';
-import type { BackupJob, BackupShift, TipTrackerBackup } from './backup.ts';
+import type {
+  BackupFederalWithholdingSettings,
+  BackupJob,
+  BackupShift,
+  TipTrackerBackup,
+} from './backup.ts';
 
 const CREATED = '2026-08-04T12:30:00.000Z';
 
@@ -49,7 +55,43 @@ function shift(changes: Partial<BackupShift> = {}): BackupShift {
   };
 }
 
+function settings(
+  changes: Partial<BackupFederalWithholdingSettings> = {}
+): BackupFederalWithholdingSettings {
+  return {
+    id: 'settings-a',
+    job_id: 'job-a',
+    effective_from: '2026-08-15',
+    filing_status: 'single-or-married-filing-separately',
+    pay_periods_per_year: 26,
+    step2_checked: 0,
+    step3_credits_cents: 0,
+    step4a_other_income_cents: 0,
+    step4b_deductions_cents: 0,
+    step4c_extra_withholding_cents: 2500,
+    exempt: 0,
+    created_at: CREATED,
+    updated_at: CREATED,
+    ...changes,
+  };
+}
+
 function backup(changes: Partial<TipTrackerBackup> = {}): TipTrackerBackup {
+  return {
+    format: 'tip-tracker-backup',
+    version: 2,
+    schema_version: 4,
+    exported_at: CREATED,
+    jobs: [job()],
+    shifts: [shift()],
+    federal_withholding_settings: [settings()],
+    ...changes,
+  };
+}
+
+// Keep this literal version-1 fixture permanently. It proves a schema-3
+// recovery file remains restorable after tax settings exist.
+function version1Backup(): Record<string, unknown> {
   return {
     format: 'tip-tracker-backup',
     version: 1,
@@ -57,7 +99,6 @@ function backup(changes: Partial<TipTrackerBackup> = {}): TipTrackerBackup {
     exported_at: CREATED,
     jobs: [job()],
     shifts: [shift()],
-    ...changes,
   };
 }
 
@@ -89,14 +130,43 @@ const exactShifts = [
     end_time: '01:05',
   }),
 ];
+const exactSettings = [
+  settings({ id: 'settings-z', job_id: 'job-z', effective_from: '2025-01-03', exempt: 1 }),
+  settings({
+    id: 'settings-a',
+    job_id: 'legacy-text-id',
+    filing_status: 'married-filing-jointly',
+    pay_periods_per_year: 52,
+    step2_checked: 1,
+    step3_credits_cents: 240_000,
+    step4a_other_income_cents: 100_000,
+    step4b_deductions_cents: 50_000,
+    step4c_extra_withholding_cents: 725,
+  }),
+];
 
-const json = buildBackupJson(exactJobs, exactShifts, new Date(CREATED));
+const json = buildBackupJson(exactJobs, exactShifts, exactSettings, new Date(CREATED));
 const exact = parseBackupJson(json);
 assert.deepEqual(exact.jobs, [...exactJobs].sort((a, b) => a.id.localeCompare(b.id)));
 assert.deepEqual(exact.shifts, [...exactShifts].sort((a, b) => a.id.localeCompare(b.id)));
+assert.deepEqual(
+  exact.federal_withholding_settings,
+  [...exactSettings].sort((a, b) => a.id.localeCompare(b.id))
+);
 assert.equal(exact.exported_at, CREATED);
 assert.ok(json.endsWith('\n'));
-assert.deepEqual(parse({ ...backup(), jobs: [], shifts: [] }).jobs, []);
+assert.deepEqual(
+  parse({ ...backup(), jobs: [], shifts: [], federal_withholding_settings: [] }).jobs,
+  []
+);
+
+const normalizedVersion1 = parse(version1Backup());
+assert.equal(normalizedVersion1.version, 2);
+assert.equal(normalizedVersion1.schema_version, 4);
+assert.deepEqual(normalizedVersion1.federal_withholding_settings, []);
+assert.deepEqual(normalizedVersion1.jobs, [job()]);
+rejects({ ...version1Backup(), extra: true }, /missing or unknown fields/);
+rejects({ ...version1Backup(), schema_version: 4 }, /database version is not supported/);
 
 // The filename uses local wall-clock parts, matching the existing CSV export.
 assert.equal(
@@ -112,12 +182,17 @@ const missing = backup() as Record<string, unknown>;
 delete missing.exported_at;
 rejects(missing, /missing or unknown fields/);
 rejects({ ...backup(), format: 'other' }, /not a Tip Tracker backup/);
-rejects({ ...backup(), version: 2 }, /version is not supported/);
-rejects({ ...backup(), schema_version: 4 }, /database version is not supported/);
+rejects({ ...backup(), version: 3 }, /version is not supported/);
+rejects({ ...backup(), schema_version: 5 }, /database version is not supported/);
 rejects({ ...backup(), exported_at: 'yesterday' }, /ISO timestamp/);
 rejects({ ...backup(), jobs: null }, /jobs and shifts arrays/);
 rejects({ ...backup(), jobs: new Array(MAX_BACKUP_JOBS + 1).fill(null) }, /more than 1000 jobs/);
 rejects({ ...backup(), shifts: new Array(MAX_BACKUP_SHIFTS + 1).fill(null) }, /more than 20000 shifts/);
+rejects({ ...backup(), federal_withholding_settings: null }, /must contain a federal_withholding_settings array/);
+rejects({
+  ...backup(),
+  federal_withholding_settings: new Array(MAX_BACKUP_FEDERAL_WITHHOLDING_SETTINGS + 1).fill(null),
+}, /more than 20000 federal withholding settings/);
 
 rejects({ ...backup(), jobs: [{ ...job(), extra: true }] }, /missing or unknown fields/);
 rejects({ ...backup(), jobs: [job({ id: '' })] }, /nonempty text/);
@@ -141,19 +216,69 @@ rejects({
   shifts: [shift({ duration_seconds: Number.MAX_SAFE_INTEGER, hourly_rate_cents: 2 })],
 }, /too large to calculate safely/);
 
+rejects({
+  ...backup(),
+  federal_withholding_settings: [{ ...settings(), extra: true }],
+}, /missing or unknown fields/);
+rejects({ ...backup(), federal_withholding_settings: [settings({ id: '' })] }, /nonempty text/);
+rejects({
+  ...backup(),
+  federal_withholding_settings: [settings({ effective_from: '2026-02-30' })],
+}, /real YYYY-MM-DD/);
+rejects({
+  ...backup(),
+  federal_withholding_settings: [settings({ filing_status: 'other' as never })],
+}, /filing_status is not supported/);
+rejects({
+  ...backup(),
+  federal_withholding_settings: [settings({ pay_periods_per_year: 25 })],
+}, /pay_periods_per_year is not supported/);
+rejects({
+  ...backup(),
+  federal_withholding_settings: [settings({ step2_checked: 2 })],
+}, /must be 0 or 1/);
+rejects({
+  ...backup(),
+  federal_withholding_settings: [settings({ step3_credits_cents: -1 })],
+}, /nonnegative safe integer/);
+rejects({
+  ...backup(),
+  federal_withholding_settings: [settings({ exempt: 2 })],
+}, /must be 0 or 1/);
+rejects({
+  ...backup(),
+  federal_withholding_settings: [settings(), settings()],
+}, /duplicate federal withholding setting id/);
+rejects({
+  ...backup(),
+  federal_withholding_settings: [settings(), settings({ id: 'settings-b' })],
+}, /duplicate federal withholding settings for job/);
+rejects({
+  ...backup(),
+  federal_withholding_settings: [settings({ job_id: 'missing' })],
+}, /job that is not in the backup/);
+
 assert.throws(
-  () => buildBackupJson([job({ archived_at: 'bad' })], [], new Date(CREATED)),
+  () => buildBackupJson([job({ archived_at: 'bad' })], [], [], new Date(CREATED)),
   /ISO timestamp/
 );
 
 assert.doesNotThrow(() => assertBackupRowsEqual(
-  { jobs: exactJobs, shifts: exactShifts },
-  { jobs: [...exactJobs].reverse(), shifts: [...exactShifts].reverse() }
+  { jobs: exactJobs, shifts: exactShifts, federal_withholding_settings: exactSettings },
+  {
+    jobs: [...exactJobs].reverse(),
+    shifts: [...exactShifts].reverse(),
+    federal_withholding_settings: [...exactSettings].reverse(),
+  }
 ));
 assert.throws(
   () => assertBackupRowsEqual(
-    { jobs: exactJobs, shifts: exactShifts },
-    { jobs: exactJobs, shifts: exactShifts.map((row) => ({ ...row, deleted_at: null })) }
+    { jobs: exactJobs, shifts: exactShifts, federal_withholding_settings: exactSettings },
+    {
+      jobs: exactJobs,
+      shifts: exactShifts.map((row) => ({ ...row, deleted_at: null })),
+      federal_withholding_settings: exactSettings,
+    }
   ),
   /did not match/
 );

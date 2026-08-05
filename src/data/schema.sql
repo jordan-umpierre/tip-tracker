@@ -79,6 +79,55 @@ CREATE TABLE jobs (
     )
 );
 
+-- One row is one version of the federal withholding settings an employer has
+-- on file for a job. effective_from is the first paycheck pay date that uses
+-- that version (D21), not the day the employee handed a W-4 to the employer.
+-- Keeping versions here means a later W-4 cannot rewrite the inputs that
+-- explain an older paycheck.
+CREATE TABLE federal_withholding_settings (
+  id TEXT PRIMARY KEY,
+  job_id TEXT NOT NULL,
+
+  -- Canonical local calendar date. The strftime comparison rejects impossible
+  -- dates such as February 30 instead of checking the shape alone.
+  effective_from TEXT NOT NULL CHECK (
+    effective_from GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+    AND strftime('%Y-%m-%d', effective_from) IS NOT NULL
+    AND strftime('%Y-%m-%d', effective_from) = effective_from
+  ),
+
+  filing_status TEXT NOT NULL CHECK (
+    filing_status IN (
+      'single-or-married-filing-separately',
+      'married-filing-jointly',
+      'head-of-household'
+    )
+  ),
+  pay_periods_per_year INTEGER NOT NULL CHECK (
+    pay_periods_per_year IN (2, 4, 12, 24, 26, 52, 260)
+  ),
+  step2_checked INTEGER NOT NULL CHECK (step2_checked IN (0, 1)),
+  step3_credits_cents INTEGER NOT NULL
+    CHECK (step3_credits_cents BETWEEN 0 AND 9007199254740991),
+  step4a_other_income_cents INTEGER NOT NULL
+    CHECK (step4a_other_income_cents BETWEEN 0 AND 9007199254740991),
+  step4b_deductions_cents INTEGER NOT NULL
+    CHECK (step4b_deductions_cents BETWEEN 0 AND 9007199254740991),
+  step4c_extra_withholding_cents INTEGER NOT NULL
+    CHECK (step4c_extra_withholding_cents BETWEEN 0 AND 9007199254740991),
+  exempt INTEGER NOT NULL CHECK (exempt IN (0, 1)),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+
+  FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE RESTRICT,
+
+  -- The next effective date closes the preceding interval. Two versions on
+  -- one job and pay date would make the as-of lookup ambiguous, so the
+  -- database refuses them. This also supplies the lookup index; no second
+  -- speculative index is needed.
+  UNIQUE (job_id, effective_from)
+);
+
 -- A shift is one instance of working: a date, some hours, some tips.
 -- This is the table the whole app revolves around. Everything in the trends
 -- and tax layers is a query over these rows, not new stored data.
@@ -165,9 +214,10 @@ CREATE TABLE shifts (
 -- No UNIQUE constraint on (job_id, shift_date). Working two shifts at the same
 -- job on one day is normal and has to be allowed.
 --
--- No indexes yet. Queries will filter shifts by date and by job, which sounds
--- like it wants an index, but a few thousand rows scan faster than the screen
--- can redraw. Add one when there's a slow query to point at, not before.
+-- No additional shift indexes yet. Queries will filter shifts by date and by
+-- job, which sounds like it wants an index, but a few thousand rows scan faster
+-- than the screen can redraw. Add one when there's a slow query to point at,
+-- not before. The settings table's UNIQUE pair has its own required index.
 
 -- Shift times are all-or-nothing and have to be real times. Triggers rather
 -- than CHECK constraints so that a database created from this file and one

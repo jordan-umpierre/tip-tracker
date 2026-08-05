@@ -4,7 +4,7 @@
 # fact other than the unit it deliberately changes. It also forces the UPDATE
 # to fail and checks that the surrounding transaction restores version 1.
 #
-# Then walks the whole chain, 1 to 2 to 3, the way db.ts does. That part exists
+# Then walks the whole chain, 1 to 2 to 3 to 4, the way db.ts does. That part exists
 # because the runner used to apply a single file and then stamp the newest
 # version number, which was only ever correct while there was one hop: a
 # version-1 database upgrading to version 3 got 1-to-2.sql and a "3" marker,
@@ -142,6 +142,8 @@ BEGIN IMMEDIATE;
 PRAGMA user_version = 2;
 .read $migration_dir/2-to-3.sql
 PRAGMA user_version = 3;
+.read $migration_dir/3-to-4.sql
+PRAGMA user_version = 4;
 COMMIT;
 SQL
 }
@@ -151,9 +153,9 @@ create_v1_fixture "$chain_db" || fail "could not create the chain fixture"
 chain_before_jobs=$(jobs_snapshot "$chain_db")
 chain_expected_durations=$(sqlite3 "$chain_db" "SELECT id || '|' || (minutes * 60) FROM shifts ORDER BY id;")
 
-apply_chain "$chain_db" || fail "the 1-to-2-to-3 chain did not complete"
+apply_chain "$chain_db" || fail "the 1-to-2-to-3-to-4 chain did not complete"
 
-[ "$(sqlite3 "$chain_db" 'PRAGMA user_version;')" = "3" ] || fail "the chain did not end at version 3"
+[ "$(sqlite3 "$chain_db" 'PRAGMA user_version;')" = "4" ] || fail "the chain did not end at version 4"
 [ "$(jobs_snapshot "$chain_db")" = "$chain_before_jobs" ] || fail "the chain changed an existing job field"
 [ "$(sqlite3 "$chain_db" "SELECT id || '|' || duration_seconds FROM shifts ORDER BY id;")" = "$chain_expected_durations" ] || fail "the chain lost the version-2 duration conversion"
 [ "$(sqlite3 "$chain_db" 'PRAGMA integrity_check;')" = "ok" ] || fail "chain integrity_check failed"
@@ -165,6 +167,7 @@ apply_chain "$chain_db" || fail "the 1-to-2-to-3 chain did not complete"
 [ "$(sqlite3 "$chain_db" "SELECT count(*) FROM shifts WHERE start_time IS NOT NULL OR end_time IS NOT NULL;")" = "0" ] || fail "the chain invented a shift time"
 [ "$(sqlite3 "$chain_db" "SELECT count(*) FROM jobs WHERE overtime_enabled != 0;")" = "0" ] || fail "the chain enabled overtime on an existing job"
 [ "$(sqlite3 "$chain_db" "SELECT count(*) FROM jobs WHERE workweek_start_weekday != 0 OR workweek_start_time != '00:00';")" = "0" ] || fail "an existing job did not default to Sunday midnight"
+[ "$(sqlite3 "$chain_db" 'SELECT count(*) FROM federal_withholding_settings;')" = "0" ] || fail "the chain invented withholding settings"
 
 # The version-3 constraints have to actually reject, on a migrated database and
 # not just a freshly created one.
@@ -187,6 +190,22 @@ reject "a non-time string"                  "UPDATE shifts SET start_time = 'eve
 sqlite3 "$chain_db" "UPDATE shifts SET start_time = '18:00', end_time = '02:00' WHERE id = '$chain_shift';" || fail "a valid overnight pair was rejected"
 [ "$(sqlite3 "$chain_db" "SELECT start_time || '-' || end_time FROM shifts WHERE id = '$chain_shift';")" = "18:00-02:00" ] || fail "a valid time pair did not store"
 
+sqlite3 "$chain_db" "INSERT INTO federal_withholding_settings (id,job_id,effective_from,filing_status,pay_periods_per_year,step2_checked,step3_credits_cents,step4a_other_income_cents,step4b_deductions_cents,step4c_extra_withholding_cents,exempt,created_at,updated_at) VALUES ('tax-chain','$chain_job','2026-08-15','single-or-married-filing-separately',26,0,0,0,0,2500,0,'2026-08-05T12:00:00.000Z','2026-08-05T12:00:00.000Z');" || fail "valid withholding settings were rejected after migration"
+reject "duplicate job/effective date settings" "INSERT INTO federal_withholding_settings SELECT 'tax-duplicate',job_id,effective_from,filing_status,pay_periods_per_year,step2_checked,step3_credits_cents,step4a_other_income_cents,step4b_deductions_cents,step4c_extra_withholding_cents,exempt,created_at,updated_at FROM federal_withholding_settings WHERE id = 'tax-chain';"
+
+# Force the last hop to fail and prove the runner's one outer transaction rolls
+# the earlier duration and overtime hops back too.
+chain_rollback_db="$tmpdir/chain-rollback.db"
+create_v1_fixture "$chain_rollback_db" || fail "could not create the chain rollback fixture"
+chain_rollback_before=$(shifts_snapshot "$chain_rollback_db")
+sqlite3 "$chain_rollback_db" 'CREATE TABLE federal_withholding_settings (id TEXT);' || fail "could not install the forced chain failure"
+if apply_chain "$chain_rollback_db" >/dev/null 2>&1; then
+  fail "the forced final-hop failure unexpectedly committed"
+fi
+[ "$(sqlite3 "$chain_rollback_db" 'PRAGMA user_version;')" = "1" ] || fail "failed chain changed user_version"
+[ "$(sqlite3 "$chain_rollback_db" "SELECT count(*) FROM pragma_table_info('shifts') WHERE name = 'minutes';")" = "1" ] || fail "failed chain did not restore the version-1 shift shape"
+[ "$(shifts_snapshot "$chain_rollback_db")" = "$chain_rollback_before" ] || fail "failed chain changed a shift field"
+
 # --- a fresh database and a migrated one have to be the same shape ---------
 #
 # schema.sql builds version 3 in one statement; the migrations arrive at it in
@@ -200,7 +219,7 @@ sqlite3 "$chain_db" "UPDATE shifts SET start_time = '18:00', end_time = '02:00' 
 fresh_db="$tmpdir/fresh.db"
 sqlite3 "$fresh_db" < src/data/schema.sql || fail "schema.sql did not load"
 
-for table in jobs shifts; do
+for table in jobs shifts federal_withholding_settings; do
   fresh_cols=$(sqlite3 "$fresh_db" "PRAGMA table_info($table);")
   chain_cols=$(sqlite3 "$chain_db" "PRAGMA table_info($table);")
   if [ "$fresh_cols" != "$chain_cols" ]; then
@@ -210,8 +229,12 @@ for table in jobs shifts; do
   fi
 done
 
+fresh_indexes=$(sqlite3 "$fresh_db" "SELECT name, tbl_name, sql FROM sqlite_master WHERE type = 'index' ORDER BY name;")
+chain_indexes=$(sqlite3 "$chain_db" "SELECT name, tbl_name, sql FROM sqlite_master WHERE type = 'index' ORDER BY name;")
+[ "$fresh_indexes" = "$chain_indexes" ] || fail "a fresh database and a migrated one have different indexes"
+
 fresh_triggers=$(sqlite3 "$fresh_db" "SELECT name FROM sqlite_master WHERE type = 'trigger' ORDER BY name;")
 chain_triggers=$(sqlite3 "$chain_db" "SELECT name FROM sqlite_master WHERE type = 'trigger' ORDER BY name;")
 [ "$fresh_triggers" = "$chain_triggers" ] || fail "a fresh database and a migrated one have different triggers"
 
-echo "migration OK (preservation + rollback + 1-to-3 chain + fresh/migrated parity)"
+echo "migration OK (preservation + rollback + 1-to-4 chain + fresh/migrated parity)"

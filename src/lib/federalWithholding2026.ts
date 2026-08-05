@@ -11,10 +11,13 @@
 
 export const FEDERAL_WITHHOLDING_PAY_PERIODS = [2, 4, 12, 24, 26, 52, 260] as const;
 
-export type FederalFilingStatus =
-  | 'single-or-married-filing-separately'
-  | 'married-filing-jointly'
-  | 'head-of-household';
+const FEDERAL_FILING_STATUSES = [
+  'single-or-married-filing-separately',
+  'married-filing-jointly',
+  'head-of-household',
+] as const;
+
+export type FederalFilingStatus = (typeof FEDERAL_FILING_STATUSES)[number];
 
 export type FederalWithholdingInput = {
   taxYear: number;
@@ -107,7 +110,7 @@ export const FEDERAL_WITHHOLDING_BRACKETS_2026: Record<
   },
 };
 
-const VALID_FILING_STATUSES = new Set(Object.keys(FEDERAL_WITHHOLDING_BRACKETS_2026));
+const VALID_FILING_STATUSES = new Set<string>(FEDERAL_FILING_STATUSES);
 const VALID_PAY_PERIODS = new Set<number>(FEDERAL_WITHHOLDING_PAY_PERIODS);
 const MAX_SAFE_BIGINT = BigInt(Number.MAX_SAFE_INTEGER);
 
