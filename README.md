@@ -51,8 +51,9 @@ emulator cannot prove that haptics were felt.
 **Overtime is in progress.** Schema version 3 stores optional shift times and
 per-job overtime/workweek settings, the data layer exposes them, native shift
 time entry works on iOS and Android, and the pure configured-workweek
-calculator is asserted. The per-job settings UI and adjusted gross display are
-the next app steps; CSV import/export do not preserve shift times yet.
+calculator is asserted. Manage data now has the per-job opt-in settings UI; the
+adjusted gross display is next. CSV import/export do not preserve shift times
+yet.
 
 Done:
 
@@ -90,15 +91,15 @@ Done:
   months page by animated swipe or arrows, and the header opens a month and
   year chooser. Typing a date still works and is still the primary path
 - Overtime foundations: schema version 3, optional native shift times,
-  per-job workweek fields, chained migrations, and the pure overtime
-  calculator ([`overtime.ts`](src/lib/overtime.ts), [D14 and D18](docs/decisions.md))
+  per-job workweek fields and settings UI, chained migrations, and the pure
+  overtime calculator ([`overtime.ts`](src/lib/overtime.ts),
+  [D14 and D18](docs/decisions.md))
 
 Next:
 
-- Add the per-job overtime settings UI inside Manage data, then show an
-  explicitly estimated overtime-adjusted gross without changing recorded CSV
-  exports. See [docs/roadmap.md](docs/roadmap.md) for the exact order and
-  remaining device/accessibility gates.
+- Show an explicitly estimated overtime-adjusted gross without changing
+  recorded CSV exports. See [docs/roadmap.md](docs/roadmap.md) for the exact
+  order and remaining device/accessibility gates.
 
 ## Stack
 

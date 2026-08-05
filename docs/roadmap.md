@@ -10,8 +10,8 @@ Last updated: 2026-08-04
 ## NEXT
 
 **Overtime is in progress. Its storage, data-layer wiring, native shift-time
-entry, pure calculation, and the full Android regression are complete. Next is
-the per-job settings UI.**
+entry, pure calculation, per-job settings UI, and the earlier full Android
+regression are complete. Next is the adjusted gross display.**
 
 Two product decisions were made on 2026-08-04 and are already recorded, so they
 do not need re-deciding: overtime adjusts the gross shown on screen rather than
@@ -30,6 +30,14 @@ and then stamped the newest version number, which was correct only while there
 was exactly one hop. A version-1 database upgrading to version 3 would have
 received `1-to-2.sql` and a version-3 marker.
 
+`0097a76` added the per-job overtime settings inside Manage data. Each active
+job can opt in independently and store the employer's weekday and start time;
+turning the estimate off preserves that boundary for later. The screen uses
+the platform time picker and states the 40-hour/1.5x limit, the untimed-history
+approximation, and the unsupported tipped-credit rules before anything uses
+the estimate on screen. Static checks and all three platform exports pass; the
+new controls still need their native runtime pass.
+
 **Then, in order:**
 
 1. ~~Data layer — `shifts.ts` and `jobs.ts` expose the new columns, and shift
@@ -41,9 +49,11 @@ received `1-to-2.sql` and a version-3 marker.
 3. ~~Overtime calculation in `src/lib`, pure and asserted: 40 hours per the
    job's configured workweek, 1.5x the shift's own rate, shifts without times
    counted wholly against their logged date.~~ Done in `74ea74d`.
-4. **Do this now:** per-job overtime settings UI, opt-in, inside Manage data.
-5. Show the adjusted gross with an explicit estimate label. The CSV export must
-   keep exporting recorded gross, not adjusted — see the revised D14.
+4. ~~Per-job overtime settings UI, opt-in, inside Manage data.~~ Done in
+   `0097a76`.
+5. **Do this now:** show the adjusted gross with an explicit estimate label.
+   The CSV export must keep exporting recorded gross, not adjusted — see the
+   revised D14.
 6. Teach the CSV importer the Start Time and End Time columns it currently
    refuses (D13).
 7. Add times to the CSV export.

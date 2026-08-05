@@ -72,3 +72,22 @@ Wednesday 6am boundary, breaks across that boundary, untimed history, and an
 invalid date. TypeScript, the full tracked hook, and Fallow's changed-file audit
 pass. Varying-rate regular-pay and tip-credit rules remain outside D14's bounded
 estimate; the calculator is not connected to displayed totals until step 5.
+
+## `0097a76` — feat: add per-job overtime settings (2026-08-04)
+
+Manage data now gives each active job its own opt-in overtime control and fixed
+workweek boundary. The UI uses the native Switch, seven weekday choices, and
+the same platform time-picker API already proven by shift entry. Disabling an
+estimate preserves the saved boundary so re-enabling it cannot silently reset
+the employer's real workweek.
+
+The copy bounds the feature before the adjusted number is connected: 40 hours,
+1.5x, untimed shifts placed wholly on their logged date, and no tipped-credit
+or other overtime rules yet. Saving updates all three job settings and
+`updated_at` in one parameter-bound SQLite statement; archived jobs cannot be
+changed through this active-job screen.
+
+The full tracked hook, TypeScript, Expo dependency check, Expo Doctor 20/20,
+Fallow's changed-file/dead-code/duplication gates, and fresh web, iOS, and
+Android exports pass. The new Switch, weekday choices, picker, persistence,
+and accessibility announcements still need native runtime verification.
