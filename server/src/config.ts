@@ -19,12 +19,16 @@ export function readConfig(env: NodeJS.ProcessEnv): ServerConfig {
 }
 
 function readPort(value: string | undefined) {
-  const text = value?.trim() || "3000";
+  const text = valueOrDefault(value, "3000");
   const port = Number(text);
   if (!Number.isInteger(port) || port < 1 || port > 65_535) {
     throw new Error("PORT must be an integer from 1 through 65535");
   }
   return port;
+}
+
+function valueOrDefault(value: string | undefined, fallback: string) {
+  return value?.trim() || fallback;
 }
 
 function requiredText(value: string | undefined, name: string) {
