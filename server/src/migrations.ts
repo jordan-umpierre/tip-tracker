@@ -96,16 +96,26 @@ function assertAppliedMigrationsMatch(
   expected: Migration[],
   requireCurrent = false,
 ) {
-  if (applied.length > expected.length || (requireCurrent && applied.length !== expected.length)) {
-    throw new Error("Database schema version does not match this server");
-  }
-  applied.forEach((migration, index) => {
-    const wanted = expected[index];
-    if (
-      !wanted || migration.version !== wanted.version ||
-      migration.name !== wanted.name || migration.checksum !== wanted.checksum
-    ) {
+  assertMigrationCount(applied.length, expected.length, requireCurrent);
+  for (const [index, migration] of applied.entries()) {
+    const wanted = expected[index]!;
+    if (!migrationsMatch(migration, wanted)) {
       throw new Error(`Database migration ${migration.version} does not match its tracked file`);
     }
-  });
+  }
+}
+
+function assertMigrationCount(applied: number, expected: number, requireCurrent: boolean) {
+  if (applied > expected) {
+    throw new Error("Database schema version does not match this server");
+  }
+  if (requireCurrent && applied !== expected) {
+    throw new Error("Database schema version does not match this server");
+  }
+}
+
+function migrationsMatch(applied: Omit<Migration, "sql">, expected: Migration) {
+  return applied.version === expected.version &&
+    applied.name === expected.name &&
+    applied.checksum === expected.checksum;
 }
