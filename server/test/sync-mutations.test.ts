@@ -206,6 +206,11 @@ function assertPulledFacts(changes: ChangesBody["changes"]) {
   assert.equal(rows.get("shift-a")?.record.deletedAt, timestamp);
   assert.equal(rows.get("setting-a")?.record.deletedAt, timestamp);
   assert.equal(changes.every((change) => change.record.createdAt === timestamp), true);
+  // Date columns have to come back as the calendar day the client sent, not as
+  // a stringified Date. The client decoder rejects anything but YYYY-MM-DD, so
+  // without this every pulled shift and setting would fail as malformed.
+  assert.equal(rows.get("shift-a")?.record.shiftDate, "2026-08-05");
+  assert.equal(rows.get("setting-a")?.record.effectiveFrom, "2026-01-01");
   const sequences = changes.map((change) => change.changeSequence);
   assert.deepEqual(sequences, [...sequences].sort((left, right) => left - right));
 }

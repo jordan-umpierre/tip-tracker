@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import type pg from "pg";
+import pg from "pg";
 
 import {
   InvalidSyncQueryError,
@@ -14,6 +14,17 @@ import {
   type SyncMutation,
   type SyncRecord,
 } from "./syncContract.ts";
+
+// Postgres type OID 1082 is `date`. Left alone, pg parses those columns into a
+// JavaScript Date set to midnight in the *server's* local timezone, so
+// shift_date and effective_from come back as "Wed Aug 05 2026 00:00:00 GMT-0500"
+// instead of "2026-08-05". The client decoder requires a plain YYYY-MM-DD, so
+// every pulled shift and withholding setting would be rejected as malformed.
+//
+// Reading these as the raw wire text keeps the calendar day exactly as stored.
+// Converting the Date back would mean doing timezone math to undo timezone math
+// that never needed to happen, and getting it wrong shifts the day by one.
+pg.types.setTypeParser(pg.types.builtins.DATE, (value) => value);
 
 type SyncConnection = pg.PoolClient;
 type SyncDatabase = Pick<pg.Pool, "connect">;
