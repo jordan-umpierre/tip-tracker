@@ -18,10 +18,12 @@ function errorStatus(error: unknown) {
 export function createApp(dependencies?: {
   accounts: Accounts;
   authAdmin: AuthAdmin;
+  logError?: (error: unknown) => void;
   readiness: () => Promise<void>;
   verifyAccessToken: VerifyAccessToken;
 }) {
   const app = express();
+  const logError = dependencies?.logError ?? console.error;
 
   app.disable("x-powered-by");
   app.use(express.json({ limit: JSON_BODY_LIMIT, strict: true }));
@@ -62,7 +64,7 @@ export function createApp(dependencies?: {
       try {
         await dependencies.authAdmin.deleteIdentity(claims.subject);
       } catch (error) {
-        console.error(error);
+        logError(error);
         response.status(503).json({ error: "identity_deletion_pending" });
         return;
       }
@@ -85,7 +87,7 @@ export function createApp(dependencies?: {
       return;
     }
 
-    console.error(error);
+    logError(error);
     response.status(500).json({ error: "internal_error" });
   };
 

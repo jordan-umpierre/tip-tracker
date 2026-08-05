@@ -74,6 +74,7 @@ test("verified subjects alone control account reads and deletion", async () => {
       const apiServer = createServer(createApp({
         accounts: createAccounts(database),
         authAdmin,
+        logError: () => undefined,
         readiness: async () => undefined,
         verifyAccessToken,
       }));

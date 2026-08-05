@@ -5,7 +5,20 @@ import { after, before, test } from "node:test";
 import { createApp } from "../src/app.ts";
 import { readConfig } from "../src/config.ts";
 
-const server = createServer(createApp());
+const server = createServer(createApp({
+  accounts: {
+    findOrCreate: async () => { throw new Error("simulated database failure"); },
+    isDeleted: async () => false,
+    markDeleted: async () => undefined,
+  },
+  authAdmin: { deleteIdentity: async () => undefined },
+  logError: () => undefined,
+  readiness: async () => undefined,
+  verifyAccessToken: async () => ({
+    passwordAuthenticatedAt: Math.floor(Date.now() / 1000),
+    subject: "00000000-0000-4000-8000-000000000001",
+  }),
+}));
 let baseUrl = "";
 
 before(async () => {
@@ -75,4 +88,25 @@ test("bounds JSON request bodies and error responses", async () => {
   assert.equal(response.status, 413);
   assert.deepEqual(await response.json(), { error: "body_too_large" });
   assert.equal(Number(response.headers.get("content-length")) < 100, true);
+});
+
+test("bounds malformed JSON, missing routes, and unexpected errors", async () => {
+  const malformed = await fetch(`${baseUrl}/missing`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: "{",
+  });
+  assert.equal(malformed.status, 400);
+  assert.deepEqual(await malformed.json(), { error: "invalid_json" });
+
+  const missing = await fetch(`${baseUrl}/missing`);
+  assert.equal(missing.status, 404);
+  assert.deepEqual(await missing.json(), { error: "not_found" });
+
+  const unexpected = await fetch(`${baseUrl}/v1/me`, {
+    headers: { authorization: "Bearer locally-accepted-test-token" },
+  });
+  assert.equal(unexpected.status, 500);
+  assert.deepEqual(await unexpected.json(), { error: "internal_error" });
+  assert.equal(Number(unexpected.headers.get("content-length")) < 100, true);
 });
