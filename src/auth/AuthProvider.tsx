@@ -11,6 +11,7 @@ import {
 import { AppState, Platform } from 'react-native';
 import { getDb } from '../data/db';
 import { SyncAccountMismatchError } from '../data/sync';
+import { createSyncRunner, type SyncRunResult } from '../sync/transport';
 import {
   confirmAccountConnection,
   prepareAccountConnection,
@@ -34,6 +35,15 @@ type AccountPhase =
   | 'pending_verification'
   | 'signed_out';
 
+export type SyncPhase =
+  | 'blocked'
+  | 'idle'
+  | 'mismatch'
+  | 'pending_offline'
+  | 'sign_in_again'
+  | 'syncing'
+  | 'up_to_date';
+
 type AuthContextValue = {
   confirmConnection(): Promise<void>;
   createAccount(email: string, password: string): Promise<boolean>;
@@ -45,6 +55,8 @@ type AuthContextValue = {
   retryConnection(): void;
   signIn(email: string, password: string): Promise<boolean>;
   signOut(): Promise<void>;
+  syncNow(): Promise<void>;
+  syncPhase: SyncPhase;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -58,6 +70,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [message, setMessage] = useState<string | null>(authSetup.error);
   const [localRecordCount, setLocalRecordCount] = useState(0);
   const [connectionAttempt, setConnectionAttempt] = useState(0);
+  const [syncPhase, setSyncPhase] = useState<SyncPhase>('idle');
+  const syncRunner = useRef<ReturnType<typeof createSyncRunner> | null>(null);
   const pendingVerification = useRef(false);
   const signedOutNotice = useRef<{ message: string; phase: 'mismatch' | 'error' } | null>(
     null
@@ -173,6 +187,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, [connectionAttempt, session]);
+
+  const syncNow = useCallback(async () => {
+    if (!session || !authSetup.config || !supabaseClient || phase !== 'connected') return;
+    setSyncPhase('syncing');
+    try {
+      const database = await getDb();
+      const client = supabaseClient;
+      syncRunner.current ??= createSyncRunner({
+        apiUrl: authSetup.config.apiUrl,
+        database,
+        refreshSession: async () => {
+          const { data, error } = await client.auth.refreshSession();
+          if (error || !data.session) return null;
+          return {
+            accessToken: data.session.access_token,
+            userId: data.session.user.id,
+          };
+        },
+      });
+      const synced = await syncRunner.current.run({
+        accessToken: session.access_token,
+        userId: session.user.id,
+      });
+      await applySyncResult(synced);
+    } catch {
+      setSyncPhase('blocked');
+    }
+  }, [phase, session]);
+
+  useEffect(() => {
+    if (phase !== 'connected' || !session) {
+      if (!session) setSyncPhase('idle');
+      return;
+    }
+
+    // Reaching connected means /v1/me and the durable account binding agreed.
+    // The same call covers restored sessions and freshly confirmed consent.
+    void syncNow();
+    if (Platform.OS === 'web') return;
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void syncNow();
+    });
+    return () => subscription.remove();
+  }, [phase, session, syncNow]);
 
   const verifySession = useCallback(async (currentSession: Session) => {
     if (!authSetup.config || !supabaseClient) {
@@ -319,9 +377,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     signIn,
     signOut,
+    syncNow,
+    syncPhase,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+
+  async function applySyncResult(synced: SyncRunResult) {
+    if (synced.status === 'deleted') {
+      signedOutNotice.current = {
+        message: 'This cloud account has been deleted. Your local data is still here.',
+        phase: 'error',
+      };
+      setSyncPhase('idle');
+      if (!(await removeLocalSession())) {
+        signedOutNotice.current.message =
+          'This cloud account was deleted, and the saved login could not be removed.';
+        setMessage(signedOutNotice.current.message);
+      }
+      return;
+    }
+    if (synced.status === 'mismatch') {
+      signedOutNotice.current = {
+        message: 'This device belongs to another account. No local data was changed.',
+        phase: 'mismatch',
+      };
+      setSyncPhase('mismatch');
+      if (!(await removeLocalSession())) {
+        signedOutNotice.current.phase = 'error';
+        signedOutNotice.current.message =
+          'This device belongs to another account, and the saved login could not be removed.';
+        setMessage(signedOutNotice.current.message);
+      }
+      return;
+    }
+    setSyncPhase(synced.status);
+  }
 }
 
 export function useAuth(): AuthContextValue {

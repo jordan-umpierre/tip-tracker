@@ -144,8 +144,30 @@ export default function AccountPanel() {
       {account.phase === 'connected' ? (
         <>
           <Text style={styles.identity}>{account.email ?? 'Signed-in account'}</Text>
-          <Text style={styles.copy}>Account connected. Your records still stay on this device.</Text>
-          <Text style={styles.note}>Cloud sync is a separate upcoming step.</Text>
+          <Text style={styles.copy}>Account connected. SQLite remains the local source of truth.</Text>
+          <View style={styles.syncStatus} accessibilityLiveRegion="polite">
+            <Text style={styles.syncTitle}>Sync status</Text>
+            <Text style={account.syncPhase === 'blocked' ? styles.error : styles.note}>
+              {syncStatusCopy(account.syncPhase)}
+            </Text>
+            {account.syncPhase === 'blocked' ? (
+              <Text style={styles.note}>
+                Review needed. Conflict editing is not available yet, so sync will not retry this
+                record automatically.
+              </Text>
+            ) : null}
+            <Pressable
+              accessibilityRole="button"
+              disabled={account.syncPhase === 'syncing'}
+              style={[
+                styles.primaryButton,
+                account.syncPhase === 'syncing' ? styles.disabledButton : null,
+              ]}
+              onPress={() => { void account.syncNow(); }}
+            >
+              <Text style={styles.primaryButtonText}>Sync now</Text>
+            </Pressable>
+          </View>
           <Pressable
             accessibilityRole="button"
             style={styles.secondaryButton}
@@ -206,6 +228,14 @@ const styles = StyleSheet.create({
   identity: { color: '#111827', fontWeight: '600' },
   copy: { color: '#374151', lineHeight: 20 },
   note: { color: '#6b7280', fontSize: 13, lineHeight: 18 },
+  syncStatus: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    padding: 12,
+    gap: 8,
+  },
+  syncTitle: { color: '#111827', fontWeight: '600' },
   error: { color: '#b91c1c', lineHeight: 20 },
   input: {
     minHeight: 48,
@@ -225,6 +255,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   primaryButtonText: { color: '#fff', fontWeight: '600' },
+  disabledButton: { opacity: 0.6 },
   secondaryButton: {
     minHeight: 44,
     alignItems: 'center',
@@ -236,3 +267,13 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: { color: '#2563eb', fontWeight: '600' },
 });
+
+function syncStatusCopy(phase: ReturnType<typeof useAuth>['syncPhase']) {
+  if (phase === 'syncing') return 'Syncing...';
+  if (phase === 'up_to_date') return 'Up to date as of the last completed sync.';
+  if (phase === 'pending_offline') return 'Changes are pending. The cloud service is unavailable.';
+  if (phase === 'blocked') return 'Review needed before sync can continue.';
+  if (phase === 'sign_in_again') return 'Sign in again before sync can continue.';
+  if (phase === 'mismatch') return 'This local database belongs to another account.';
+  return 'Ready to sync.';
+}
