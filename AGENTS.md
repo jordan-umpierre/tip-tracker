@@ -1,13 +1,21 @@
-# Expo HAS CHANGED
+# Tip Tracker project instructions
 
-Read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/ before writing any code.
+## Expo SDK 57
 
-# Cold agent handoff
+Read the exact versioned documentation at
+https://docs.expo.dev/versions/v57.0.0/ before writing code.
 
-Before changing anything, read the `NEXT` section at the top of
-`docs/roadmap.md`. It is the single tracked source of truth for current status
-and the next task; do not copy that status into this file.
+## Cold agent handoff
 
-Then verify the working tree, branch tracking, stashes, and
-`git config --get core.hooksPath`. The hooks path must be `.githooks` so every
-commit runs the repository checks.
+Before changing anything:
+
+1. Read the `NEXT` section at the top of `docs/roadmap.md`. It is the single
+   tracked source of truth for current status and the next task.
+2. Verify the working tree, branch tracking, stashes, and
+   `git config --get core.hooksPath`. The hooks path must be `.githooks` so
+   every commit runs the repository checks.
+3. Read the relevant tracked decision, schema, source, test, and build-log files
+   before relying on remembered project details.
+
+Do not duplicate changing status, schema conventions, test counts, or next
+steps here. Follow the global engineering, teaching, code-style, and Git rules.
