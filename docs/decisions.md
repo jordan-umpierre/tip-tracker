@@ -1299,3 +1299,74 @@ UI/UX bar from the product definition is achievable here.
 > **Revisit when:** the tax UI needs correction/removal, paycheck records need
 > to retain the exact settings used, tax years beyond 2026 ship, or authenticated
 > sync defines server conflict and tombstone behavior.
+
+### D22 — Keep optional accounts behind one authenticated Express boundary (2026-08-05)
+
+> **Decision:** Add optional accounts with Supabase Auth, Supabase Postgres,
+> and one separately hosted Node/Express API. The app continues writing SQLite
+> first without an account. A signed-in app sends Supabase access tokens to
+> Express; only Express can read or write the server-side income tables.
+>
+> Start with email and password. Supabase owns email verification and password
+> reset, so the server never stores passwords or invents recovery tokens.
+> Production signup and recovery require a configured custom SMTP provider;
+> the managed provider's built-in email allowance is suitable only for local
+> integration and a small manual preview, not reliable delivery.
+>
+> The Postgres data lives in a private `app` schema rather than an exposed Data
+> API schema. Every account-owned child key includes `account_id`, and database
+> constraints—not request filters alone—prevent a job, shift, or withholding
+> setting from crossing tenants. A least-privilege runtime role will receive
+> only the statements the API actually needs. Database owner and migration
+> credentials never enter the mobile bundle or the runtime connection string.
+>
+> Conflicts use a server-assigned integer version and server-assigned change
+> sequence. A mutation must name the version it read; a mismatch is a conflict,
+> not an implicit overwrite. Server timestamps are audit facts, not ordering
+> authority. Tombstones remain records so an offline device can observe a
+> deletion. The server does not guess that two independently created shifts are
+> duplicates: without a durable shared source id, equal dates and amounts are
+> not proof that two income records are the same.
+>
+> Deleting an account deletes its cloud rows. It does **not** erase the device's
+> SQLite database; local erasure is a separate, explicit device action. This
+> keeps account deletion from turning a network request into silent destruction
+> of the only offline copy. The product must state that boundary before final
+> confirmation and must not call cloud deletion “erase all my data.”
+>
+> **Alternatives:**
+> - Put Supabase database credentials or Data API access in the app
+> - Replace Express with Supabase Edge Functions
+> - Build password storage, verification, and recovery ourselves
+> - Use client timestamps or blind last-write-wins for conflicts
+> - Merge equal-looking shifts as duplicates
+> - Delete local SQLite automatically when the cloud account is deleted
+> - Use Cognito, App Runner, and RDS for a single-vendor AWS deployment
+>
+> **Why:** Supabase combines standards-based signed identity tokens and managed
+> Postgres, while a small Node host preserves the project's intended Express
+> API and keeps one authorization boundary. Direct client database access would
+> create two policy implementations—mobile and server—and place a much larger
+> trust surface on every device. Supabase Edge Functions use a Deno runtime, so
+> adopting them would replace rather than host the chosen Express backend.
+>
+> The AWS-native alternative is valid and demonstrates more AWS operations, but
+> Cognito, App Runner, RDS, IAM, VPC networking, and secret/log configuration
+> are more moving parts than this product needs. Revisit it if AWS deployment
+> experience becomes a product goal rather than a portfolio bonus.
+>
+> **Release gates:** no paid provider or external resource is created without
+> the account owner choosing the vendor plan, deployment and database regions,
+> backup retention, deletion retention, budget, and acceptable cold-start or
+> availability behavior. Deployment also requires user-owned Supabase, Render,
+> GitHub, billing, database, and SMTP credentials. Local code and integration
+> tests may precede those choices, but they are not deployment evidence.
+>
+> **Known cost:** this adds a second database model and an authenticated network
+> service without removing SQLite. Sync still needs explicit push/pull contracts,
+> idempotency, retry, bootstrap, conflict UI, and recovery tests. Those wait for
+> real callers rather than being scaffolded into this first backend slice.
+>
+> **Revisit when:** social login becomes necessary, provider pricing or service
+> limits change materially, an AWS-only deployment becomes a requirement, or
+> measured conflict behavior shows that per-row versions are insufficient.
