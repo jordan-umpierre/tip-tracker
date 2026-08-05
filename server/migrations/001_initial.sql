@@ -1,4 +1,4 @@
-CREATE SCHEMA app;
+CREATE SCHEMA IF NOT EXISTS app;
 
 CREATE SEQUENCE app.change_sequence AS bigint;
 

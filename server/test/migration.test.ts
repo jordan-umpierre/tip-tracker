@@ -1,23 +1,36 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 
+import { applyMigrations, assertSchemaCurrent, readMigrations } from "../src/migrations.ts";
 import { withTestDatabase } from "./database.ts";
 
-const migrationUrl = new URL("../migrations/001_initial.sql", import.meta.url);
-
 test("migration preserves ownership, versions, tombstones, and rollback", async () => {
-  const migration = await readFile(migrationUrl, "utf8");
+  const migrations = await readMigrations();
   await withTestDatabase(async (database) => {
-      await database.query("BEGIN");
-      await database.query(migration);
-      await database.query("ROLLBACK");
-      const rolledBack = await database.query("SELECT to_regnamespace('app') AS schema_name");
-      assert.equal(rolledBack.rows[0].schema_name, null);
-
-      await database.query("BEGIN");
-      await database.query(migration);
-      await database.query("COMMIT");
+      await assert.rejects(
+        applyMigrations(database, [
+          ...migrations,
+          {
+            checksum: "0".repeat(64),
+            name: "002_broken.sql",
+            sql: "CREATE TABLE app.must_rollback (id integer); SELECT missing_function();",
+            version: 2,
+          },
+        ]),
+        /missing_function/,
+      );
+      const rolledBack = await database.query(
+        `SELECT to_regclass('app.must_rollback') AS broken_table,
+                array_agg(version ORDER BY version) AS versions
+         FROM app.schema_migrations`,
+      );
+      assert.deepEqual(rolledBack.rows[0], { broken_table: null, versions: [1] });
+      await assertSchemaCurrent(database);
+      await applyMigrations(database);
+      await assert.rejects(
+        applyMigrations(database, [{ ...migrations[0], checksum: "f".repeat(64) }]),
+        /does not match/,
+      );
 
       const accountA = "00000000-0000-4000-8000-000000000001";
       const accountB = "00000000-0000-4000-8000-000000000002";

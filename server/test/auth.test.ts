@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { test } from "node:test";
 
@@ -8,9 +7,9 @@ import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { createAccounts } from "../src/accounts.ts";
 import { createApp } from "../src/app.ts";
 import { createAccessTokenVerifier } from "../src/auth.ts";
+import { applyMigrations } from "../src/migrations.ts";
 import { withTestDatabase } from "./database.ts";
 
-const migrationUrl = new URL("../migrations/001_initial.sql", import.meta.url);
 const issuer = "https://local-auth.example/auth/v1";
 const audience = "authenticated";
 const accountA = "00000000-0000-4000-8000-000000000001";
@@ -56,7 +55,6 @@ function signToken(
 }
 
 test("verified subjects alone control account reads and deletion", async () => {
-  const migration = await readFile(migrationUrl, "utf8");
   const signingKeys = await generateKeyPair("RS256");
   const wrongKeys = await generateKeyPair("RS256");
   const publicJwk = await exportJWK(signingKeys.publicKey);
@@ -68,7 +66,7 @@ test("verified subjects alone control account reads and deletion", async () => {
 
   try {
     await withTestDatabase(async (database) => {
-      await database.query(migration);
+      await applyMigrations(database);
       const verifyAccessToken = createAccessTokenVerifier({
         audience,
         issuer,

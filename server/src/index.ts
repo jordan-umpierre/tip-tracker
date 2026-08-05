@@ -7,9 +7,16 @@ import { createApp } from "./app.ts";
 import { createAccessTokenVerifier } from "./auth.ts";
 import { createSupabaseAuthAdmin } from "./authAdmin.ts";
 import { readConfig } from "./config.ts";
+import { assertSchemaCurrent } from "./migrations.ts";
 
 const config = readConfig(process.env);
 const database = new pg.Pool({ connectionString: config.databaseUrl, max: 10 });
+try {
+  await assertSchemaCurrent(database);
+} catch (error) {
+  await database.end();
+  throw error;
+}
 const verifyAccessToken = createAccessTokenVerifier(config);
 const authAdmin = createSupabaseAuthAdmin(config);
 const server = createServer(createApp({ accounts: createAccounts(database), authAdmin, verifyAccessToken }));
