@@ -5,12 +5,14 @@ import pg from "pg";
 import { createAccounts } from "./accounts.ts";
 import { createApp } from "./app.ts";
 import { createAccessTokenVerifier } from "./auth.ts";
+import { createSupabaseAuthAdmin } from "./authAdmin.ts";
 import { readConfig } from "./config.ts";
 
 const config = readConfig(process.env);
 const database = new pg.Pool({ connectionString: config.databaseUrl, max: 10 });
 const verifyAccessToken = createAccessTokenVerifier(config);
-const server = createServer(createApp({ accounts: createAccounts(database), verifyAccessToken }));
+const authAdmin = createSupabaseAuthAdmin(config);
+const server = createServer(createApp({ accounts: createAccounts(database), authAdmin, verifyAccessToken }));
 let stopping = false;
 
 function stop(signal: NodeJS.Signals) {

@@ -27,6 +27,8 @@ test("reads only valid TCP ports", () => {
     SUPABASE_AUDIENCE: "authenticated",
     SUPABASE_ISSUER: "https://example.supabase.co/auth/v1",
     SUPABASE_JWKS_URL: "https://example.supabase.co/auth/v1/.well-known/jwks.json",
+    SUPABASE_SERVICE_ROLE_KEY: "test-service-role-key",
+    SUPABASE_URL: "https://example.supabase.co",
   };
   assert.deepEqual(readConfig(env), {
     audience: "authenticated",
@@ -35,6 +37,8 @@ test("reads only valid TCP ports", () => {
     issuer: "https://example.supabase.co/auth/v1",
     jwksUrl: new URL(env.SUPABASE_JWKS_URL),
     port: 3000,
+    serviceRoleKey: "test-service-role-key",
+    supabaseUrl: new URL(env.SUPABASE_URL),
   });
   assert.deepEqual(readConfig({ ...env, HOST: "127.0.0.1", PORT: "8080" }), {
     audience: "authenticated",
@@ -43,12 +47,15 @@ test("reads only valid TCP ports", () => {
     issuer: "https://example.supabase.co/auth/v1",
     jwksUrl: new URL(env.SUPABASE_JWKS_URL),
     port: 8080,
+    serviceRoleKey: "test-service-role-key",
+    supabaseUrl: new URL(env.SUPABASE_URL),
   });
   assert.throws(() => readConfig({ ...env, PORT: "0" }), /PORT/);
   assert.throws(() => readConfig({ ...env, PORT: "3000.5" }), /PORT/);
   assert.throws(() => readConfig({ ...env, PORT: "65536" }), /PORT/);
   assert.throws(() => readConfig({ ...env, DATABASE_URL: "" }), /DATABASE_URL/);
   assert.throws(() => readConfig({ ...env, SUPABASE_JWKS_URL: "http://example.test" }), /https/);
+  assert.throws(() => readConfig({ ...env, SUPABASE_SERVICE_ROLE_KEY: "" }), /SERVICE_ROLE/);
 });
 
 test("reports health without exposing framework details", async () => {

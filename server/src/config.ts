@@ -5,6 +5,8 @@ export type ServerConfig = {
   issuer: string;
   jwksUrl: URL;
   port: number;
+  serviceRoleKey: string;
+  supabaseUrl: URL;
 };
 
 export function readConfig(env: NodeJS.ProcessEnv): ServerConfig {
@@ -14,8 +16,19 @@ export function readConfig(env: NodeJS.ProcessEnv): ServerConfig {
   const issuer = requiredUrl(env.SUPABASE_ISSUER, "SUPABASE_ISSUER", ["https:"]).toString().replace(/\/$/, "");
   const jwksUrl = requiredUrl(env.SUPABASE_JWKS_URL, "SUPABASE_JWKS_URL", ["https:"]);
   const audience = requiredText(env.SUPABASE_AUDIENCE, "SUPABASE_AUDIENCE");
+  const serviceRoleKey = requiredText(env.SUPABASE_SERVICE_ROLE_KEY, "SUPABASE_SERVICE_ROLE_KEY");
+  const supabaseUrl = requiredUrl(env.SUPABASE_URL, "SUPABASE_URL", ["https:"]);
 
-  return { audience, databaseUrl: databaseUrl.toString(), host, issuer, jwksUrl, port };
+  return {
+    audience,
+    databaseUrl: databaseUrl.toString(),
+    host,
+    issuer,
+    jwksUrl,
+    port,
+    serviceRoleKey,
+    supabaseUrl,
+  };
 }
 
 function readPort(value: string | undefined) {

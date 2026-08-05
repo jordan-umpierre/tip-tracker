@@ -2,6 +2,7 @@ import type { RequestHandler } from "express";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
 export type AccessTokenClaims = {
+  passwordAuthenticatedAt: number | null;
   subject: string;
 };
 
@@ -21,8 +22,39 @@ export function createAccessTokenVerifier(options: {
     });
 
     if (!payload.sub) throw new Error("Access token is missing sub");
-    return { subject: payload.sub };
+    const passwordAuthenticatedAt = latestPasswordAuthentication(payload.amr);
+    return { passwordAuthenticatedAt, subject: payload.sub };
   };
+}
+
+function latestPasswordAuthentication(value: unknown) {
+  if (!Array.isArray(value)) return null;
+  const timestamps: number[] = [];
+  for (const entry of value) {
+    const timestamp = passwordTimestamp(entry);
+    if (timestamp !== null) timestamps.push(timestamp);
+  }
+  return timestamps.length === 0 ? null : Math.max(...timestamps);
+}
+
+function passwordTimestamp(value: unknown) {
+  if (readProperty(value, "method") !== "password") return null;
+  const timestamp = readProperty(value, "timestamp");
+  return typeof timestamp === "number" ? timestamp : null;
+}
+
+function readProperty(value: unknown, key: string) {
+  if (typeof value !== "object" || value === null) return undefined;
+  return key in value ? value[key as keyof typeof value] : undefined;
+}
+
+export function wasRecentlyPasswordAuthenticated(
+  claims: AccessTokenClaims,
+  now = Date.now(),
+) {
+  if (claims.passwordAuthenticatedAt === null) return false;
+  const age = Math.floor(now / 1000) - claims.passwordAuthenticatedAt;
+  return age >= 0 && age <= 5 * 60;
 }
 
 export function requireAuth(verifyAccessToken: VerifyAccessToken): RequestHandler {

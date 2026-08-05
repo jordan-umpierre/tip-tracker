@@ -22,6 +22,14 @@ CREATE TABLE app.accounts (
   updated_at timestamptz NOT NULL DEFAULT transaction_timestamp()
 );
 
+-- This table deliberately does not reference accounts. Deleting an account
+-- must leave a durable marker that blocks a still-valid access token from
+-- recreating the cloud account before Supabase finishes deleting the identity.
+CREATE TABLE app.deleted_accounts (
+  account_id uuid PRIMARY KEY,
+  deleted_at timestamptz NOT NULL DEFAULT transaction_timestamp()
+);
+
 CREATE TABLE app.jobs (
   account_id uuid NOT NULL,
   id uuid NOT NULL,

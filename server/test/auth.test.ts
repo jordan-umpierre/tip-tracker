@@ -29,12 +29,23 @@ async function close(server: ReturnType<typeof createServer>) {
   });
 }
 
+// fallow-ignore-next-line complexity -- One signing helper creates every valid and invalid JWT case below.
 function signToken(
   privateKey: CryptoKey,
   subject: string,
-  overrides: { audience?: string; expiresAt?: number; issuer?: string } = {},
+  overrides: {
+    audience?: string;
+    expiresAt?: number;
+    issuer?: string;
+    passwordAuthenticatedAt?: number;
+  } = {},
 ) {
-  return new SignJWT({})
+  return new SignJWT({
+    amr: [{
+      method: "password",
+      timestamp: overrides.passwordAuthenticatedAt ?? Math.floor(Date.now() / 1000),
+    }],
+  })
     .setProtectedHeader({ alg: "RS256", kid: "local-test-key" })
     .setSubject(subject)
     .setIssuer(overrides.issuer ?? issuer)
@@ -63,8 +74,20 @@ test("verified subjects alone control account reads and deletion", async () => {
         issuer,
         jwksUrl: new URL(jwksBaseUrl),
       });
+      const identityDeletes: string[] = [];
+      let failAccountAOnce = true;
+      const authAdmin = {
+        async deleteIdentity(id: string) {
+          identityDeletes.push(id);
+          if (id === accountA && failAccountAOnce) {
+            failAccountAOnce = false;
+            throw new Error("simulated provider outage");
+          }
+        },
+      };
       const apiServer = createServer(createApp({
         accounts: createAccounts(database),
+        authAdmin,
         verifyAccessToken,
       }));
       const apiBaseUrl = await listen(apiServer);
@@ -98,9 +121,19 @@ test("verified subjects alone control account reads and deletion", async () => {
         const missingToken = await fetch(`${apiBaseUrl}/v1/me`);
         assert.equal(missingToken.status, 401);
 
+        const staleToken = await signToken(signingKeys.privateKey, accountB, {
+          passwordAuthenticatedAt: Math.floor(Date.now() / 1000) - 301,
+        });
         await fetch(`${apiBaseUrl}/v1/me`, {
           headers: { authorization: `Bearer ${tokenB}` },
         });
+        const staleDelete = await fetch(`${apiBaseUrl}/v1/me`, {
+          method: "DELETE",
+          headers: { authorization: `Bearer ${staleToken}` },
+        });
+        assert.equal(staleDelete.status, 403);
+        assert.deepEqual(await staleDelete.json(), { error: "recent_authentication_required" });
+
         await database.query(
           `INSERT INTO app.jobs (account_id, id, name, hourly_rate_cents)
            VALUES ($1, '10000000-0000-4000-8000-000000000001', 'Bar', 1500)`,
@@ -143,7 +176,8 @@ test("verified subjects alone control account reads and deletion", async () => {
           method: "DELETE",
           headers: { authorization: `Bearer ${tokenA}` },
         });
-        assert.equal(deleteA.status, 204);
+        assert.equal(deleteA.status, 503);
+        assert.deepEqual(await deleteA.json(), { error: "identity_deletion_pending" });
         const remaining = await database.query(
           `SELECT
             (SELECT count(*) FROM app.accounts) AS accounts,
@@ -157,6 +191,19 @@ test("verified subjects alone control account reads and deletion", async () => {
           shifts: "0",
           settings: "0",
         });
+
+        const recreate = await fetch(`${apiBaseUrl}/v1/me`, {
+          headers: { authorization: `Bearer ${tokenA}` },
+        });
+        assert.equal(recreate.status, 410);
+        assert.deepEqual(await recreate.json(), { error: "account_deleted" });
+
+        const retryDelete = await fetch(`${apiBaseUrl}/v1/me`, {
+          method: "DELETE",
+          headers: { authorization: `Bearer ${tokenA}` },
+        });
+        assert.equal(retryDelete.status, 204);
+        assert.deepEqual(identityDeletes, [accountB, accountA, accountA]);
       } finally {
         await close(apiServer);
       }

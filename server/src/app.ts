@@ -1,7 +1,8 @@
 import express, { type ErrorRequestHandler } from "express";
 
 import type { Accounts } from "./accounts.ts";
-import { requireAuth, type VerifyAccessToken } from "./auth.ts";
+import { requireAuth, wasRecentlyPasswordAuthenticated, type VerifyAccessToken } from "./auth.ts";
+import type { AuthAdmin } from "./authAdmin.ts";
 
 const JSON_BODY_LIMIT = "32kb";
 const PUBLIC_PARSER_ERRORS = new Map([
@@ -16,6 +17,7 @@ function errorStatus(error: unknown) {
 
 export function createApp(dependencies?: {
   accounts: Accounts;
+  authAdmin: AuthAdmin;
   verifyAccessToken: VerifyAccessToken;
 }) {
   const app = express();
@@ -30,11 +32,29 @@ export function createApp(dependencies?: {
   if (dependencies) {
     app.get("/v1/me", requireAuth(dependencies.verifyAccessToken), async (_request, response) => {
       const account = await dependencies.accounts.findOrCreate(response.locals.auth.subject);
+      if (account.deleted || !account.created_at) {
+        response.status(410).json({ error: "account_deleted" });
+        return;
+      }
       response.json({ createdAt: account.created_at.toISOString(), id: account.id });
     });
 
     app.delete("/v1/me", requireAuth(dependencies.verifyAccessToken), async (_request, response) => {
-      await dependencies.accounts.delete(response.locals.auth.subject);
+      const claims = response.locals.auth;
+      const alreadyDeleted = await dependencies.accounts.isDeleted(claims.subject);
+      if (!alreadyDeleted && !wasRecentlyPasswordAuthenticated(claims)) {
+        response.status(403).json({ error: "recent_authentication_required" });
+        return;
+      }
+
+      await dependencies.accounts.markDeleted(claims.subject);
+      try {
+        await dependencies.authAdmin.deleteIdentity(claims.subject);
+      } catch (error) {
+        console.error(error);
+        response.status(503).json({ error: "identity_deletion_pending" });
+        return;
+      }
       response.status(204).end();
     });
   }
