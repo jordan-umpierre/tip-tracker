@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import CalendarPicker from './CalendarPicker';
@@ -156,11 +156,29 @@ export default function LogShiftForm({
     return value;
   }
 
-  function handleTimeChange(value: Date) {
+  function handleTimeChange(target: 'start' | 'end', value: Date) {
     const time = `${String(value.getHours()).padStart(2, '0')}:${String(value.getMinutes()).padStart(2, '0')}`;
-    if (pickingTime === 'start') setStartTime(time);
-    if (pickingTime === 'end') setEndTime(time);
+    if (target === 'start') setStartTime(time);
+    if (target === 'end') setEndTime(time);
     if (!hoursTouched) setHours('');
+  }
+
+  function openTimePicker(target: 'start' | 'end') {
+    const value = pickerValue(target === 'start' ? startTime : endTime);
+
+    if (process.env.EXPO_OS === 'android') {
+      // Android presents this control as a dialog, so use the package's
+      // imperative API instead of mounting an invisible component behind it.
+      DateTimePickerAndroid.open({
+        value,
+        mode: 'time',
+        display: 'spinner',
+        onValueChange: (_, selectedValue) => handleTimeChange(target, selectedValue),
+      });
+      return;
+    }
+
+    setPickingTime(target);
   }
 
   // fallow-ignore-next-line complexity -- Trust-boundary checks stay explicit beside their messages.
@@ -318,14 +336,14 @@ export default function LogShiftForm({
       ) : null}
 
       <Text style={styles.label}>Start time (optional)</Text>
-      <Pressable style={styles.input} onPress={() => setPickingTime('start')}>
+      <Pressable style={styles.input} onPress={() => openTimePicker('start')}>
         <Text style={[styles.timeText, !startTime && styles.placeholder]}>
           {startTime ? timeInputValue(startTime) : 'Choose start time'}
         </Text>
       </Pressable>
 
       <Text style={styles.label}>End time (optional)</Text>
-      <Pressable style={styles.input} onPress={() => setPickingTime('end')}>
+      <Pressable style={styles.input} onPress={() => openTimePicker('end')}>
         <Text style={[styles.timeText, !endTime && styles.placeholder]}>
           {endTime ? timeInputValue(endTime) : 'Choose end time'}
         </Text>
@@ -338,9 +356,7 @@ export default function LogShiftForm({
             mode="time"
             display="spinner"
             locale="en-US"
-            onChange={(_, value) => {
-              if (value) handleTimeChange(value);
-            }}
+            onValueChange={(_, value) => handleTimeChange(pickingTime, value)}
           />
           <Pressable style={styles.timePickerDone} onPress={() => setPickingTime(null)}>
             <Text style={styles.timePickerDoneText}>Done</Text>
