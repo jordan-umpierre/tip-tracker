@@ -23,6 +23,8 @@ const HEADERS = [
   'Tips',
   'Gross',
   'Note',
+  'Start Time',
+  'End Time',
 ] as const;
 
 // Cents to a plain decimal string: 2450 becomes "24.50". No currency symbol
@@ -54,6 +56,9 @@ export function buildShiftExportCsv(shifts: Shift[], jobNames: Map<string, strin
       left.shift_date.localeCompare(right.shift_date) || left.id.localeCompare(right.id)
   );
 
+  // Every output branch, including missing jobs/notes/times, escaping, order,
+  // and recorded gross, is pinned by shiftExportCsv.test.ts.
+  // fallow-ignore-next-line complexity -- Export-row branches have direct assertions.
   const rows = ordered.map((shift) =>
     [
       shift.shift_date,
@@ -64,6 +69,8 @@ export function buildShiftExportCsv(shifts: Shift[], jobNames: Map<string, strin
       plainMoney(shift.tips_cents),
       plainMoney(calculateShiftGrossCents(shift)),
       shift.note ?? '',
+      shift.start_time ?? '',
+      shift.end_time ?? '',
     ]
       .map(escapeField)
       .join(',')

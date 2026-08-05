@@ -14,14 +14,16 @@ function shift(
   tipsCents: number,
   hourlyRateCents: number,
   note: string | null = null,
-  jobId = 'job-a'
+  jobId = 'job-a',
+  startTime: string | null = null,
+  endTime: string | null = null
 ): Shift {
   return {
     id,
     job_id: jobId,
     shift_date: shiftDate,
-    start_time: null,
-    end_time: null,
+    start_time: startTime,
+    end_time: endTime,
     duration_seconds: durationSeconds,
     tips_cents: tipsCents,
     hourly_rate_cents: hourlyRateCents,
@@ -40,7 +42,7 @@ const jobNames = new Map([
 // Opening an empty file would look like the export failed.
 assert.equal(
   buildShiftExportCsv([], jobNames),
-  'Date,Job,Hours,Duration Seconds,Hourly Rate,Tips,Gross,Note\n'
+  'Date,Job,Hours,Duration Seconds,Hourly Rate,Tips,Gross,Note,Start Time,End Time\n'
 );
 
 // Oldest first, unlike the on-screen list, and ties broken by id so two
@@ -61,10 +63,12 @@ assert.deepEqual(ordered, ['2026-08-01', '2026-08-03', '2026-08-03']);
 
 // 7.5 hours at $15.50 is exactly $116.25 of wages, plus $20.00 tips.
 assert.equal(
-  buildShiftExportCsv([shift('exact', '2026-08-03', 450 * 60, 2000, 1550)], jobNames)
+  buildShiftExportCsv([
+    shift('exact', '2026-08-03', 450 * 60, 2000, 1550, null, 'job-a', '09:00', '16:30'),
+  ], jobNames)
     .trimEnd()
     .split('\n')[1],
-  '2026-08-03,Driver,7.50,27000,15.50,20.00,136.25,'
+  '2026-08-03,Driver,7.50,27000,15.50,20.00,136.25,,09:00,16:30'
 );
 
 // The reason this is not the import format: 455 minutes is 27300 seconds,
@@ -80,6 +84,18 @@ assert.equal(lossy[3], '27300');
 assert.notEqual(Math.round(Number(lossy[2]) * 3600), 27300);
 // Gross still comes from the exact seconds, not the rounded hours.
 assert.equal(lossy[6], '117.54');
+
+// Untimed history exports empty trailing fields. A stored overnight pair stays
+// in canonical HH:MM form; the end can be earlier because it is the next day.
+assert.deepEqual(lossy.slice(8), ['', '']);
+assert.equal(
+  buildShiftExportCsv([
+    shift('overnight', '2026-08-03', 8 * 3600, 0, 1000, null, 'job-a', '21:00', '05:00'),
+  ], jobNames)
+    .trimEnd()
+    .split('\n')[1],
+  '2026-08-03,Driver,8.00,28800,10.00,0.00,80.00,,21:00,05:00'
+);
 
 // Export is recorded history, not the configured overtime estimate. A 41-hour
 // shift at $10 remains $410 here; the displayed estimate would be $415.
@@ -97,7 +113,7 @@ assert.equal(
   buildShiftExportCsv([shift('cents', '2026-08-03', 3600, 5, 0)], jobNames)
     .trimEnd()
     .split('\n')[1],
-  '2026-08-03,Driver,1.00,3600,0.00,0.05,0.05,'
+  '2026-08-03,Driver,1.00,3600,0.00,0.05,0.05,,,'
 );
 
 // Commas, quotes, and newlines in free text cannot be allowed to shift every
@@ -109,7 +125,7 @@ const escaped = buildShiftExportCsv(
   .trimEnd()
   .split('\n');
 assert.equal(escaped[1], '2026-08-03,"Barback, weekends",1.00,3600,10.00,0.00,10.00,"Slow, then ""busy""');
-assert.equal(escaped[2], 'after 9"');
+assert.equal(escaped[2], 'after 9",,');
 
 // A shift whose job was hard-deleted should still export rather than crash.
 assert.ok(
