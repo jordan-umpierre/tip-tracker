@@ -262,7 +262,7 @@ rejects "a shift pointing at a job that does not exist" \
 rejects "deleting a job that still has shifts" \
   "DELETE FROM jobs WHERE id = 'job-1';"
 
-# --- Version 5: local sync invariants --------------------------------------
+# --- Versions 5 and 6: local sync invariants -------------------------------
 
 direct_sync=$(sql "SELECT operation FROM sync_outbox WHERE entity_type = 'shift' AND entity_id = 'shift-1';")
 if [ "$direct_sync" = "upsert" ]; then
@@ -295,6 +295,35 @@ else
   failed=$((failed + 1))
 fi
 
+device_id=$(sql 'SELECT device_id FROM sync_state WHERE singleton = 1;')
+if [[ "$device_id" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$ ]]; then
+  passed=$((passed + 1))
+else
+  printf 'FAIL  fresh schema did not create a canonical device id: %s\n' "$device_id"
+  failed=$((failed + 1))
+fi
+
+accepts "blocking the exact current mutation" \
+  "UPDATE sync_outbox SET blocked_kind = 'conflict', blocked_code = 'stale_version', blocked_response_json = '{\"error\":\"conflict\"}', blocked_at = '$now' WHERE local_sequence = $after_sequence;"
+blocked_result=$(sql "SELECT blocked_kind || '|' || blocked_code FROM sync_outbox WHERE local_sequence = $after_sequence;")
+if [ "$blocked_result" = "conflict|stale_version" ]; then
+  passed=$((passed + 1))
+else
+  printf 'FAIL  blocked mutation state was not retained: %s\n' "$blocked_result"
+  failed=$((failed + 1))
+fi
+
+# Trigger compaction deletes the old outbox row before inserting the new one,
+# so a user edit cannot inherit a stale conflict or permanent failure.
+accepts "a new edit that clears stale blocked state" \
+  "UPDATE shifts SET note = 'changed after conflict', updated_at = '$now' WHERE id = 'shift-1';"
+if [ "$(sql "SELECT count(*) FROM sync_outbox WHERE entity_type = 'shift' AND entity_id = 'shift-1' AND blocked_kind IS NULL AND blocked_code IS NULL AND blocked_response_json IS NULL AND blocked_at IS NULL;")" = "1" ]; then
+  passed=$((passed + 1))
+else
+  printf 'FAIL  replacement outbox row inherited blocked state\n'
+  failed=$((failed + 1))
+fi
+
 rejects "an uppercase cloud account id" \
   "UPDATE sync_state SET account_id = '00000000-0000-4000-8000-00000000000A' WHERE singleton = 1;"
 rejects "a noncanonical cloud account id" \
@@ -303,6 +332,18 @@ rejects "a negative server cursor" \
   "UPDATE sync_state SET last_server_change_sequence = -1 WHERE singleton = 1;"
 rejects "an unsupported sync entity" \
   "INSERT INTO sync_outbox (entity_type, entity_id, operation) VALUES ('account', 'x', 'upsert');"
+rejects "an invalid device id" \
+  "UPDATE sync_state SET device_id = 'not-a-device' WHERE singleton = 1;"
+rejects "an incomplete blocked mutation" \
+  "UPDATE sync_outbox SET blocked_kind = 'conflict' WHERE entity_type = 'shift' AND entity_id = 'shift-1';"
+rejects "an unsupported blocked mutation kind" \
+  "UPDATE sync_outbox SET blocked_kind = 'retry', blocked_code = 'network', blocked_response_json = '{}', blocked_at = '$now' WHERE entity_type = 'shift' AND entity_id = 'shift-1';"
+rejects "a blocked mutation code outside the wire format" \
+  "UPDATE sync_outbox SET blocked_kind = 'permanent', blocked_code = 'Bad-Code', blocked_response_json = '{}', blocked_at = '$now' WHERE entity_type = 'shift' AND entity_id = 'shift-1';"
+rejects "a blocked mutation response that is not JSON" \
+  "UPDATE sync_outbox SET blocked_kind = 'permanent', blocked_code = 'bad_response', blocked_response_json = '{bad', blocked_at = '$now' WHERE entity_type = 'shift' AND entity_id = 'shift-1';"
+rejects "a blocked mutation response that is not an object" \
+  "UPDATE sync_outbox SET blocked_kind = 'permanent', blocked_code = 'bad_response', blocked_response_json = '[]', blocked_at = '$now' WHERE entity_type = 'shift' AND entity_id = 'shift-1';"
 
 # --- The pragma itself ------------------------------------------------------
 # Everything above ran with foreign keys switched on. This runs the same bad

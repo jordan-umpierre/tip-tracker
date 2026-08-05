@@ -267,6 +267,17 @@ END;
 -- server change incorporated by an atomic pull.
 CREATE TABLE sync_state (
   singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+  device_id TEXT NOT NULL CHECK (
+    length(device_id) = 36
+    AND device_id = lower(device_id)
+    AND substr(device_id, 9, 1) = '-'
+    AND substr(device_id, 14, 1) = '-'
+    AND substr(device_id, 19, 1) = '-'
+    AND substr(device_id, 24, 1) = '-'
+    AND substr(device_id, 15, 1) = '4'
+    AND substr(device_id, 20, 1) IN ('8', '9', 'a', 'b')
+    AND device_id NOT GLOB '*[^0-9a-f-]*'
+  ),
   account_id TEXT CHECK (
     account_id IS NULL OR (
       length(account_id) = 36
@@ -285,7 +296,20 @@ CREATE TABLE sync_state (
   applying_remote INTEGER NOT NULL DEFAULT 0 CHECK (applying_remote IN (0, 1))
 );
 
-INSERT INTO sync_state (singleton) VALUES (1);
+INSERT INTO sync_state (singleton, device_id)
+VALUES (
+  1,
+  lower(
+    hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' ||
+    substr(hex(randomblob(2)), 2, 3) || '-' ||
+    substr(
+      '89ab',
+      1 + (instr('0123456789abcdef', lower(substr(hex(randomblob(1)), 1, 1))) - 1) % 4,
+      1
+    ) ||
+    substr(hex(randomblob(2)), 2, 3) || '-' || hex(randomblob(6))
+  )
+);
 
 -- A row records only the last server facts this device accepted. New local
 -- rows have no entry until a server acknowledgement or pull supplies them.
@@ -308,6 +332,28 @@ CREATE TABLE sync_outbox (
   ),
   entity_id TEXT NOT NULL,
   operation TEXT NOT NULL CHECK (operation IN ('upsert', 'delete')),
+  blocked_kind TEXT CHECK (blocked_kind IN ('conflict', 'permanent')),
+  blocked_code TEXT CHECK (
+    blocked_code IS NULL OR (
+      length(blocked_code) BETWEEN 1 AND 64
+      AND blocked_code NOT GLOB '*[^a-z0-9_]*'
+    )
+  ),
+  blocked_response_json TEXT CHECK (
+    blocked_response_json IS NULL OR (
+      length(CAST(blocked_response_json AS BLOB)) BETWEEN 2 AND 10500000
+      AND json_valid(blocked_response_json) = 1
+      AND json_type(blocked_response_json) = 'object'
+    )
+  ),
+  blocked_at TEXT,
+  CHECK (
+    (blocked_kind IS NULL AND blocked_code IS NULL
+      AND blocked_response_json IS NULL AND blocked_at IS NULL)
+    OR
+    (blocked_kind IS NOT NULL AND blocked_code IS NOT NULL
+      AND blocked_response_json IS NOT NULL AND blocked_at IS NOT NULL)
+  ),
   UNIQUE (entity_type, entity_id)
 );
 

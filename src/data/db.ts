@@ -3,7 +3,7 @@ import { File } from 'expo-file-system';
 import * as SQLite from 'expo-sqlite';
 
 const DATABASE_NAME = 'tip-tracker.db';
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 // A database that does not exist yet gets the whole current schema in one go.
 const freshSchemaSql = require('./schema.sql');
@@ -20,6 +20,7 @@ const migrationSqlByFromVersion: Record<number, number> = {
   2: require('./migrations/2-to-3.sql'),
   3: require('./migrations/3-to-4.sql'),
   4: require('./migrations/4-to-5.sql'),
+  5: require('./migrations/5-to-6.sql'),
 };
 
 // Opening a connection is async, and we only want to do it once -- not a

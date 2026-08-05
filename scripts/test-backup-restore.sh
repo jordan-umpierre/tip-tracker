@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Proves the version-5 tables can reproduce every stored backup column and that
+# Proves the current tables can reproduce every stored backup column and that
 # one bad shift rolls the preceding job insert back. The TypeScript contract
 # test covers JSON validation; this script covers SQLite parity and rollback.
 
@@ -20,7 +20,7 @@ rollback_db="$tmpdir/rollback.db"
 
 for db in "$source_db" "$restored_db" "$rollback_db"; do
   sqlite3 "$db" < src/data/schema.sql || exit 1
-  sqlite3 "$db" 'PRAGMA user_version = 5;' || exit 1
+  sqlite3 "$db" 'PRAGMA user_version = 6;' || exit 1
 done
 
 fixture_sql="

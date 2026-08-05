@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { test } from 'node:test';
 import { DatabaseSync } from 'node:sqlite';
 
@@ -7,8 +9,15 @@ import {
   acknowledgeMutation,
   applyRemoteChanges,
   bindSyncAccount,
+  blockMutation,
+  clearBlockedMutation,
+  MAX_BLOCKED_RESPONSE_BYTES,
+  readBlockedMutation,
+  readBlockedMutations,
+  readDeviceId,
   readPendingMutations,
   RemoteChangeConflictError,
+  StaleMutationError,
   SyncAccountMismatchError,
 } from './sync.ts';
 import type {
@@ -27,11 +36,12 @@ const schema = readFileSync(new URL('./schema.sql', import.meta.url), 'utf8');
 type Value = string | number | null;
 
 class TestDatabase implements SyncDatabase {
-  readonly sqlite = new DatabaseSync(':memory:');
+  readonly sqlite: DatabaseSync;
 
-  constructor() {
+  constructor(path = ':memory:', initialize = true) {
+    this.sqlite = new DatabaseSync(path);
     this.sqlite.exec('PRAGMA foreign_keys = ON;');
-    this.sqlite.exec(schema);
+    if (initialize) this.sqlite.exec(schema);
   }
 
   close() {
@@ -62,6 +72,17 @@ class TestDatabase implements SyncDatabase {
       throw cause;
     }
   }
+}
+
+async function insertLocalJob(database: TestDatabase, name = 'Diner') {
+  await database.runAsync(
+    `INSERT INTO jobs
+       (id, name, hourly_rate_cents, archived_at, created_at, updated_at)
+     VALUES ('job-a', ?, 1000, NULL, ?, ?);`,
+    name,
+    NOW,
+    NOW
+  );
 }
 
 function job(changes: Partial<RemoteJob> = {}): RemoteJob {
@@ -337,6 +358,160 @@ test('failed multi-row local writes roll back their outbox entries', async () =>
       /FOREIGN KEY/
     );
     assert.deepEqual(await readPendingMutations(database), []);
+  } finally {
+    database.close();
+  }
+});
+
+test('device ids are canonical, installation-specific, and stable across restart', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'tip-tracker-sync-'));
+  const path = join(directory, 'device.db');
+  const first = new TestDatabase(path);
+  const other = new TestDatabase();
+  try {
+    const firstId = await readDeviceId(first);
+    assert.match(firstId, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    assert.notEqual(firstId, await readDeviceId(other));
+    first.close();
+
+    const reopened = new TestDatabase(path, false);
+    try {
+      assert.equal(await readDeviceId(reopened), firstId);
+    } finally {
+      reopened.close();
+    }
+  } finally {
+    try {
+      first.close();
+    } catch {
+      // The first connection is normally closed before the restart assertion.
+    }
+    other.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('blocked mutations are strict, bounded, durable, and hidden from pending work', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'tip-tracker-blocked-'));
+  const path = join(directory, 'blocked.db');
+  const database = new TestDatabase(path);
+  try {
+    await insertLocalJob(database);
+    const mutation = (await readPendingMutations(database))[0];
+    await blockMutation(database, {
+      localSequence: mutation.local_sequence,
+      kind: 'conflict',
+      code: 'stale_version',
+      response: { error: 'conflict', current: { id: 'job-a', serverVersion: 2 } },
+    }, new Date(NOW));
+
+    assert.deepEqual(await readPendingMutations(database), []);
+    const blocked = await readBlockedMutation(database, mutation.local_sequence);
+    assert(blocked);
+    assert.equal(blocked.blocked_kind, 'conflict');
+    assert.equal(blocked.blocked_code, 'stale_version');
+    assert.deepEqual(blocked.blocked_response, {
+      error: 'conflict',
+      current: { id: 'job-a', serverVersion: 2 },
+    });
+    assert.equal(blocked.blocked_at, NOW);
+    database.close();
+
+    const reopened = new TestDatabase(path, false);
+    try {
+      assert.equal((await readBlockedMutations(reopened)).length, 1);
+      assert.deepEqual(await readPendingMutations(reopened), []);
+    } finally {
+      reopened.close();
+    }
+  } finally {
+    try {
+      database.close();
+    } catch {
+      // The connection is normally closed before the restart assertion.
+    }
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('a new local edit clears stale blocked state and stale actions cannot touch it', async () => {
+  const database = new TestDatabase();
+  try {
+    await insertLocalJob(database);
+    const first = (await readPendingMutations(database))[0];
+    await blockMutation(database, {
+      localSequence: first.local_sequence,
+      kind: 'permanent',
+      code: 'body_too_large',
+      response: { error: 'body_too_large' },
+    });
+
+    await database.runAsync(
+      "UPDATE jobs SET name = 'Changed', updated_at = ? WHERE id = 'job-a';",
+      NOW
+    );
+    const second = (await readPendingMutations(database))[0];
+    assert(second.local_sequence > first.local_sequence);
+    assert.deepEqual(await readBlockedMutations(database), []);
+
+    await assert.rejects(
+      blockMutation(database, {
+        localSequence: first.local_sequence,
+        kind: 'conflict',
+        code: 'stale_version',
+        response: { error: 'conflict' },
+      }),
+      StaleMutationError
+    );
+    await assert.rejects(clearBlockedMutation(database, first.local_sequence), StaleMutationError);
+    assert.equal((await readPendingMutations(database))[0].local_sequence, second.local_sequence);
+
+    await blockMutation(database, {
+      localSequence: second.local_sequence,
+      kind: 'conflict',
+      code: 'stale_version',
+      response: { error: 'conflict' },
+    });
+    await clearBlockedMutation(database, second.local_sequence);
+    assert.equal((await readPendingMutations(database))[0].local_sequence, second.local_sequence);
+  } finally {
+    database.close();
+  }
+});
+
+test('blocked response validation rejects non-JSON, bad codes, and oversized input', async () => {
+  const database = new TestDatabase();
+  try {
+    await insertLocalJob(database);
+    const sequence = (await readPendingMutations(database))[0].local_sequence;
+    const input = { localSequence: sequence, kind: 'conflict' as const, code: 'conflict' };
+
+    await assert.rejects(
+      blockMutation(database, { ...input, code: 'Bad-Code', response: {} }),
+      /code is invalid/
+    );
+    await assert.rejects(
+      blockMutation(database, { ...input, response: [] }),
+      /must be a JSON object/
+    );
+    await assert.rejects(
+      blockMutation(database, { ...input, response: { missing: undefined } }),
+      /must be JSON/
+    );
+    const hiddenValue = {};
+    Object.defineProperty(hiddenValue, 'hidden', { value: 'not serialized' });
+    await assert.rejects(
+      blockMutation(database, { ...input, response: hiddenValue }),
+      /must be JSON/
+    );
+    await assert.rejects(
+      blockMutation(database, {
+        ...input,
+        response: { value: 'x'.repeat(MAX_BLOCKED_RESPONSE_BYTES) },
+      }),
+      /too large/
+    );
+    assert.equal((await readPendingMutations(database)).length, 1);
   } finally {
     database.close();
   }

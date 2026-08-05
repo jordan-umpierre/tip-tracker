@@ -146,6 +146,8 @@ PRAGMA user_version = 3;
 PRAGMA user_version = 4;
 .read $migration_dir/4-to-5.sql
 PRAGMA user_version = 5;
+.read $migration_dir/5-to-6.sql
+PRAGMA user_version = 6;
 COMMIT;
 SQL
 }
@@ -176,14 +178,25 @@ COMMIT;
 SQL
 }
 
+apply_v6() {
+  sqlite3 "$1" <<SQL
+.bail on
+PRAGMA foreign_keys = ON;
+BEGIN IMMEDIATE;
+.read $migration_dir/5-to-6.sql
+PRAGMA user_version = 6;
+COMMIT;
+SQL
+}
+
 chain_db="$tmpdir/chain.db"
 create_v1_fixture "$chain_db" || fail "could not create the chain fixture"
 chain_before_jobs=$(jobs_snapshot "$chain_db")
 chain_expected_durations=$(sqlite3 "$chain_db" "SELECT id || '|' || (minutes * 60) FROM shifts ORDER BY id;")
 
-apply_chain "$chain_db" || fail "the 1-to-2-to-3-to-4-to-5 chain did not complete"
+apply_chain "$chain_db" || fail "the 1-to-2-to-3-to-4-to-5-to-6 chain did not complete"
 
-[ "$(sqlite3 "$chain_db" 'PRAGMA user_version;')" = "5" ] || fail "the chain did not end at version 5"
+[ "$(sqlite3 "$chain_db" 'PRAGMA user_version;')" = "6" ] || fail "the chain did not end at version 6"
 [ "$(jobs_snapshot "$chain_db")" = "$chain_before_jobs" ] || fail "the chain changed an existing job field"
 [ "$(sqlite3 "$chain_db" "SELECT id || '|' || duration_seconds FROM shifts ORDER BY id;")" = "$chain_expected_durations" ] || fail "the chain lost the version-2 duration conversion"
 [ "$(sqlite3 "$chain_db" 'PRAGMA integrity_check;')" = "ok" ] || fail "chain integrity_check failed"
@@ -198,6 +211,8 @@ apply_chain "$chain_db" || fail "the 1-to-2-to-3-to-4-to-5 chain did not complet
 [ "$(sqlite3 "$chain_db" 'SELECT count(*) FROM federal_withholding_settings;')" = "0" ] || fail "the chain invented withholding settings"
 [ "$(sqlite3 "$chain_db" 'SELECT count(*) FROM sync_outbox;')" = "6" ] || fail "the chain did not enqueue every existing row"
 [ "$(sqlite3 "$chain_db" "SELECT count(*) FROM sync_outbox WHERE entity_id IN ('job-archived', 'shift-tombstone');")" = "2" ] || fail "the chain skipped archived or tombstoned history"
+chain_device_id=$(sqlite3 "$chain_db" 'SELECT device_id FROM sync_state WHERE singleton = 1;')
+[[ "$chain_device_id" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$ ]] || fail "the chain did not create a canonical device id"
 
 # The version-3 constraints have to actually reject, on a migrated database and
 # not just a freshly created one.
@@ -248,6 +263,19 @@ apply_v5 "$bootstrap_db" || fail "the version-5 bootstrap did not complete"
 [ "$(sqlite3 "$bootstrap_db" 'SELECT count(*) FROM sync_outbox;')" = "7" ] || fail "version 5 did not enqueue every existing domain row"
 [ "$(sqlite3 "$bootstrap_db" "SELECT operation FROM sync_outbox WHERE entity_type = 'federal_withholding_setting' AND entity_id = 'tax-bootstrap';")" = "upsert" ] || fail "version 5 skipped an existing withholding setting"
 
+sqlite3 "$bootstrap_db" "UPDATE sync_state SET account_id = '00000000-0000-4000-8000-000000000001', last_server_change_sequence = 41 WHERE singleton = 1;" || fail "could not prepare version-5 sync state"
+v5_outbox=$(sqlite3 "$bootstrap_db" 'SELECT local_sequence || "|" || entity_type || "|" || entity_id || "|" || operation FROM sync_outbox ORDER BY local_sequence;')
+v5_max_sequence=$(sqlite3 "$bootstrap_db" 'SELECT max(local_sequence) FROM sync_outbox;')
+apply_v6 "$bootstrap_db" || fail "the version-6 migration did not complete"
+[ "$(sqlite3 "$bootstrap_db" 'PRAGMA user_version;')" = "6" ] || fail "the version-6 migration did not stamp version 6"
+[ "$(sqlite3 "$bootstrap_db" 'SELECT account_id || "|" || last_server_change_sequence || "|" || applying_remote FROM sync_state;')" = "00000000-0000-4000-8000-000000000001|41|0" ] || fail "version 6 changed existing sync state"
+[ "$(sqlite3 "$bootstrap_db" 'SELECT local_sequence || "|" || entity_type || "|" || entity_id || "|" || operation FROM sync_outbox ORDER BY local_sequence;')" = "$v5_outbox" ] || fail "version 6 changed existing outbox rows"
+bootstrap_device_id=$(sqlite3 "$bootstrap_db" 'SELECT device_id FROM sync_state;')
+[[ "$bootstrap_device_id" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$ ]] || fail "version 6 did not create a canonical device id"
+sqlite3 "$bootstrap_db" "UPDATE jobs SET name = name || ' changed' WHERE id = '$bootstrap_job';" || fail "a post-version-6 mutation failed"
+post_v6_sequence=$(sqlite3 "$bootstrap_db" "SELECT local_sequence FROM sync_outbox WHERE entity_type = 'job' AND entity_id = '$bootstrap_job';")
+[ "$post_v6_sequence" -gt "$v5_max_sequence" ] || fail "version 6 reused an old outbox sequence"
+
 # Force only the last hop to fail after its ALTER, then prove the surrounding
 # transaction restores the exact version-4 shape and marker.
 v5_rollback_db="$tmpdir/v5-rollback.db"
@@ -260,6 +288,22 @@ fi
 [ "$(sqlite3 "$v5_rollback_db" 'PRAGMA user_version;')" = "4" ] || fail "failed version-5 migration changed user_version"
 [ "$(sqlite3 "$v5_rollback_db" "SELECT count(*) FROM pragma_table_info('federal_withholding_settings') WHERE name = 'deleted_at';")" = "0" ] || fail "failed version-5 migration left the tombstone column"
 [ "$(sqlite3 "$v5_rollback_db" "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'sync_outbox';")" = "0" ] || fail "failed version-5 migration left an outbox table"
+
+# A failed 5-to-6 hop must restore the v5 tables and their triggers. Creating
+# the migration's temporary table forces failure after the trigger drops begin.
+v6_rollback_db="$tmpdir/v6-rollback.db"
+create_v1_fixture "$v6_rollback_db" || fail "could not create the version-6 rollback fixture"
+apply_to_v4 "$v6_rollback_db" || fail "could not prepare the version-6 rollback fixture"
+apply_v5 "$v6_rollback_db" || fail "could not reach version 5 for rollback"
+v6_rollback_outbox=$(sqlite3 "$v6_rollback_db" 'SELECT local_sequence || "|" || entity_type || "|" || entity_id || "|" || operation FROM sync_outbox ORDER BY local_sequence;')
+sqlite3 "$v6_rollback_db" 'CREATE TABLE sync_state_v6 (sentinel INTEGER);' || fail "could not install the version-6 failure"
+if apply_v6 "$v6_rollback_db" >/dev/null 2>&1; then
+  fail "the forced version-6 failure unexpectedly committed"
+fi
+[ "$(sqlite3 "$v6_rollback_db" 'PRAGMA user_version;')" = "5" ] || fail "failed version-6 migration changed user_version"
+[ "$(sqlite3 "$v6_rollback_db" 'SELECT count(*) FROM pragma_table_info("sync_state") WHERE name = "device_id";')" = "0" ] || fail "failed version-6 migration changed sync_state"
+[ "$(sqlite3 "$v6_rollback_db" 'SELECT local_sequence || "|" || entity_type || "|" || entity_id || "|" || operation FROM sync_outbox ORDER BY local_sequence;')" = "$v6_rollback_outbox" ] || fail "failed version-6 migration changed outbox rows"
+[ "$(sqlite3 "$v6_rollback_db" "SELECT count(*) FROM sqlite_master WHERE type = 'trigger' AND name LIKE '%_sync_%';")" = "9" ] || fail "failed version-6 migration did not restore sync triggers"
 
 # --- a fresh database and a migrated one have to be the same shape ---------
 #
@@ -294,4 +338,4 @@ chain_triggers=$(sqlite3 "$chain_db" "SELECT name FROM sqlite_master WHERE type 
 
 [ "$(sqlite3 "$fresh_db" 'SELECT count(*) FROM sync_outbox;')" = "0" ] || fail "a fresh database started with pending sync rows"
 
-echo "migration OK (preservation + rollback + 1-to-5 chain + bootstrap + fresh/migrated parity)"
+echo "migration OK (preservation + rollback + 1-to-6 chain + bootstrap + fresh/migrated parity)"

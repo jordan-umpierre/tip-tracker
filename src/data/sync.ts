@@ -5,6 +5,12 @@ import type {
 } from '../lib/backup';
 
 export type SyncEntityType = 'job' | 'shift' | 'federal_withholding_setting';
+export type BlockedMutationKind = 'conflict' | 'permanent';
+export type JsonValue = null | boolean | number | string | JsonValue[] | {
+  [key: string]: JsonValue;
+};
+
+export const MAX_BLOCKED_RESPONSE_BYTES = 10_500_000;
 
 type SQLiteValue = string | number | null;
 
@@ -45,6 +51,20 @@ export type PendingMutation = {
   base_server_version: number | null;
 };
 
+export type BlockedMutation = PendingMutation & {
+  blocked_kind: BlockedMutationKind;
+  blocked_code: string;
+  blocked_response: { [key: string]: JsonValue };
+  blocked_at: string;
+};
+
+export type BlockMutation = {
+  localSequence: number;
+  kind: BlockedMutationKind;
+  code: string;
+  response: unknown;
+};
+
 export type MutationAcknowledgement = {
   accountId: string;
   localSequence: number;
@@ -56,6 +76,17 @@ export type MutationAcknowledgement = {
 
 export class SyncAccountMismatchError extends Error {}
 export class RemoteChangeConflictError extends Error {}
+export class StaleMutationError extends Error {}
+
+export async function readDeviceId(database: SyncDatabase): Promise<string> {
+  const state = await database.getFirstAsync<{ device_id: string }>(
+    'SELECT device_id FROM sync_state WHERE singleton = 1;'
+  );
+  if (!state || !isCanonicalDeviceId(state.device_id)) {
+    throw new Error('The local sync device id is missing or invalid.');
+  }
+  return state.device_id;
+}
 
 export async function bindSyncAccount(database: SyncDatabase, accountId: string): Promise<void> {
   assertCanonicalAccountId(accountId);
@@ -72,8 +103,90 @@ export async function readPendingMutations(database: SyncDatabase): Promise<Pend
      LEFT JOIN sync_metadata AS metadata
        ON metadata.entity_type = outbox.entity_type
       AND metadata.entity_id = outbox.entity_id
+     WHERE outbox.blocked_kind IS NULL
      ORDER BY outbox.local_sequence;`
   );
+}
+
+export async function readBlockedMutations(database: SyncDatabase): Promise<BlockedMutation[]> {
+  const rows = await database.getAllAsync<StoredBlockedMutation>(
+    `SELECT outbox.local_sequence, outbox.entity_type, outbox.entity_id,
+            outbox.operation, metadata.base_server_version,
+            outbox.blocked_kind, outbox.blocked_code,
+            outbox.blocked_response_json, outbox.blocked_at
+     FROM sync_outbox AS outbox
+     LEFT JOIN sync_metadata AS metadata
+       ON metadata.entity_type = outbox.entity_type
+      AND metadata.entity_id = outbox.entity_id
+     WHERE outbox.blocked_kind IS NOT NULL
+     ORDER BY outbox.local_sequence;`
+  );
+  return rows.map(decodeStoredBlockedMutation);
+}
+
+export async function readBlockedMutation(
+  database: SyncDatabase,
+  localSequence: number
+): Promise<BlockedMutation | null> {
+  assertPositiveSafeInteger(localSequence, 'local mutation sequence');
+  const row = await database.getFirstAsync<StoredBlockedMutation>(
+    `SELECT outbox.local_sequence, outbox.entity_type, outbox.entity_id,
+            outbox.operation, metadata.base_server_version,
+            outbox.blocked_kind, outbox.blocked_code,
+            outbox.blocked_response_json, outbox.blocked_at
+     FROM sync_outbox AS outbox
+     LEFT JOIN sync_metadata AS metadata
+       ON metadata.entity_type = outbox.entity_type
+      AND metadata.entity_id = outbox.entity_id
+     WHERE outbox.local_sequence = ? AND outbox.blocked_kind IS NOT NULL;`,
+    localSequence
+  );
+  return row ? decodeStoredBlockedMutation(row) : null;
+}
+
+export async function blockMutation(
+  database: SyncDatabase,
+  blocked: BlockMutation,
+  now = new Date()
+): Promise<void> {
+  assertPositiveSafeInteger(blocked.localSequence, 'local mutation sequence');
+  if (blocked.kind !== 'conflict' && blocked.kind !== 'permanent') {
+    throw new Error('The blocked mutation kind is not supported.');
+  }
+  assertBlockedCode(blocked.code);
+  const responseJson = encodeBlockedResponse(blocked.response);
+  const blockedAt = now.toISOString();
+
+  await database.withExclusiveTransactionAsync(async (transaction) => {
+    const result = await transaction.runAsync(
+      `UPDATE sync_outbox
+       SET blocked_kind = ?, blocked_code = ?, blocked_response_json = ?, blocked_at = ?
+       WHERE local_sequence = ?;`,
+      blocked.kind,
+      blocked.code,
+      responseJson,
+      blockedAt,
+      blocked.localSequence
+    );
+    requireOneChangedRow(result, 'The local mutation changed before it could be blocked.');
+  });
+}
+
+export async function clearBlockedMutation(
+  database: SyncDatabase,
+  localSequence: number
+): Promise<void> {
+  assertPositiveSafeInteger(localSequence, 'local mutation sequence');
+  await database.withExclusiveTransactionAsync(async (transaction) => {
+    const result = await transaction.runAsync(
+      `UPDATE sync_outbox
+       SET blocked_kind = NULL, blocked_code = NULL,
+           blocked_response_json = NULL, blocked_at = NULL
+       WHERE local_sequence = ? AND blocked_kind IS NOT NULL;`,
+      localSequence
+    );
+    requireOneChangedRow(result, 'The blocked mutation is no longer current.');
+  });
 }
 
 export async function acknowledgeMutation(
@@ -369,6 +482,11 @@ function assertCanonicalAccountId(value: string) {
   }
 }
 
+function isCanonicalDeviceId(value: unknown): value is string {
+  return typeof value === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value);
+}
+
 function assertEntity(entityType: string, entityId: string) {
   if (!['job', 'shift', 'federal_withholding_setting'].includes(entityType)) {
     throw new Error('The sync entity type is not supported.');
@@ -389,4 +507,112 @@ function assertPositiveSafeInteger(value: number, label: string) {
 
 function assertNonnegativeSafeInteger(value: number, label: string) {
   if (!Number.isSafeInteger(value) || value < 0) throw new Error(`${label} must be nonnegative.`);
+}
+
+type StoredBlockedMutation = PendingMutation & {
+  blocked_kind: BlockedMutationKind;
+  blocked_code: string;
+  blocked_response_json: string;
+  blocked_at: string;
+};
+
+function decodeStoredBlockedMutation(row: StoredBlockedMutation): BlockedMutation {
+  const response: unknown = JSON.parse(row.blocked_response_json);
+  assertPlainJsonObject(response);
+  return {
+    local_sequence: row.local_sequence,
+    entity_type: row.entity_type,
+    entity_id: row.entity_id,
+    operation: row.operation,
+    base_server_version: row.base_server_version,
+    blocked_kind: row.blocked_kind,
+    blocked_code: row.blocked_code,
+    blocked_response: response,
+    blocked_at: row.blocked_at,
+  };
+}
+
+function encodeBlockedResponse(response: unknown) {
+  assertPlainJsonObject(response);
+  const json = JSON.stringify(response);
+  if (new TextEncoder().encode(json).byteLength > MAX_BLOCKED_RESPONSE_BYTES) {
+    throw new Error('The blocked mutation response is too large.');
+  }
+  return json;
+}
+
+function assertPlainJsonObject(
+  value: unknown
+): asserts value is { [key: string]: JsonValue } {
+  if (!isPlainObject(value)) {
+    throw new Error('The blocked mutation response must be a JSON object.');
+  }
+  assertJsonValue(value, 0, new Set<object>());
+}
+
+function assertJsonValue(value: unknown, depth: number, parents: Set<object>): void {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return;
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) throw new Error('The blocked mutation response must be JSON.');
+    return;
+  }
+  if (typeof value !== 'object' || depth > 100 || parents.has(value)) {
+    throw new Error('The blocked mutation response must be JSON.');
+  }
+
+  parents.add(value);
+  for (const nested of readJsonContainerValues(value)) {
+    assertJsonValue(nested, depth + 1, parents);
+  }
+  parents.delete(value);
+}
+
+function readJsonContainerValues(value: object): unknown[] {
+  if (Array.isArray(value)) return readJsonArrayValues(value);
+  if (!isPlainObject(value)) throw new Error('The blocked mutation response must be JSON.');
+
+  const keys = Reflect.ownKeys(value);
+  if (keys.length !== Object.keys(value).length || !hasOnlyStringDataProperties(value, keys)) {
+    throw new Error('The blocked mutation response must be JSON.');
+  }
+  return Object.values(value);
+}
+
+function readJsonArrayValues(value: unknown[]): unknown[] {
+  const keys = Reflect.ownKeys(value);
+  if (keys.length !== value.length + 1 || !hasOnlyStringDataProperties(value, keys)) {
+    throw new Error('The blocked mutation response must be JSON.');
+  }
+  for (let index = 0; index < value.length; index += 1) {
+    if (!Object.hasOwn(value, index)) throw new Error('The blocked mutation response must be JSON.');
+  }
+  return value;
+}
+
+function hasOnlyStringDataProperties(value: object, keys: PropertyKey[]) {
+  return keys.every((key) => {
+    if (typeof key !== 'string') return false;
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    return descriptor !== undefined && 'value' in descriptor;
+  });
+}
+
+function isPlainObject(value: unknown): value is { [key: string]: unknown } {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function assertBlockedCode(value: string) {
+  if (!/^[a-z0-9_]{1,64}$/.test(value)) {
+    throw new Error('The blocked mutation code is invalid.');
+  }
+}
+
+function requireOneChangedRow(result: unknown, message: string) {
+  if (!isPlainObject(result)) throw new Error('SQLite did not return a write result.');
+  const changes = result.changes;
+  if ((typeof changes !== 'number' && typeof changes !== 'bigint') || Number(changes) !== 1) {
+    throw new StaleMutationError(message);
+  }
 }
