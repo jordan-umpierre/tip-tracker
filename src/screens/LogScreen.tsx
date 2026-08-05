@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import BackupRestore from '../components/BackupRestore';
 import CreateJobForm from '../components/CreateJobForm';
 import ExportCsvButton from '../components/ExportCsvButton';
+import FederalWithholdingForm from '../components/FederalWithholdingForm';
 import ImportCsvForm from '../components/ImportCsvForm';
 import LogShiftForm from '../components/LogShiftForm';
 import OvertimeSettingsForm from '../components/OvertimeSettingsForm';
@@ -323,6 +324,7 @@ function LogControls({
                   full job list rather than the active one -- a shift belonging
                   to a removed job still needs its name in the file. */}
               <ExportCsvButton shifts={shifts} jobs={allJobs} />
+              <FederalWithholdingForm jobs={jobs} />
             </>
           ) : null}
           <BackupRestore onRestored={refresh} />
