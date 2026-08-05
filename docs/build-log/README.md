@@ -98,3 +98,5 @@ name — the number adds sequence without costing you the description.
     recovery controls (D19).
 20. [20-federal-withholding.md](20-federal-withholding.md) — the bounded first
     tax claim (D20) and pure 2026 federal withholding calculator.
+21. [21-withholding-settings.md](21-withholding-settings.md) — effective-dated
+    settings in schema version 4 and backward-compatible lossless backup (D21).

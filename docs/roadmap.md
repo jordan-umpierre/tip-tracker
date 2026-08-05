@@ -9,10 +9,10 @@ Last updated: 2026-08-05
 
 ## NEXT
 
-**The automated overtime, local backup/restore, and first pure tax-math scopes
-are complete. The next implementation boundary is the persistence contract:
-schema version 4 plus a lossless backup-format evolution. No tax settings,
-stored paychecks, or tax UI exist yet.**
+**The automated overtime, first pure tax math, and lossless tax-settings
+persistence scopes are complete. Schema version 4 stores effective-dated W-4
+settings, and backup version 2 preserves them while still restoring version 1.
+No tax settings UI or stored paychecks exist yet.**
 
 Two product decisions were made on 2026-08-04 and are already recorded, so they
 do not need re-deciding: overtime adjusts the gross shown on screen rather than
@@ -118,12 +118,28 @@ bracket boundaries, rounding, and failure cases. TypeScript and the repository
 checks pass. Nothing persists yet, and the app still makes none of D20's
 excluded claims.
 
-**Do this next:** implement D21's schema version 4 and lossless backup-format
-evolution before adding tax UI. Withholding settings are effective-dated by the
-first paycheck pay date they apply to, so a later W-4 does not overwrite the
-inputs for older paychecks. Backup version 2 must preserve those rows, while
-the app keeps accepting exact version-1/schema-3 backups as settings-free
-history.
+`1350a12` recorded D21. `42f3265` then added schema version 4 and the
+`federal_withholding_settings` history. `effective_from` is the first paycheck
+pay date the row applies to. The unique job/date pair makes the as-of selection
+unambiguous, and existing databases gain no invented settings. Backup version 2
+preserves every new column; exact version-1/schema-3 backups normalize to empty
+settings and remain restorable. Restore is still empty-only, now across all
+three tables, and inserts jobs, settings, then shifts.
+
+The 52 schema checks, complete 1-to-4 migration with forced final-hop rollback,
+fresh/migrated table-trigger-index parity, permanent v1 fixture, v2 validation,
+complete SQLite row parity, TypeScript, Fallow changed-file audit, Expo
+dependency check, Doctor 20/20, and web/iOS/Android exports pass. Create and
+pay-date lookup functions were not left as unused production APIs; the schema
+test pins the as-of query until the tax UI supplies their real caller.
+
+**Do this next:** define and build the smallest opt-in local tax UI that calls
+the settings create/as-of data operations and D20's calculator. It must ask for
+the first paycheck pay date, actual W-4 values, pay frequency, and user-entered
+federal taxable wages; show one explicitly labeled 2026 federal withholding
+estimate; and keep every D20 exclusion visible. Do not add paycheck storage,
+settings correction/deletion, derived taxable wages, backend, authentication,
+or a broader tax result in that slice.
 
 The isolated native restore acceptance pass remains open: export the real
 845-row database on a fresh install, restore it, then compare
@@ -777,3 +793,11 @@ Trends scope is complete.
     Direct assertions cover every supported status, Step-2 schedule, pay
     frequency, W-4 adjustment, boundary, and rejection path. No schema,
     persistence, UI, or broader tax claim was added.
+74. Defined D21 in `1350a12` and implemented effective-dated per-job federal
+    withholding settings in `42f3265`. Schema version 4 adds one history table;
+    backup version 2 preserves it, while permanent version-1 fixtures prove old
+    schema-3 backups normalize to empty settings and still restore. Automated
+    checks cover every constraint, pay-date selection, 1-to-4 migration and
+    rollback, fresh/migrated parity, strict codec failures, foreign keys, and
+    exact three-table restore. No tax UI, paycheck, result, backend, account,
+    dependency, or unused create/lookup API was added.

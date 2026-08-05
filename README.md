@@ -110,19 +110,23 @@ Done:
 - Versioned JSON backup and empty-only restore ([`backup.ts`](src/lib/backup.ts),
   [D19](docs/decisions.md)): strict bounded validation, all-row SQLite
   snapshots, one restore transaction, foreign-key checking, and exact row
-  parity without merging or replacing existing data
+  parity without merging or replacing existing data; version 2 includes
+  withholding settings and still restores exact version-1/schema-3 files
 - Pure 2026 federal withholding math
   ([`federalWithholding2026.ts`](src/lib/federalWithholding2026.ts),
   [D20](docs/decisions.md)) for one regular paycheck using user-entered federal
-  taxable wages and actual 2020-or-later W-4 values; no settings or paycheck
-  records are stored yet
+  taxable wages and actual 2020-or-later W-4 values; no paycheck record or tax
+  UI exists yet
+- Effective-dated per-job withholding-setting persistence ([D21](docs/decisions.md)):
+  schema version 4 uses the first applicable paycheck pay date, and lossless
+  backup covers every stored field; no settings UI exists yet
 
 Next:
 
-- Design schema version 4 and a lossless backup-format evolution before adding
-  tax persistence or UI. The isolated native restore pass remains open, and
-  optional accounts plus authenticated cloud sync still precede public tax
-  projections. See
+- Build the smallest opt-in local settings and one-paycheck withholding UI.
+  The isolated native restore/migration pass remains open, and optional
+  accounts plus authenticated cloud sync still precede public tax projections.
+  See
   [docs/roadmap.md](docs/roadmap.md) for the exact evidence boundary.
 
 ## Stack

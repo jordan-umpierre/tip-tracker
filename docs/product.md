@@ -94,6 +94,11 @@ W-4 values for that job. It does not claim take-home pay, total payroll tax,
 annual liability, refund, or amount due. Those remain later slices rather than
 being approximated under one number.
 
+D21 gives the W-4 settings a local, lossless persistence boundary. Each job can
+retain a history keyed by the first paycheck pay date a setting applies to, so
+a later W-4 does not rewrite older inputs. Schema version 4 and backup version
+2 are implemented, but no settings UI or paycheck record exists yet.
+
 ### Layer 3 — 1099 mode
 
 - Mark a job as 1099 instead of W2
