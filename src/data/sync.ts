@@ -65,6 +65,63 @@ export type BlockMutation = {
   response: unknown;
 };
 
+export type JobMutationRecord = {
+  archivedAt: string | null;
+  createdAt: string;
+  hourlyRateCents: number;
+  name: string;
+  overtimeEnabled: boolean;
+  updatedAt: string;
+  workweekStartTime: string;
+  workweekStartWeekday: number;
+};
+
+export type ShiftMutationRecord = {
+  createdAt: string;
+  deletedAt: string | null;
+  durationSeconds: number;
+  endTime: string | null;
+  hourlyRateCents: number;
+  jobId: string;
+  note: string | null;
+  shiftDate: string;
+  startTime: string | null;
+  tipsCents: number;
+  updatedAt: string;
+};
+
+export type FederalWithholdingSettingMutationRecord = {
+  createdAt: string;
+  deletedAt: string | null;
+  effectiveFrom: string;
+  exempt: boolean;
+  filingStatus: BackupFederalWithholdingSettings['filing_status'];
+  jobId: string;
+  payPeriodsPerYear: number;
+  step2Checked: boolean;
+  step3CreditsCents: number;
+  step4aOtherIncomeCents: number;
+  step4bDeductionsCents: number;
+  step4cExtraWithholdingCents: number;
+  updatedAt: string;
+};
+
+export type MutationRecord =
+  | JobMutationRecord
+  | ShiftMutationRecord
+  | FederalWithholdingSettingMutationRecord;
+
+export type NextMutationSnapshot = {
+  accountId: string;
+  baseServerVersion: number | null;
+  deviceId: string;
+  entityId: string;
+  entityType: SyncEntityType;
+  operation: 'upsert' | 'delete';
+  operationId: number;
+  record: MutationRecord | null;
+};
+
 export type MutationAcknowledgement = {
   accountId: string;
   localSequence: number;
@@ -147,6 +204,92 @@ export async function readPendingMutations(database: SyncDatabase): Promise<Pend
      WHERE outbox.blocked_kind IS NULL
      ORDER BY outbox.local_sequence;`
   );
+}
+
+export async function readNextMutationSnapshot(
+  database: SyncDatabase
+): Promise<NextMutationSnapshot | null> {
+  let snapshot: NextMutationSnapshot | null = null;
+
+  // SDK 57 scopes transaction queries reliably through the transaction object.
+  // The callback performs only SQLite reads and returns before any HTTP starts.
+  await database.withExclusiveTransactionAsync(async (transaction) => {
+    const pending = await transaction.getFirstAsync<PendingMutation & {
+      account_id: string | null;
+      device_id: string;
+    }>(
+      `SELECT state.account_id, state.device_id,
+              outbox.local_sequence, outbox.entity_type, outbox.entity_id,
+              outbox.operation, metadata.base_server_version
+       FROM sync_state AS state
+       JOIN sync_outbox AS outbox ON outbox.blocked_kind IS NULL
+       LEFT JOIN sync_metadata AS metadata
+         ON metadata.entity_type = outbox.entity_type
+        AND metadata.entity_id = outbox.entity_id
+       WHERE state.singleton = 1
+       ORDER BY outbox.local_sequence
+       LIMIT 1;`
+    );
+    if (!pending) return;
+    if (pending.account_id === null) {
+      throw new SyncAccountMismatchError('The local database is not connected to an account.');
+    }
+    assertCanonicalAccountId(pending.account_id);
+    if (!isCanonicalDeviceId(pending.device_id)) {
+      throw new Error('The local sync device id is missing or invalid.');
+    }
+
+    const record = pending.operation === 'delete'
+      ? null
+      : await readMutationRecord(transaction, pending.entity_type, pending.entity_id);
+    snapshot = {
+      accountId: pending.account_id,
+      baseServerVersion: pending.base_server_version,
+      deviceId: pending.device_id,
+      entityId: pending.entity_id,
+      entityType: pending.entity_type,
+      operation: pending.operation,
+      operationId: pending.local_sequence,
+      record,
+    };
+  });
+
+  return snapshot;
+}
+
+export async function acknowledgeUnsyncedPhysicalDelete(
+  database: SyncDatabase,
+  snapshot: NextMutationSnapshot
+): Promise<void> {
+  if (
+    snapshot.operation !== 'delete' ||
+    snapshot.record !== null ||
+    snapshot.baseServerVersion !== null
+  ) {
+    throw new Error('Only an unsynced physical delete can be acknowledged locally.');
+  }
+  assertCanonicalAccountId(snapshot.accountId);
+  assertPositiveSafeInteger(snapshot.operationId, 'local mutation sequence');
+  assertEntity(snapshot.entityType, snapshot.entityId);
+
+  await database.withExclusiveTransactionAsync(async (transaction) => {
+    await bindAccount(transaction, snapshot.accountId);
+    const result = await transaction.runAsync(
+      `DELETE FROM sync_outbox
+       WHERE local_sequence = ? AND entity_type = ? AND entity_id = ?
+         AND operation = 'delete'
+         AND NOT EXISTS (
+           SELECT 1 FROM sync_metadata
+           WHERE entity_type = ? AND entity_id = ?
+         );`,
+      snapshot.operationId,
+      snapshot.entityType,
+      snapshot.entityId,
+      snapshot.entityType,
+      snapshot.entityId
+    );
+    requireOneChangedRow(result, 'The unsynced deletion is no longer current.');
+  });
 }
 
 export async function readBlockedMutations(database: SyncDatabase): Promise<BlockedMutation[]> {
@@ -479,6 +622,85 @@ async function applyShift(transaction: SyncTransaction, shift: RemoteShift) {
     shift.server_version,
     shift.server_change_sequence
   );
+}
+
+async function readMutationRecord(
+  transaction: SyncTransaction,
+  entityType: SyncEntityType,
+  entityId: string
+): Promise<MutationRecord> {
+  if (entityType === 'job') {
+    const row = await transaction.getFirstAsync<BackupJob>(
+      `SELECT id, name, hourly_rate_cents, archived_at, created_at, updated_at,
+              overtime_enabled, workweek_start_weekday, workweek_start_time
+       FROM jobs WHERE id = ?;`,
+      entityId
+    );
+    if (!row) throw new StaleMutationError('The pending job no longer exists.');
+    return {
+      archivedAt: row.archived_at,
+      createdAt: row.created_at,
+      hourlyRateCents: row.hourly_rate_cents,
+      name: row.name,
+      overtimeEnabled: readSQLiteBoolean(row.overtime_enabled),
+      updatedAt: row.updated_at,
+      workweekStartTime: row.workweek_start_time,
+      workweekStartWeekday: row.workweek_start_weekday,
+    };
+  }
+
+  if (entityType === 'shift') {
+    const row = await transaction.getFirstAsync<BackupShift>(
+      `SELECT id, job_id, shift_date, start_time, end_time, duration_seconds,
+              tips_cents, hourly_rate_cents, note, deleted_at, created_at, updated_at
+       FROM shifts WHERE id = ?;`,
+      entityId
+    );
+    if (!row) throw new StaleMutationError('The pending shift no longer exists.');
+    return {
+      createdAt: row.created_at,
+      deletedAt: row.deleted_at,
+      durationSeconds: row.duration_seconds,
+      endTime: row.end_time,
+      hourlyRateCents: row.hourly_rate_cents,
+      jobId: row.job_id,
+      note: row.note,
+      shiftDate: row.shift_date,
+      startTime: row.start_time,
+      tipsCents: row.tips_cents,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  const row = await transaction.getFirstAsync<BackupFederalWithholdingSettings>(
+    `SELECT id, job_id, effective_from, filing_status, pay_periods_per_year,
+            step2_checked, step3_credits_cents, step4a_other_income_cents,
+            step4b_deductions_cents, step4c_extra_withholding_cents, exempt,
+            created_at, updated_at, deleted_at
+     FROM federal_withholding_settings WHERE id = ?;`,
+    entityId
+  );
+  if (!row) throw new StaleMutationError('The pending withholding settings no longer exist.');
+  return {
+    createdAt: row.created_at,
+    deletedAt: row.deleted_at,
+    effectiveFrom: row.effective_from,
+    exempt: readSQLiteBoolean(row.exempt),
+    filingStatus: row.filing_status,
+    jobId: row.job_id,
+    payPeriodsPerYear: row.pay_periods_per_year,
+    step2Checked: readSQLiteBoolean(row.step2_checked),
+    step3CreditsCents: row.step3_credits_cents,
+    step4aOtherIncomeCents: row.step4a_other_income_cents,
+    step4bDeductionsCents: row.step4b_deductions_cents,
+    step4cExtraWithholdingCents: row.step4c_extra_withholding_cents,
+    updatedAt: row.updated_at,
+  };
+}
+
+function readSQLiteBoolean(value: number): boolean {
+  if (value !== 0 && value !== 1) throw new Error('A local sync boolean is invalid.');
+  return value === 1;
 }
 
 async function writeMetadata(

@@ -7,6 +7,7 @@ import { DatabaseSync } from 'node:sqlite';
 
 import {
   acknowledgeMutation,
+  acknowledgeUnsyncedPhysicalDelete,
   applyRemoteChanges,
   bindSyncAccountIfEmpty,
   bindSyncAccount,
@@ -17,6 +18,7 @@ import {
   readBlockedMutation,
   readBlockedMutations,
   readDeviceId,
+  readNextMutationSnapshot,
   readPendingMutations,
   RemoteChangeConflictError,
   StaleMutationError,
@@ -73,6 +75,36 @@ class TestDatabase implements SyncDatabase {
       this.sqlite.exec('ROLLBACK;');
       throw cause;
     }
+  }
+}
+
+class AtomicSnapshotDatabase extends TestDatabase {
+  readonly concurrent: DatabaseSync;
+  blockedConcurrentEdit = false;
+
+  constructor(path: string) {
+    super(path);
+    this.concurrent = new DatabaseSync(path);
+    this.concurrent.exec('PRAGMA busy_timeout = 0;');
+  }
+
+  override close() {
+    this.concurrent.close();
+    super.close();
+  }
+
+  override async getFirstAsync<T>(sql: string, ...params: Value[]): Promise<T | null> {
+    const row = await super.getFirstAsync<T>(sql, ...params);
+    if (!this.blockedConcurrentEdit && sql.includes('FROM sync_state AS state')) {
+      this.blockedConcurrentEdit = true;
+      assert.throws(
+        () => this.concurrent.prepare(
+          "UPDATE jobs SET name = 'Concurrent', updated_at = '2026-08-05T13:00:00.000Z' WHERE id = 'job-a';"
+        ).run(),
+        /locked/
+      );
+    }
+    return row;
   }
 }
 
@@ -357,6 +389,189 @@ test('account connection detects local data and only auto-binds an empty databas
     } finally {
       populated.close();
     }
+  } finally {
+    database.close();
+  }
+});
+
+test('the next mutation snapshot keeps sequence, metadata, and record in one SQLite transaction', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'tip-tracker-snapshot-'));
+  const path = join(directory, 'snapshot.db');
+  const database = new AtomicSnapshotDatabase(path);
+  try {
+    await bindSyncAccount(database, ACCOUNT_A);
+    await insertLocalJob(database, 'First');
+    const pending = (await readPendingMutations(database))[0];
+
+    const snapshot = await readNextMutationSnapshot(database);
+    assert(snapshot);
+    assert.equal(database.blockedConcurrentEdit, true);
+    assert.equal(snapshot.operationId, pending.local_sequence);
+    assert.equal(snapshot.accountId, ACCOUNT_A);
+    assert.equal(snapshot.baseServerVersion, null);
+    assert.equal(snapshot.entityType, 'job');
+    assert.equal(snapshot.operation, 'upsert');
+    assert.deepEqual(snapshot.record, {
+      archivedAt: null,
+      createdAt: NOW,
+      hourlyRateCents: 1000,
+      name: 'First',
+      overtimeEnabled: false,
+      updatedAt: NOW,
+      workweekStartTime: '00:00',
+      workweekStartWeekday: 0,
+    });
+
+    database.concurrent.prepare(
+      "UPDATE jobs SET name = 'Concurrent', updated_at = '2026-08-05T13:00:00.000Z' WHERE id = 'job-a';"
+    ).run();
+    const newer = (await readPendingMutations(database))[0];
+    assert(newer.local_sequence > snapshot.operationId);
+  } finally {
+    database.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('mutation snapshots map archives, tombstones, and physical deletes to D24', async () => {
+  const database = new TestDatabase();
+  try {
+    await bindSyncAccount(database, ACCOUNT_A);
+    await database.runAsync(
+      `INSERT INTO jobs
+         (id, name, hourly_rate_cents, archived_at, created_at, updated_at,
+          overtime_enabled, workweek_start_weekday, workweek_start_time)
+       VALUES ('job-a', 'Diner', 1500, ?, ?, ?, 1, 3, '06:00');`,
+      NOW,
+      NOW,
+      NOW
+    );
+    await database.runAsync(
+      `INSERT INTO federal_withholding_settings
+         (id, job_id, effective_from, filing_status, pay_periods_per_year,
+          step2_checked, step3_credits_cents, step4a_other_income_cents,
+          step4b_deductions_cents, step4c_extra_withholding_cents, exempt,
+          created_at, updated_at, deleted_at)
+       VALUES ('settings-a', 'job-a', '2026-01-01',
+               'single-or-married-filing-separately', 26, 1, 100, 200, 300,
+               400, 0, ?, ?, ?);`,
+      NOW,
+      NOW,
+      NOW
+    );
+    await database.runAsync(
+      `INSERT INTO shifts
+         (id, job_id, shift_date, start_time, end_time, duration_seconds,
+          tips_cents, hourly_rate_cents, note, deleted_at, created_at, updated_at)
+       VALUES ('shift-a', 'job-a', '2026-08-05', '18:00', '22:00', 14400,
+               5000, 1500, 'Patio', ?, ?, ?);`,
+      NOW,
+      NOW,
+      NOW
+    );
+
+    const jobSnapshot = await readNextMutationSnapshot(database);
+    assert(jobSnapshot);
+    assert.deepEqual(jobSnapshot.record, {
+      archivedAt: NOW,
+      createdAt: NOW,
+      hourlyRateCents: 1500,
+      name: 'Diner',
+      overtimeEnabled: true,
+      updatedAt: NOW,
+      workweekStartTime: '06:00',
+      workweekStartWeekday: 3,
+    });
+    await acknowledgeMutation(database, {
+      accountId: ACCOUNT_A,
+      localSequence: jobSnapshot.operationId,
+      entityType: 'job',
+      entityId: 'job-a',
+      serverVersion: 1,
+      serverChangeSequence: 1,
+    });
+
+    const settingSnapshot = await readNextMutationSnapshot(database);
+    assert(settingSnapshot);
+    assert.deepEqual(settingSnapshot.record, {
+      createdAt: NOW,
+      deletedAt: NOW,
+      effectiveFrom: '2026-01-01',
+      exempt: false,
+      filingStatus: 'single-or-married-filing-separately',
+      jobId: 'job-a',
+      payPeriodsPerYear: 26,
+      step2Checked: true,
+      step3CreditsCents: 100,
+      step4aOtherIncomeCents: 200,
+      step4bDeductionsCents: 300,
+      step4cExtraWithholdingCents: 400,
+      updatedAt: NOW,
+    });
+    await acknowledgeMutation(database, {
+      accountId: ACCOUNT_A,
+      localSequence: settingSnapshot.operationId,
+      entityType: 'federal_withholding_setting',
+      entityId: 'settings-a',
+      serverVersion: 1,
+      serverChangeSequence: 2,
+    });
+
+    const shiftSnapshot = await readNextMutationSnapshot(database);
+    assert(shiftSnapshot);
+    assert.deepEqual(shiftSnapshot.record, {
+      createdAt: NOW,
+      deletedAt: NOW,
+      durationSeconds: 14_400,
+      endTime: '22:00',
+      hourlyRateCents: 1500,
+      jobId: 'job-a',
+      note: 'Patio',
+      shiftDate: '2026-08-05',
+      startTime: '18:00',
+      tipsCents: 5000,
+      updatedAt: NOW,
+    });
+    await acknowledgeMutation(database, {
+      accountId: ACCOUNT_A,
+      localSequence: shiftSnapshot.operationId,
+      entityType: 'shift',
+      entityId: 'shift-a',
+      serverVersion: 1,
+      serverChangeSequence: 3,
+    });
+
+    await database.runAsync("DELETE FROM shifts WHERE id = 'shift-a';");
+    const syncedDelete = await readNextMutationSnapshot(database);
+    assert(syncedDelete);
+    assert.equal(syncedDelete.operation, 'delete');
+    assert.equal(syncedDelete.baseServerVersion, 1);
+    assert.equal(syncedDelete.record, null);
+    await acknowledgeMutation(database, {
+      accountId: ACCOUNT_A,
+      localSequence: syncedDelete.operationId,
+      entityType: 'shift',
+      entityId: 'shift-a',
+      serverVersion: 2,
+      serverChangeSequence: 4,
+    });
+
+    await database.runAsync(
+      `INSERT INTO shifts
+         (id, job_id, shift_date, duration_seconds, tips_cents,
+          hourly_rate_cents, note, deleted_at, created_at, updated_at)
+       VALUES ('never-synced', 'job-a', '2026-08-05', 1, 0, 0,
+               NULL, NULL, ?, ?);`,
+      NOW,
+      NOW
+    );
+    await database.runAsync("DELETE FROM shifts WHERE id = 'never-synced';");
+    const unsyncedDelete = await readNextMutationSnapshot(database);
+    assert(unsyncedDelete);
+    assert.equal(unsyncedDelete.operation, 'delete');
+    assert.equal(unsyncedDelete.baseServerVersion, null);
+    await acknowledgeUnsyncedPhysicalDelete(database, unsyncedDelete);
+    assert.deepEqual(await readPendingMutations(database), []);
   } finally {
     database.close();
   }
