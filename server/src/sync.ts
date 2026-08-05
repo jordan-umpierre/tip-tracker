@@ -18,7 +18,7 @@ import {
 type SyncConnection = pg.PoolClient;
 type SyncDatabase = Pick<pg.Pool, "connect">;
 
-export type RemoteChange = {
+type RemoteChange = {
   changeSequence: number;
   entityId: string;
   entityType: SyncEntityType;
@@ -28,7 +28,7 @@ export type RemoteChange = {
   serverVersion: number;
 };
 
-export type SyncResponse = {
+type SyncResponse = {
   body: Record<string, unknown>;
   status: 200 | 409;
 };
