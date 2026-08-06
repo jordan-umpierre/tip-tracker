@@ -284,11 +284,35 @@ export default function AccountPanel() {
             <Text style={account.syncPhase === 'blocked' ? styles.error : styles.note}>
               {syncStatusCopy(account.syncPhase)}
             </Text>
-            {account.syncPhase === 'blocked' ? (
-              <Text style={styles.note}>
-                Review needed. Conflict editing is not available yet, so sync will not retry this
-                record automatically.
-              </Text>
+            {account.blockedMutations.length > 0 ? (
+              <View style={styles.conflicts}>
+                <Text style={styles.note}>
+                  Sync stops at the first record it cannot send, so these are resolved oldest
+                  first. Discarding keeps the cloud copy and drops this device&apos;s change to
+                  that record; you can make the edit again afterward.
+                </Text>
+                {account.blockedMutations.map((mutation) => (
+                  <View key={mutation.local_sequence} style={styles.conflict}>
+                    <Text style={styles.conflictTitle}>
+                      {entityLabel(mutation.entity_type)} · {mutation.operation}
+                    </Text>
+                    <Text style={styles.note}>
+                      {mutation.blocked_kind === 'conflict'
+                        ? 'Changed somewhere else first'
+                        : 'The server refused this change'}
+                      {' ('}{mutation.blocked_code}{')'}
+                    </Text>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Discard this device's change to ${entityLabel(mutation.entity_type)}`}
+                      style={styles.destructiveOutlineButton}
+                      onPress={() => { void account.discardBlocked(mutation.local_sequence); }}
+                    >
+                      <Text style={styles.destructiveLinkText}>Discard my change</Text>
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
             ) : null}
             <Pressable
               accessibilityRole="button"
@@ -464,6 +488,15 @@ const styles = StyleSheet.create({
   // minimum the rest of the panel's controls keep.
   linkButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   linkText: { color: '#2563eb', fontWeight: '600' },
+  conflicts: { gap: 10 },
+  conflict: {
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+    padding: 10,
+    gap: 6,
+  },
+  conflictTitle: { color: '#111827', fontWeight: '600' },
   // Red, bordered, and set apart from the rest of the panel, so the one
   // irreversible control on this screen never reads as another blue button.
   deleteBox: {
@@ -496,11 +529,22 @@ const styles = StyleSheet.create({
   destructiveLinkText: { color: '#b91c1c', fontWeight: '600' },
 });
 
+// The stored entity type is a database word. This is the one the user's own
+// screens use for the same thing.
+function entityLabel(entityType: string) {
+  if (entityType === 'job') return 'Job';
+  if (entityType === 'shift') return 'Shift';
+  return 'Withholding setting';
+}
+
 function syncStatusCopy(phase: ReturnType<typeof useAuth>['syncPhase']) {
   if (phase === 'syncing') return 'Syncing...';
   if (phase === 'up_to_date') return 'Up to date as of the last completed sync.';
   if (phase === 'pending_offline') return 'Changes are pending. The cloud service is unavailable.';
   if (phase === 'blocked') return 'Review needed before sync can continue.';
+  // Separate from 'blocked' on purpose: this one is not about a record the
+  // server refused, so it must not send anyone looking for a conflict.
+  if (phase === 'failed') return 'The last sync did not finish. Try again.';
   if (phase === 'sign_in_again') return 'Sign in again before sync can continue.';
   if (phase === 'mismatch') return 'This local database belongs to another account.';
   return 'Ready to sync.';

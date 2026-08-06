@@ -504,6 +504,58 @@ export async function clearBlockedMutation(
   });
 }
 
+// Give up on one blocked local change and take whatever the account holds.
+//
+// clearBlockedMutation above only unblocks: the outbox row stays pending and
+// the next push sends it again, against the same base version that was already
+// refused. That is the right move after a new local edit, and useless as a way
+// out of a conflict.
+//
+// This is the other half. The outbox row and its remembered server version
+// both go, so nothing local is queued for that record and nothing claims to
+// know which server version it was built on.
+//
+// ponytail: it then rewinds the pull cursor to zero, so the next pull walks
+// the whole account again and delivers the record's current server state along
+// with everything else. Refetching just that one record would be less work for
+// the server, but it needs an endpoint that does not exist, and this runs once
+// per conflict a person chose to resolve by hand. Add the targeted fetch if
+// conflicts ever become common enough to measure.
+export async function discardBlockedMutation(
+  database: SyncDatabase,
+  localSequence: number
+): Promise<void> {
+  assertPositiveSafeInteger(localSequence, 'local mutation sequence');
+  await database.withExclusiveTransactionAsync(async (transaction) => {
+    const blocked = await transaction.getFirstAsync<{
+      entity_type: SyncEntityType;
+      entity_id: string;
+    }>(
+      `SELECT entity_type, entity_id FROM sync_outbox
+       WHERE local_sequence = ? AND blocked_kind IS NOT NULL;`,
+      localSequence
+    );
+    // Gone, or no longer blocked, means someone else already resolved it --
+    // most likely a new local edit, which clears the blocked state on its own.
+    if (!blocked) {
+      throw new Error('The blocked mutation is no longer current.');
+    }
+
+    await transaction.runAsync(
+      'DELETE FROM sync_outbox WHERE local_sequence = ?;',
+      localSequence
+    );
+    await transaction.runAsync(
+      'DELETE FROM sync_metadata WHERE entity_type = ? AND entity_id = ?;',
+      blocked.entity_type,
+      blocked.entity_id
+    );
+    await transaction.runAsync(
+      'UPDATE sync_state SET last_server_change_sequence = 0 WHERE singleton = 1;'
+    );
+  });
+}
+
 export async function acknowledgeMutation(
   database: SyncDatabase,
   acknowledgement: MutationAcknowledgement

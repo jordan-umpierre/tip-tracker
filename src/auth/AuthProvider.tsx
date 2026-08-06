@@ -10,7 +10,13 @@ import {
 } from 'react';
 import { AppState } from 'react-native';
 import { getDb } from '../data/db';
-import { releaseSyncAccount, SyncAccountMismatchError } from '../data/sync';
+import {
+  discardBlockedMutation,
+  readBlockedMutations,
+  releaseSyncAccount,
+  SyncAccountMismatchError,
+} from '../data/sync';
+import type { BlockedMutation } from '../data/sync';
 import { createSyncRunner, type SyncRunResult } from '../sync/transport';
 import {
   confirmAccountConnection,
@@ -39,6 +45,7 @@ type AccountPhase =
 
 type SyncPhase =
   | 'blocked'
+  | 'failed'
   | 'idle'
   | 'mismatch'
   | 'pending_offline'
@@ -51,7 +58,9 @@ type SyncPhase =
 export type DeleteAccountResult = 'deleted' | 'pending' | 'rejected';
 
 type AuthContextValue = {
+  blockedMutations: BlockedMutation[];
   confirmConnection(): Promise<void>;
+  discardBlocked(localSequence: number): Promise<void>;
   createAccount(email: string, password: string): Promise<boolean>;
   deleteAccount(password: string): Promise<DeleteAccountResult>;
   dismissNotice(): void;
@@ -97,8 +106,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [localRecordCount, setLocalRecordCount] = useState(0);
   const [connectionAttempt, setConnectionAttempt] = useState(0);
   const [syncPhase, setSyncPhase] = useState<SyncPhase>('idle');
+  const [blocked, setBlocked] = useState<BlockedMutation[]>([]);
   const syncRunner = useRef<ReturnType<typeof createSyncRunner> | null>(null);
   const pendingVerification = useRef(false);
+  // The session as of right now, for code that needs the current token without
+  // wanting to re-run every time a refresh mints one. State stays the source
+  // of truth for rendering; this ref only ever mirrors it.
+  const sessionRef = useRef<Session | null>(null);
+  sessionRef.current = session;
+  // The stable half of the session. A token refresh replaces the object and
+  // the token; the account behind it does not change.
+  const signedInUserId = session?.user.id ?? null;
   const signedOutNotice = useRef<{ message: string; phase: 'mismatch' | 'error' } | null>(
     null
   );
@@ -201,8 +219,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [connectionAttempt, session]);
 
+  // Read what is currently blocked, so the screen can name the records instead
+  // of saying "review needed" and leaving the user to guess which one.
+  const refreshBlocked = useCallback(async () => {
+    try {
+      setBlocked(await readBlockedMutations(await getDb()));
+    } catch {
+      // A database that will not open is already reported by whatever else
+      // needed it. Showing an empty list is honest here: this function does
+      // not know of any blocked record.
+      setBlocked([]);
+    }
+  }, []);
+
+  // Resolve one conflict the only way the app can resolve it without inventing
+  // merge rules: throw away this device's change and take the account's copy.
+  // The user can then make the edit again, which is a fresh mutation against
+  // the version they can now see.
+  const discardBlocked = useCallback(async (localSequence: number) => {
+    try {
+      await discardBlockedMutation(await getDb(), localSequence);
+      setMessage(null);
+    } catch {
+      setMessage('That change could not be discarded. Sync and try again.');
+    }
+    await refreshBlocked();
+  }, [refreshBlocked]);
+
+  async function applySyncResult(synced: SyncRunResult) {
+    if (synced.status === 'deleted') {
+      signedOutNotice.current = { message: ACCOUNT_DELETED_NOTICE, phase: 'error' };
+      setSyncPhase('idle');
+      await clearSavedLogin(DELETED_SIGN_OUT_FAILED);
+      return;
+    }
+    if (synced.status === 'mismatch') {
+      signedOutNotice.current = { message: DEVICE_BOUND_NOTICE, phase: 'mismatch' };
+      setSyncPhase('mismatch');
+      await clearSavedLogin(MISMATCH_SIGN_OUT_FAILED);
+      return;
+    }
+    setSyncPhase(synced.status);
+  }
+
+  // A sync run needs the newest access token, but must not be *triggered* by
+  // getting one. Supabase hands out a new session object on every hourly
+  // TOKEN_REFRESHED event, and reading the session straight out of state made
+  // this function a new function each time, which re-ran the effect below and
+  // started a sync nobody asked for. The token is read from a ref instead, so
+  // the run always uses the current one while the triggers stay the three D26
+  // lists: a verified connection, an explicit Sync now, and foreground entry.
   const syncNow = useCallback(async () => {
-    if (!session || !authSetup.config || !supabaseClient || phase !== 'connected') return;
+    const current = sessionRef.current;
+    if (!current || !authSetup.config || !supabaseClient || phase !== 'connected') return;
     setSyncPhase('syncing');
     try {
       const database = await getDb();
@@ -220,29 +289,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       });
       const synced = await syncRunner.current.run({
-        accessToken: session.access_token,
-        userId: session.user.id,
+        accessToken: current.access_token,
+        userId: current.user.id,
       });
       await applySyncResult(synced);
     } catch {
-      setSyncPhase('blocked');
+      // Not 'blocked'. Blocked means the server refused a specific record and
+      // a person has to look at it; this catch also sees a database that would
+      // not open and a bug in our own code. Telling someone a record needs
+      // review when SQLite failed to open sends them looking for a conflict
+      // that does not exist.
+      setSyncPhase('failed');
     }
-  }, [phase, session]);
+    await refreshBlocked();
+  }, [phase, refreshBlocked]);
 
   useEffect(() => {
-    if (phase !== 'connected' || !session) {
-      if (!session) setSyncPhase('idle');
+    if (phase !== 'connected' || !signedInUserId) {
+      if (!signedInUserId) setSyncPhase('idle');
       return;
     }
 
     // Reaching connected means /v1/me and the durable account binding agreed.
     // The same call covers restored sessions and freshly confirmed consent.
+    // Keyed on the account id rather than the session object, so an hourly
+    // token refresh is not mistaken for a new sign-in.
     void syncNow();
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') void syncNow();
     });
     return () => subscription.remove();
-  }, [phase, session, syncNow]);
+  }, [phase, signedInUserId, syncNow]);
 
   const verifySession = useCallback(async (currentSession: Session) => {
     if (!authSetup.config || !supabaseClient) {
@@ -530,23 +607,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return credentials;
   }
 
-  async function applySyncResult(synced: SyncRunResult) {
-    if (synced.status === 'deleted') {
-      signedOutNotice.current = { message: ACCOUNT_DELETED_NOTICE, phase: 'error' };
-      setSyncPhase('idle');
-      await clearSavedLogin(DELETED_SIGN_OUT_FAILED);
-      return;
-    }
-    if (synced.status === 'mismatch') {
-      signedOutNotice.current = { message: DEVICE_BOUND_NOTICE, phase: 'mismatch' };
-      setSyncPhase('mismatch');
-      await clearSavedLogin(MISMATCH_SIGN_OUT_FAILED);
-      return;
-    }
-    setSyncPhase(synced.status);
-  }
-
   const value: AuthContextValue = {
+    blockedMutations: blocked,
+    discardBlocked,
     beginPasswordReset() {
       // Recovery starts from a clean slate: a stale mismatch or deleted-account
       // notice on screen would read as commentary on the reset itself.

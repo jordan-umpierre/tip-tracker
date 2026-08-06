@@ -13,6 +13,7 @@ import {
   bindSyncAccount,
   blockMutation,
   clearBlockedMutation,
+  discardBlockedMutation,
   MAX_BLOCKED_RESPONSE_BYTES,
   inspectLocalAccountState,
   readBlockedMutation,
@@ -826,6 +827,65 @@ test('releasing a deleted account leaves the device connectable again', async ()
     // The whole point: a different account can now take this device.
     await bindSyncAccount(database, ACCOUNT_B);
     assert.equal((await inspectLocalAccountState(database)).accountId, ACCOUNT_B);
+  } finally {
+    database.close();
+  }
+});
+
+test('discarding a blocked change clears the local claim and re-pulls the account', async () => {
+  const database = new TestDatabase();
+  try {
+    // A synced record the user then edited locally, whose push the server
+    // refused because someone else moved it first.
+    await applyRemoteChanges(database, batch());
+    await database.runAsync(
+      "UPDATE jobs SET name = 'Renamed locally', updated_at = ? WHERE id = 'job-a';",
+      '2026-08-06T09:00:00.000Z'
+    );
+    const [pending] = await readPendingMutations(database);
+    assert.equal(pending?.entity_id, 'job-a');
+    assert.equal(pending?.base_server_version, 1);
+    await blockMutation(database, {
+      kind: 'conflict',
+      code: 'stale_version',
+      localSequence: pending!.local_sequence,
+      response: { error: 'stale_version' },
+    });
+
+    await discardBlockedMutation(database, pending!.local_sequence);
+
+    // Nothing local is queued for that record, and nothing claims to know
+    // which server version it was built on.
+    assert.equal((await readBlockedMutations(database)).length, 0);
+    assert.equal((await readPendingMutations(database)).length, 0);
+    const metadata = await database.getAllAsync(
+      "SELECT * FROM sync_metadata WHERE entity_id = 'job-a';"
+    );
+    assert.equal(metadata.length, 0);
+
+    // The cursor is rewound, so the next pull walks the account again and
+    // brings the record's current server state back with it.
+    const state = await database.getFirstAsync<{ last_server_change_sequence: number }>(
+      'SELECT last_server_change_sequence FROM sync_state WHERE singleton = 1;'
+    );
+    assert.equal(state?.last_server_change_sequence, 0);
+
+    // And that pull is now free to overwrite the local edit, which is exactly
+    // what the user asked for by discarding it.
+    await applyRemoteChanges(database, batch({
+      jobs: [job({ name: 'Server wins', server_version: 2 })],
+    }));
+    const row = await database.getFirstAsync<{ name: string }>(
+      "SELECT name FROM jobs WHERE id = 'job-a';"
+    );
+    assert.equal(row?.name, 'Server wins');
+
+    // Discarding twice is a mistake, not a no-op: the second call has nothing
+    // to act on and must say so rather than rewind the cursor again.
+    await assert.rejects(
+      discardBlockedMutation(database, pending!.local_sequence),
+      /no longer current/
+    );
   } finally {
     database.close();
   }
