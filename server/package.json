@@ -10,7 +10,7 @@
     "migrate": "node src/migrate.ts",
     "start": "node src/index.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node --test test/*.test.ts",
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test test/*.test.ts",
     "verify": "npm run typecheck && npm test"
   },
   "dependencies": {

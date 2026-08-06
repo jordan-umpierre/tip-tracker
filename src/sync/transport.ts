@@ -24,7 +24,7 @@ import {
   type RemoteWireChange,
 } from './wire.ts';
 
-export type SyncSession = {
+type SyncSession = {
   accessToken: string;
   userId: string;
 };

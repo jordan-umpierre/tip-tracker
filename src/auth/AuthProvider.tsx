@@ -35,7 +35,7 @@ type AccountPhase =
   | 'pending_verification'
   | 'signed_out';
 
-export type SyncPhase =
+type SyncPhase =
   | 'blocked'
   | 'idle'
   | 'mismatch'
