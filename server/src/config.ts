@@ -7,6 +7,7 @@ export type ServerConfig = {
   port: number;
   serviceRoleKey: string;
   supabaseUrl: URL;
+  trustProxyHops: number;
 };
 
 export function readConfig(env: NodeJS.ProcessEnv): ServerConfig {
@@ -18,6 +19,7 @@ export function readConfig(env: NodeJS.ProcessEnv): ServerConfig {
   const audience = requiredText(env.SUPABASE_AUDIENCE, "SUPABASE_AUDIENCE");
   const serviceRoleKey = requiredText(env.SUPABASE_SERVICE_ROLE_KEY, "SUPABASE_SERVICE_ROLE_KEY");
   const supabaseUrl = requiredUrl(env.SUPABASE_URL, "SUPABASE_URL", ["https:"]);
+  const trustProxyHops = readTrustProxyHops(env.TRUST_PROXY_HOPS);
 
   return {
     audience,
@@ -28,7 +30,26 @@ export function readConfig(env: NodeJS.ProcessEnv): ServerConfig {
     port,
     serviceRoleKey,
     supabaseUrl,
+    trustProxyHops,
   };
+}
+
+// How many proxies sit between the internet and this process. The rate limiter
+// buckets by client address, and the address is only correct if Express is
+// told exactly how far back in X-Forwarded-For to look.
+//
+// Zero means nothing is in front, which is right for local development and
+// wrong for every hosted deployment: behind an unaccounted-for proxy every
+// request appears to come from the proxy, so all traffic shares one bucket and
+// the limiter throttles everybody at once. Guessing high is the other failure
+// -- trusting a hop that is not there lets a client forge the header and pick
+// its own bucket. So it is stated per deployment rather than inferred.
+function readTrustProxyHops(value: string | undefined) {
+  const hops = Number(valueOrDefault(value, "0"));
+  if (!Number.isInteger(hops) || hops < 0 || hops > 10) {
+    throw new Error("TRUST_PROXY_HOPS must be an integer from 0 through 10");
+  }
+  return hops;
 }
 
 function readPort(value: string | undefined) {

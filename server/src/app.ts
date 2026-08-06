@@ -3,9 +3,18 @@ import express, { type ErrorRequestHandler, type RequestHandler } from "express"
 import type { Accounts } from "./accounts.ts";
 import { requireAuth, wasRecentlyPasswordAuthenticated, type VerifyAccessToken } from "./auth.ts";
 import type { AuthAdmin } from "./authAdmin.ts";
+import { createRateLimiter } from "./rateLimit.ts";
 import { InvalidSyncQueryError, InvalidSyncRequestError, type SyncService } from "./sync.ts";
 
 const JSON_BODY_LIMIT = "32kb";
+
+// D26 pushes one mutation per request, serialized, so a first upload of a
+// long shift history is hundreds of legitimate sequential requests from one
+// address. The budget has to clear that comfortably while still bounding a
+// flood: ten requests a second sustained is far more than a serialized client
+// can produce over a real network.
+const RATE_LIMIT_MAX = 600;
+const RATE_LIMIT_WINDOW_MS = 60_000;
 const SYNC_MUTATION_BODY_LIMIT = "10500000b";
 const PUBLIC_PARSER_ERRORS = new Map([
   [400, "invalid_json"],
@@ -32,8 +41,10 @@ export function createApp(dependencies?: {
   accounts: Accounts;
   authAdmin: AuthAdmin;
   logError?: (error: unknown) => void;
+  now?: () => number;
   readiness: () => Promise<void>;
   sync: SyncService;
+  trustProxyHops?: number;
   verifyAccessToken: VerifyAccessToken;
 }) {
   const app = express();
@@ -41,6 +52,16 @@ export function createApp(dependencies?: {
 
   app.disable("x-powered-by");
 
+  // Express derives request.ip from X-Forwarded-For, and it must be told how
+  // many entries at the end of that header were written by infrastructure we
+  // control. See readTrustProxyHops in config.ts for why this is stated rather
+  // than guessed. Zero disables header parsing entirely.
+  app.set("trust proxy", dependencies?.trustProxyHops ?? 0);
+
+  // Health and readiness sit above the limiter on purpose. A platform's uptime
+  // probe polls from a small set of addresses at a fixed interval, and an
+  // instance that answers "429" to its own load balancer gets pulled out of
+  // rotation for being healthy.
   app.get("/health", (_request, response) => {
     response.json({ status: "ok" });
   });
@@ -54,6 +75,15 @@ export function createApp(dependencies?: {
       response.status(503).json({ error: "not_ready" });
     }
   });
+
+  // Everything past this point costs a token verification, a database round
+  // trip, or both, so the limit is applied before any of them rather than per
+  // route.
+  app.use(createRateLimiter({
+    max: RATE_LIMIT_MAX,
+    now: dependencies?.now,
+    windowMs: RATE_LIMIT_WINDOW_MS,
+  }));
 
   if (dependencies) {
     const requireSyncAccount = requireActiveAccount(dependencies.accounts);

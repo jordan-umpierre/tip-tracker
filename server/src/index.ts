@@ -26,6 +26,7 @@ const server = createServer(createApp({
   authAdmin,
   readiness,
   sync: createSyncService(database),
+  trustProxyHops: config.trustProxyHops,
   verifyAccessToken,
 }));
 let stopping = false;

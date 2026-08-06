@@ -56,6 +56,7 @@ test("reads only valid TCP ports", () => {
     port: 3000,
     serviceRoleKey: "test-service-role-key",
     supabaseUrl: new URL(env.SUPABASE_URL),
+    trustProxyHops: 0,
   });
   assert.deepEqual(readConfig({ ...env, HOST: "127.0.0.1", PORT: "8080" }), {
     audience: "authenticated",
@@ -66,6 +67,7 @@ test("reads only valid TCP ports", () => {
     port: 8080,
     serviceRoleKey: "test-service-role-key",
     supabaseUrl: new URL(env.SUPABASE_URL),
+    trustProxyHops: 0,
   });
   assert.throws(() => readConfig({ ...env, PORT: "0" }), /PORT/);
   assert.throws(() => readConfig({ ...env, PORT: "3000.5" }), /PORT/);
@@ -73,6 +75,13 @@ test("reads only valid TCP ports", () => {
   assert.throws(() => readConfig({ ...env, DATABASE_URL: "" }), /DATABASE_URL/);
   assert.throws(() => readConfig({ ...env, SUPABASE_JWKS_URL: "http://example.test" }), /https/);
   assert.throws(() => readConfig({ ...env, SUPABASE_SERVICE_ROLE_KEY: "" }), /SERVICE_ROLE/);
+
+  // The proxy hop count decides whose address the rate limiter counts, so a
+  // typo has to stop the process rather than silently become zero.
+  assert.equal(readConfig({ ...env, TRUST_PROXY_HOPS: "1" }).trustProxyHops, 1);
+  assert.throws(() => readConfig({ ...env, TRUST_PROXY_HOPS: "-1" }), /TRUST_PROXY_HOPS/);
+  assert.throws(() => readConfig({ ...env, TRUST_PROXY_HOPS: "1.5" }), /TRUST_PROXY_HOPS/);
+  assert.throws(() => readConfig({ ...env, TRUST_PROXY_HOPS: "many" }), /TRUST_PROXY_HOPS/);
 });
 
 test("reports health without exposing framework details", async () => {

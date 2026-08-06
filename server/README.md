@@ -1,8 +1,16 @@
 # Tip Tracker API
 
 This package is the authenticated cloud boundary from D22 and D24. It does not
-replace the Expo app's SQLite database. It now exposes the provider-free,
-authenticated server half of push/pull; the mobile HTTP client is still absent.
+replace the Expo app's SQLite database. It exposes the provider-free,
+authenticated server half of push/pull; the mobile client that calls it landed
+with D26.
+
+Every request except `/health` and `/ready` is rate limited by client address:
+600 per minute, counted in this process's memory, answered with `429` and a
+`Retry-After` header. That budget is sized for D26's serialized one-mutation
+push, where a first upload of a long shift history is hundreds of legitimate
+sequential requests. The counter is per process, so running more than one
+instance multiplies the real budget by the instance count.
 
 ## Local verification
 
@@ -33,6 +41,15 @@ The server refuses to start unless all provider-dependent values are present:
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only key used to delete the authenticated identity |
 | `HOST` | Listen address; defaults to `0.0.0.0` |
 | `PORT` | Listen port; defaults to `3000` |
+| `TRUST_PROXY_HOPS` | Proxies in front of this process; defaults to `0` |
+
+`TRUST_PROXY_HOPS` is optional but effectively required once deployed. Every
+request is rate limited by client address, and Express only reads that address
+out of `X-Forwarded-For` when it is told how many trailing entries are
+infrastructure. Leaving it at `0` behind a load balancer makes every request
+look like it came from the balancer, so all traffic shares one bucket and the
+limit throttles everyone at once. Setting it higher than the real number lets a
+client forge the header and choose its own bucket.
 
 Apply migrations with owner credentials before starting the runtime process:
 
