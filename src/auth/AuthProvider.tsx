@@ -55,7 +55,7 @@ type SyncPhase =
 
 // What the screen shows after a delete attempt. Only 'deleted' ends the
 // account; the other two leave it exactly as it was.
-export type DeleteAccountResult = 'deleted' | 'pending' | 'rejected';
+type DeleteAccountResult = 'deleted' | 'pending' | 'rejected';
 
 type AuthContextValue = {
   blockedMutations: BlockedMutation[];

@@ -10,6 +10,19 @@ export type VerifiedAccount = {
 
 type RefreshSession = () => Promise<AccountSession | null>;
 
+type RequestOptions = { fetch?: typeof fetch; timeoutMs?: number };
+
+// Both calls below abort on the same schedule. Ten seconds by default, and an
+// override has to be a real duration: a caller passing zero or a year would
+// otherwise turn the abort into either an instant failure or no timeout at all.
+function readTimeoutMs(value: number | undefined): number {
+  const timeoutMs = value ?? 10_000;
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 30_000) {
+    throw new Error('The account request timeout is invalid.');
+  }
+  return timeoutMs;
+}
+
 export class AccountDeletedError extends Error {}
 export class AccountIdentityMismatchError extends Error {}
 export class AccountUnavailableError extends Error {}
@@ -18,14 +31,11 @@ export async function verifyBackendAccount(
   apiUrl: string,
   session: AccountSession,
   refreshSession: RefreshSession,
-  options: { fetch?: typeof fetch; timeoutMs?: number } = {}
+  options: RequestOptions = {}
 ): Promise<VerifiedAccount> {
   assertSession(session);
   const fetchImplementation = options.fetch ?? fetch;
-  const timeoutMs = options.timeoutMs ?? 10_000;
-  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 30_000) {
-    throw new Error('The account request timeout is invalid.');
-  }
+  const timeoutMs = readTimeoutMs(options.timeoutMs);
 
   let response = await requestAccount(
     apiUrl,
@@ -88,14 +98,11 @@ export type AccountDeletionOutcome = 'deleted' | 'pending' | 'reauthenticate';
 export async function deleteBackendAccount(
   apiUrl: string,
   session: AccountSession,
-  options: { fetch?: typeof fetch; timeoutMs?: number } = {}
+  options: RequestOptions = {}
 ): Promise<AccountDeletionOutcome> {
   assertSession(session);
   const fetchImplementation = options.fetch ?? fetch;
-  const timeoutMs = options.timeoutMs ?? 10_000;
-  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 30_000) {
-    throw new Error('The account request timeout is invalid.');
-  }
+  const timeoutMs = readTimeoutMs(options.timeoutMs);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);

@@ -179,6 +179,7 @@ app/                  Expo Router entry, native tab layout, and thin routes
 src/
   screens/            route-level SQLite reads and screen composition
   components/         focused pieces of screen UI
+    account/          the cloud account states: sign in, recovery, sync, delete
   auth/               optional Supabase account/session boundary
   data/               SQLite: db.ts, schema.sql, and one file per table
   lib/                pure calculation and formatting -- no I/O, so testable
