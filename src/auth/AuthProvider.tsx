@@ -61,6 +61,22 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+// Two notices are raised from more than one place, so they live here rather
+// than being retyped: a small wording drift between paths would read to the
+// user as two different things happening.
+const ACCOUNT_DELETED_NOTICE =
+  'This cloud account has been deleted. Your local data is still here.';
+const DEVICE_BOUND_NOTICE =
+  'This device belongs to another account. No local data was changed.';
+
+// Dropping the saved login can itself fail. These replace the notice when it
+// does, because the original wording claims the device was disconnected when
+// the session is in fact still sitting on disk.
+const MISMATCH_SIGN_OUT_FAILED =
+  'This device belongs to another account, and the saved login could not be removed.';
+const DELETED_SIGN_OUT_FAILED =
+  'This cloud account was deleted, and the saved login could not be removed.';
+
 // fallow-ignore-next-line complexity -- One provider owns the coupled auth event, refresh, and account-binding lifecycle.
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -156,27 +172,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           };
           setPhase('mismatch');
           setMessage(signedOutNotice.current.message);
-          if (!(await removeLocalSession())) {
-            signedOutNotice.current.phase = 'error';
-            signedOutNotice.current.message =
-              'This device belongs to another account, and the saved login could not be removed.';
-            setPhase('error');
-            setMessage(signedOutNotice.current.message);
-          }
+          if (!(await clearSavedLogin(MISMATCH_SIGN_OUT_FAILED))) setPhase('error');
           return;
         }
         if (error instanceof AccountDeletedError) {
-          signedOutNotice.current = {
-            message: 'This cloud account has been deleted. Your local data is still here.',
-            phase: 'error',
-          };
+          signedOutNotice.current = { message: ACCOUNT_DELETED_NOTICE, phase: 'error' };
           setPhase('error');
-          setMessage(signedOutNotice.current.message);
-          if (!(await removeLocalSession())) {
-            signedOutNotice.current.message =
-              'This cloud account was deleted, and the saved login could not be removed.';
-            setMessage(signedOutNotice.current.message);
-          }
+          setMessage(ACCOUNT_DELETED_NOTICE);
+          await clearSavedLogin(DELETED_SIGN_OUT_FAILED);
           return;
         }
         setPhase('error');
@@ -254,21 +257,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
-  // fallow-ignore-next-line complexity -- Validation, provider rejection, and provider failure have separate safe UI outcomes.
   const signIn = useCallback(async (emailInput: string, passwordInput: string) => {
     if (!supabaseClient) return false;
-    let credentials;
-    try {
-      credentials = readAuthCredentials(emailInput, passwordInput);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Check the account fields.');
-      return false;
-    }
-
-    signedOutNotice.current = null;
-    pendingVerification.current = false;
-    setPhase('connecting');
-    setMessage(null);
+    const credentials = beginCredentialAttempt(emailInput, passwordInput);
+    if (credentials === null) return false;
     try {
       const { error } = await supabaseClient.auth.signInWithPassword(credentials);
       if (!error) return true;
@@ -280,22 +272,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return false;
   }, []);
 
-  // fallow-ignore-next-line code-duplication -- Sign-up intentionally applies the same bounded credential boundary as sign-in.
   // fallow-ignore-next-line complexity -- A created session and email verification are distinct provider outcomes.
   const createAccount = useCallback(async (emailInput: string, passwordInput: string) => {
     if (!supabaseClient) return false;
-    let credentials;
-    try {
-      credentials = readAuthCredentials(emailInput, passwordInput);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Check the account fields.');
-      return false;
-    }
-
-    signedOutNotice.current = null;
-    pendingVerification.current = false;
-    setPhase('connecting');
-    setMessage(null);
+    const credentials = beginCredentialAttempt(emailInput, passwordInput);
+    if (credentials === null) return false;
     let createdSession: Session | null = null;
     try {
       const { data, error } = await supabaseClient.auth.signUp(credentials);
@@ -328,20 +309,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         error instanceof SyncAccountMismatchError ||
         error instanceof AccountIdentityMismatchError
       ) {
-        // fallow-ignore-next-line code-duplication -- Both automatic and consent-time mismatches must enforce identical local sign-out handling.
-        signedOutNotice.current = {
-          message: 'This device belongs to another account. No local data was changed.',
-          phase: 'mismatch',
-        };
+        signedOutNotice.current = { message: DEVICE_BOUND_NOTICE, phase: 'mismatch' };
         setPhase('mismatch');
-        setMessage(signedOutNotice.current.message);
-        if (!(await removeLocalSession())) {
-          signedOutNotice.current.phase = 'error';
-          signedOutNotice.current.message =
-            'This device belongs to another account, and the saved login could not be removed.';
-          setPhase('error');
-          setMessage(signedOutNotice.current.message);
-        }
+        setMessage(DEVICE_BOUND_NOTICE);
+        if (!(await clearSavedLogin(MISMATCH_SIGN_OUT_FAILED))) setPhase('error');
       } else {
         setPhase('error');
         setMessage('The account connection failed. No local data was changed.');
@@ -358,6 +329,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setMessage('The saved login could not be removed from this device.');
     }
   }, []);
+
+  // Every path that discovers this device may no longer use its cloud session
+  // ends the same way: drop the saved login, and if that fails, correct the
+  // notice instead of leaving a message that says the device was disconnected.
+  // Callers that own `phase` still set it themselves, because some of these
+  // paths paint the screen immediately and some leave it to the sign-out
+  // effect once the session actually clears.
+  async function clearSavedLogin(failureMessage: string): Promise<boolean> {
+    if (await removeLocalSession()) return true;
+    const notice = signedOutNotice.current;
+    if (notice) {
+      notice.phase = 'error';
+      notice.message = failureMessage;
+    }
+    setMessage(failureMessage);
+    return false;
+  }
+
+  // Sign-in and sign-up deliberately share one credential boundary: the same
+  // validation, and the same clearing of stale notices before a fresh attempt.
+  // Returning null means the input was rejected and the caller should stop.
+  function beginCredentialAttempt(emailInput: string, passwordInput: string) {
+    let credentials;
+    try {
+      credentials = readAuthCredentials(emailInput, passwordInput);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Check the account fields.');
+      return null;
+    }
+
+    signedOutNotice.current = null;
+    pendingVerification.current = false;
+    setPhase('connecting');
+    setMessage(null);
+    return credentials;
+  }
+
+  async function applySyncResult(synced: SyncRunResult) {
+    if (synced.status === 'deleted') {
+      signedOutNotice.current = { message: ACCOUNT_DELETED_NOTICE, phase: 'error' };
+      setSyncPhase('idle');
+      await clearSavedLogin(DELETED_SIGN_OUT_FAILED);
+      return;
+    }
+    if (synced.status === 'mismatch') {
+      signedOutNotice.current = { message: DEVICE_BOUND_NOTICE, phase: 'mismatch' };
+      setSyncPhase('mismatch');
+      await clearSavedLogin(MISMATCH_SIGN_OUT_FAILED);
+      return;
+    }
+    setSyncPhase(synced.status);
+  }
 
   const value: AuthContextValue = {
     confirmConnection,
@@ -382,37 +405,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-
-  async function applySyncResult(synced: SyncRunResult) {
-    if (synced.status === 'deleted') {
-      signedOutNotice.current = {
-        message: 'This cloud account has been deleted. Your local data is still here.',
-        phase: 'error',
-      };
-      setSyncPhase('idle');
-      if (!(await removeLocalSession())) {
-        signedOutNotice.current.message =
-          'This cloud account was deleted, and the saved login could not be removed.';
-        setMessage(signedOutNotice.current.message);
-      }
-      return;
-    }
-    if (synced.status === 'mismatch') {
-      signedOutNotice.current = {
-        message: 'This device belongs to another account. No local data was changed.',
-        phase: 'mismatch',
-      };
-      setSyncPhase('mismatch');
-      if (!(await removeLocalSession())) {
-        signedOutNotice.current.phase = 'error';
-        signedOutNotice.current.message =
-          'This device belongs to another account, and the saved login could not be removed.';
-        setMessage(signedOutNotice.current.message);
-      }
-      return;
-    }
-    setSyncPhase(synced.status);
-  }
 }
 
 export function useAuth(): AuthContextValue {
