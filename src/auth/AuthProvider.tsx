@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { AppState, Platform } from 'react-native';
+import { AppState } from 'react-native';
 import { getDb } from '../data/db';
 import { SyncAccountMismatchError } from '../data/sync';
 import { createSyncRunner, type SyncRunResult } from '../sync/transport';
@@ -110,20 +110,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    let appStateSubscription: { remove(): void } | null = null;
-    if (Platform.OS !== 'web') {
-      const updateRefresh = (state: string) => {
-        if (state === 'active') client.auth.startAutoRefresh();
-        else client.auth.stopAutoRefresh();
-      };
-      updateRefresh(AppState.currentState);
-      appStateSubscription = AppState.addEventListener('change', updateRefresh);
-    }
+    // Supabase only refreshes tokens on its own while the app is foregrounded,
+    // and it wants to be told when that changes. The web branch this used to
+    // carry is gone with the web target (D27).
+    const updateRefresh = (state: string) => {
+      if (state === 'active') client.auth.startAutoRefresh();
+      else client.auth.stopAutoRefresh();
+    };
+    updateRefresh(AppState.currentState);
+    const appStateSubscription = AppState.addEventListener('change', updateRefresh);
 
     return () => {
       data.subscription.unsubscribe();
-      appStateSubscription?.remove();
-      if (Platform.OS !== 'web') client.auth.stopAutoRefresh();
+      appStateSubscription.remove();
+      client.auth.stopAutoRefresh();
     };
   }, []);
 
@@ -228,7 +228,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Reaching connected means /v1/me and the durable account binding agreed.
     // The same call covers restored sessions and freshly confirmed consent.
     void syncNow();
-    if (Platform.OS === 'web') return;
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') void syncNow();
     });

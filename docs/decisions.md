@@ -1648,3 +1648,45 @@ UI/UX bar from the product definition is achievable here.
 > **Revisit when:** staging measurements justify batching or background work,
 > conflict-resolution product rules exist, provider/native acceptance passes,
 > or tombstone retention and multi-device convergence have end-to-end evidence.
+
+### D27 — Ship iOS and Android only, and stop building for web (2026-08-06)
+
+> **Decision:** The web target is removed. `app.json` no longer declares a
+> `web` section, `package.json` no longer has a `web` script or the
+> `react-dom` and `react-native-web` dependencies, `assets/favicon.png` and
+> `src/auth/sessionStorage.web.ts` are deleted, and the two
+> `Platform.OS === 'web'` branches in `AuthProvider` are gone. iOS and Android
+> are the only supported platforms.
+>
+> **Alternatives:**
+> - Make web actually work: `expo-sqlite` has a web build, so `db.ts` would
+>   need an OPFS-backed path, and backup, restore, CSV import and CSV export
+>   would each need a browser file story instead of `expo-file-system`.
+> - Leave it exactly as it was: the production bundle compiles, so the target
+>   looks supported until someone loads the page.
+>
+> **Why:** the third option was never real. Web has been broken at runtime
+> since sync landed — a fresh SQLite bootstrap reaches `expo-file-system`,
+> which is unsupported in a browser and throws `File.validatePath` before
+> Manage data renders. That is four separate filesystem call sites, not one
+> shim, and web has never been a product target: the README has said iOS and
+> Android from the first commit.
+>
+> Fixing it would be a week of work to support a platform with no users, and
+> the cost of keeping it was worse than nothing. A target that compiles and
+> then crashes reads as "supported" to everyone who has not tried it,
+> including a reviewer and including a future me. Deleting it makes the claim
+> match the code.
+>
+> **Known cost:** there is no browser demo to link from a portfolio or a
+> resume, and reinstating web later means paying the storage-and-files work
+> that was skipped rather than resuming from a half-built target.
+>
+> **Evidence boundary:** `npx expo export --platform ios --platform android`
+> and the full TypeScript check pass with the dependencies removed, which
+> proves the native bundles never needed them. Nothing here was verified on a
+> device, because nothing here changes device behavior.
+>
+> **Revisit when:** a browser is a real product requirement — a desktop
+> entry surface for bulk editing, say — and is worth building the OPFS
+> database and browser file handling on purpose.
