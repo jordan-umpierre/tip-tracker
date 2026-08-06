@@ -25,6 +25,13 @@ cp -R contracts "$STAGE/contracts"
 cp -R server/src "$STAGE/server/src"
 cp server/package.json "$STAGE/server/package.json"
 
+# migrations/ is needed at runtime, not just for `npm run migrate`. Startup
+# calls assertSchemaCurrent, which reads these files and compares them against
+# what the database reports as applied, so a server whose code is ahead of its
+# database refuses to serve instead of failing one query at a time. Leaving
+# them out crashes the process on boot with ENOENT.
+cp -R server/migrations "$STAGE/server/migrations"
+
 # Lambda's handler entry, at the zip root where the Handler setting expects it.
 # The execute bit has to survive into the zip or the adapter cannot launch it.
 cp server/run.sh "$STAGE/run.sh"
