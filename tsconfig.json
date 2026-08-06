@@ -31,5 +31,12 @@
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
   ],
-  "exclude": ["server"]
+  // server/ has its own tsconfig and its own tsc run, by package boundary.
+  //
+  // dist/ is build output, not source: `expo export` writes the bundle there
+  // and scripts/package-lambda.sh stages a copy of server/ plus its production
+  // node_modules there. Both are gitignored, so CI never saw them and this
+  // check passed on a fresh clone while failing on any machine that had run
+  // the documented deploy. Excluding it makes the two agree.
+  "exclude": ["server", "dist"]
 }
