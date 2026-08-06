@@ -14,6 +14,7 @@ function readinessApp(database: pg.Client | pg.Pool) {
   return createApp({
     accounts: createAccounts(database),
     authAdmin: { deleteIdentity: async () => undefined },
+    logRequest: () => undefined,
     readiness: () => assertSchemaCurrent(database),
     sync: {
       listChanges: async () => ({ changes: [], hasMore: false, nextCursor: 0 }),

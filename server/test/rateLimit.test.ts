@@ -19,6 +19,7 @@ const server = createServer(createApp({
   },
   authAdmin: { deleteIdentity: async () => undefined },
   logError: () => undefined,
+  logRequest: () => undefined,
   now: () => currentTime,
   readiness: async () => undefined,
   sync: {

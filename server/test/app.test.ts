@@ -13,6 +13,7 @@ const server = createServer(createApp({
   },
   authAdmin: { deleteIdentity: async () => undefined },
   logError: () => undefined,
+  logRequest: () => undefined,
   readiness: async () => undefined,
   sync: {
     listChanges: async () => ({ changes: [], hasMore: false, nextCursor: 0 }),

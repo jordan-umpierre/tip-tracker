@@ -5,6 +5,12 @@ replace the Expo app's SQLite database. It exposes the provider-free,
 authenticated server half of push/pull; the mobile client that calls it landed
 with D26.
 
+Every finished request writes one JSON line to stdout with its method, path,
+status, duration, and — once a token has actually verified — the account
+subject. Request bodies, query strings, and `Authorization` headers are never
+logged. A `/health` or `/ready` probe is logged only when it fails, so a
+polling platform does not bury real traffic.
+
 Every request except `/health` and `/ready` is rate limited by client address:
 600 per minute, counted in this process's memory, answered with `429` and a
 `Retry-After` header. That budget is sized for D26's serialized one-mutation

@@ -76,6 +76,7 @@ test("verified subjects alone control account reads and deletion", async () => {
         accounts: createAccounts(database),
         authAdmin,
         logError: () => undefined,
+        logRequest: () => undefined,
         readiness: async () => undefined,
         sync: createSyncService(poolAdapter(database)),
         verifyAccessToken,

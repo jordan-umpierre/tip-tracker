@@ -4,6 +4,7 @@ import type { Accounts } from "./accounts.ts";
 import { requireAuth, wasRecentlyPasswordAuthenticated, type VerifyAccessToken } from "./auth.ts";
 import type { AuthAdmin } from "./authAdmin.ts";
 import { createRateLimiter } from "./rateLimit.ts";
+import { createRequestLogger, type RequestLogLine } from "./requestLog.ts";
 import { InvalidSyncQueryError, InvalidSyncRequestError, type SyncService } from "./sync.ts";
 
 const JSON_BODY_LIMIT = "32kb";
@@ -41,6 +42,7 @@ export function createApp(dependencies?: {
   accounts: Accounts;
   authAdmin: AuthAdmin;
   logError?: (error: unknown) => void;
+  logRequest?: (line: RequestLogLine) => void;
   now?: () => number;
   readiness: () => Promise<void>;
   sync: SyncService;
@@ -57,6 +59,11 @@ export function createApp(dependencies?: {
   // control. See readTrustProxyHops in config.ts for why this is stated rather
   // than guessed. Zero disables header parsing entirely.
   app.set("trust proxy", dependencies?.trustProxyHops ?? 0);
+
+  // Above everything, including the probe routes and the limiter, so a
+  // refused request is still a request that shows up in the log. The logger
+  // itself decides that a passing probe is not worth a line.
+  app.use(createRequestLogger({ log: dependencies?.logRequest, now: dependencies?.now }));
 
   // Health and readiness sit above the limiter on purpose. A platform's uptime
   // probe polls from a small set of addresses at a fixed interval, and an

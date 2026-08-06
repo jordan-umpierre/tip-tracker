@@ -47,6 +47,7 @@ async function withSyncApi(
         accounts: createAccounts(database),
         authAdmin: { deleteIdentity: async () => undefined },
         logError: () => undefined,
+        logRequest: () => undefined,
         readiness: async () => undefined,
         sync: createSyncService(poolAdapter(database)),
         verifyAccessToken: createAccessTokenVerifier({
