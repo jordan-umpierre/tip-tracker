@@ -1,50 +1,31 @@
-export type SyncEntityType = "job" | "shift" | "federal_withholding_setting";
+// Request-direction parsing: what this server accepts from an app.
+//
+// The record shapes and their validators are not defined here. They live in
+// contracts/syncFormat.ts, shared verbatim with the client, because a wire
+// format kept in two hand-written copies is a format that eventually disagrees
+// with itself. What stays here is the half only a server needs: the mutation
+// envelope, the query string, and this side's error types.
+import {
+  assertExactKeys,
+  invalid,
+  InvalidSyncRecordError,
+  readEntityType,
+  readNonemptyText,
+  readObject,
+  readPositiveInteger,
+  readSyncRecord,
+  readText,
+  type SyncEntityType,
+  type SyncRecord,
+} from "../../contracts/syncFormat.ts";
 
-export type JobRecord = {
-  archivedAt: string | null;
-  createdAt: string;
-  hourlyRateCents: number;
-  name: string;
-  overtimeEnabled: boolean;
-  updatedAt: string;
-  workweekStartTime: string;
-  workweekStartWeekday: number;
-};
-
-export type ShiftRecord = {
-  createdAt: string;
-  deletedAt: string | null;
-  durationSeconds: number;
-  endTime: string | null;
-  hourlyRateCents: number;
-  jobId: string;
-  note: string | null;
-  shiftDate: string;
-  startTime: string | null;
-  tipsCents: number;
-  updatedAt: string;
-};
-
-export type FederalWithholdingSettingRecord = {
-  createdAt: string;
-  deletedAt: string | null;
-  effectiveFrom: string;
-  exempt: boolean;
-  filingStatus:
-    | "single-or-married-filing-separately"
-    | "married-filing-jointly"
-    | "head-of-household";
-  jobId: string;
-  payPeriodsPerYear: number;
-  step2Checked: boolean;
-  step3CreditsCents: number;
-  step4aOtherIncomeCents: number;
-  step4bDeductionsCents: number;
-  step4cExtraWithholdingCents: number;
-  updatedAt: string;
-};
-
-export type SyncRecord = JobRecord | ShiftRecord | FederalWithholdingSettingRecord;
+export type {
+  FederalWithholdingSettingRecord,
+  JobRecord,
+  ShiftRecord,
+  SyncEntityType,
+  SyncRecord,
+} from "../../contracts/syncFormat.ts";
 
 export type SyncMutation = {
   baseServerVersion: number | null;
@@ -64,27 +45,22 @@ export type ChangesQuery = { after: number; limit: number };
 const MUTATION_KEYS = [
   "baseServerVersion", "deviceId", "entityId", "entityType", "operation", "operationId", "record",
 ] as const;
-const JOB_KEYS = [
-  "archivedAt", "createdAt", "hourlyRateCents", "name", "overtimeEnabled", "updatedAt",
-  "workweekStartTime", "workweekStartWeekday",
-] as const;
-const SHIFT_KEYS = [
-  "createdAt", "deletedAt", "durationSeconds", "endTime", "hourlyRateCents", "jobId",
-  "note", "shiftDate", "startTime", "tipsCents", "updatedAt",
-] as const;
-const FEDERAL_SETTING_KEYS = [
-  "createdAt", "deletedAt", "effectiveFrom", "exempt", "filingStatus", "jobId",
-  "payPeriodsPerYear", "step2Checked", "step3CreditsCents", "step4aOtherIncomeCents",
-  "step4bDeductionsCents", "step4cExtraWithholdingCents", "updatedAt",
-] as const;
-const FILING_STATUSES = new Set([
-  "single-or-married-filing-separately",
-  "married-filing-jointly",
-  "head-of-household",
-]);
-const PAY_PERIODS = new Set([2, 4, 12, 24, 26, 52, 260]);
 
 export function parseSyncMutation(value: unknown): SyncMutation {
+  try {
+    return readMutation(value);
+  } catch (error) {
+    // The shared format throws its own error because it cannot know which side
+    // is using it. Callers here only ever handle InvalidSyncRequestError, so it
+    // is converted at this one boundary rather than everywhere it is caught.
+    if (error instanceof InvalidSyncRecordError) {
+      throw new InvalidSyncRequestError("Invalid sync mutation");
+    }
+    throw error;
+  }
+}
+
+function readMutation(value: unknown): SyncMutation {
   const input = readObject(value);
   assertExactKeys(input, MUTATION_KEYS);
   const entityType = readEntityType(input.entityType);
@@ -96,14 +72,26 @@ export function parseSyncMutation(value: unknown): SyncMutation {
     entityType,
     operation,
     operationId: readPositiveInteger(input.operationId),
-    record: operation === "delete" ? readDeleteRecord(input.record, entityType) : readRecord(entityType, input.record),
+    record: operation === "delete"
+      ? readDeleteRecord(input.record, entityType)
+      : readSyncRecord(entityType, input.record),
   };
+  // A delete has to say which version it believes it is deleting, otherwise it
+  // cannot be checked against the row actually stored.
   if (operation === "delete" && mutation.baseServerVersion === null) invalid();
   return mutation;
 }
 
 export function parseChangesQuery(value: unknown): ChangesQuery {
-  const input = readObject(value);
+  let input: Record<string, unknown>;
+  try {
+    input = readObject(value);
+  } catch (error) {
+    if (error instanceof InvalidSyncRecordError) {
+      throw new InvalidSyncQueryError("Sync query must be an object");
+    }
+    throw error;
+  }
   assertAllowedKeys(input, ["after", "limit"]);
   if (!("after" in input)) throw new InvalidSyncQueryError("after is required");
   const after = readQueryInteger(input.after, 0, Number.MAX_SAFE_INTEGER);
@@ -111,88 +99,10 @@ export function parseChangesQuery(value: unknown): ChangesQuery {
   return { after, limit };
 }
 
-function readRecord(entityType: SyncEntityType, value: unknown): SyncRecord {
-  if (entityType === "job") return readJob(value);
-  if (entityType === "shift") return readShift(value);
-  return readFederalSetting(value);
-}
-
-function readJob(value: unknown): JobRecord {
-  const input = readObject(value);
-  assertExactKeys(input, JOB_KEYS);
-  return {
-    archivedAt: readNullableTimestamp(input.archivedAt),
-    createdAt: readTimestamp(input.createdAt),
-    hourlyRateCents: readNonnegativeInteger(input.hourlyRateCents),
-    name: readText(input.name),
-    overtimeEnabled: readBoolean(input.overtimeEnabled),
-    updatedAt: readTimestamp(input.updatedAt),
-    workweekStartTime: readTime(input.workweekStartTime),
-    workweekStartWeekday: readIntegerInRange(input.workweekStartWeekday, 0, 6),
-  };
-}
-
-function readShift(value: unknown): ShiftRecord {
-  const input = readObject(value);
-  assertExactKeys(input, SHIFT_KEYS);
-  const startTime = readNullableTime(input.startTime);
-  const endTime = readNullableTime(input.endTime);
-  if ((startTime === null) !== (endTime === null)) invalid();
-  const durationSeconds = readPositiveInteger(input.durationSeconds);
-  const hourlyRateCents = readNonnegativeInteger(input.hourlyRateCents);
-  if (!Number.isSafeInteger(durationSeconds * hourlyRateCents)) invalid();
-  return {
-    createdAt: readTimestamp(input.createdAt),
-    deletedAt: readNullableTimestamp(input.deletedAt),
-    durationSeconds,
-    endTime,
-    hourlyRateCents,
-    jobId: readNonemptyText(input.jobId),
-    note: readNullableText(input.note),
-    shiftDate: readDate(input.shiftDate),
-    startTime,
-    tipsCents: readNonnegativeInteger(input.tipsCents),
-    updatedAt: readTimestamp(input.updatedAt),
-  };
-}
-
-function readFederalSetting(value: unknown): FederalWithholdingSettingRecord {
-  const input = readObject(value);
-  assertExactKeys(input, FEDERAL_SETTING_KEYS);
-  const filingStatus = readText(input.filingStatus);
-  const payPeriodsPerYear = readNonnegativeInteger(input.payPeriodsPerYear);
-  if (!FILING_STATUSES.has(filingStatus) || !PAY_PERIODS.has(payPeriodsPerYear)) invalid();
-  return {
-    createdAt: readTimestamp(input.createdAt),
-    deletedAt: readNullableTimestamp(input.deletedAt),
-    effectiveFrom: readDate(input.effectiveFrom),
-    exempt: readBoolean(input.exempt),
-    filingStatus: filingStatus as FederalWithholdingSettingRecord["filingStatus"],
-    jobId: readNonemptyText(input.jobId),
-    payPeriodsPerYear,
-    step2Checked: readBoolean(input.step2Checked),
-    step3CreditsCents: readNonnegativeInteger(input.step3CreditsCents),
-    step4aOtherIncomeCents: readNonnegativeInteger(input.step4aOtherIncomeCents),
-    step4bDeductionsCents: readNonnegativeInteger(input.step4bDeductionsCents),
-    step4cExtraWithholdingCents: readNonnegativeInteger(input.step4cExtraWithholdingCents),
-    updatedAt: readTimestamp(input.updatedAt),
-  };
-}
-
 function readDeleteRecord(value: unknown, entityType: SyncEntityType) {
+  // Jobs are archived rather than deleted, so a job delete is never valid.
   if (value !== null || entityType === "job") invalid();
   return null;
-}
-
-function readObject(value: unknown): Record<string, unknown> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) invalid();
-  return value as Record<string, unknown>;
-}
-
-function assertExactKeys(value: Record<string, unknown>, keys: readonly string[]) {
-  const actual = Object.keys(value).sort();
-  const expected = [...keys].sort();
-  if (actual.length !== expected.length || actual.some((key, index) => key !== expected[index])) invalid();
 }
 
 function assertAllowedKeys(value: Record<string, unknown>, keys: readonly string[]) {
@@ -201,6 +111,10 @@ function assertAllowedKeys(value: Record<string, unknown>, keys: readonly string
   }
 }
 
+// Query values arrive as strings, so they get their own reader rather than the
+// shared numeric ones: "007" and "1e3" are numbers to JavaScript but are not
+// canonical, and accepting them would make one cursor position reachable by
+// several different URLs.
 function readQueryInteger(value: unknown, minimum: number, maximum: number) {
   const text = readQueryIntegerText(value);
   const number = Number(text);
@@ -220,25 +134,9 @@ function readQueryIntegerText(value: unknown) {
   return value;
 }
 
-function readEntityType(value: unknown): SyncEntityType {
-  if (value !== "job" && value !== "shift" && value !== "federal_withholding_setting") invalid();
-  return value;
-}
-
 function readOperation(value: unknown): "upsert" | "delete" {
   if (value !== "upsert" && value !== "delete") invalid();
   return value;
-}
-
-function readText(value: unknown): string {
-  if (typeof value !== "string") invalid();
-  return value;
-}
-
-function readNonemptyText(value: unknown) {
-  const text = readText(value);
-  if (text.length === 0) invalid();
-  return text;
 }
 
 function readCanonicalUuid(value: unknown) {
@@ -249,64 +147,6 @@ function readCanonicalUuid(value: unknown) {
   return text;
 }
 
-function readNullableText(value: unknown) {
-  return value === null ? null : readText(value);
-}
-
-function readBoolean(value: unknown) {
-  if (typeof value !== "boolean") invalid();
-  return value;
-}
-
-function readPositiveInteger(value: unknown) {
-  if (!Number.isSafeInteger(value) || Number(value) <= 0) invalid();
-  return Number(value);
-}
-
-function readNonnegativeInteger(value: unknown) {
-  if (!Number.isSafeInteger(value) || Number(value) < 0) invalid();
-  return Number(value);
-}
-
 function readNullablePositiveInteger(value: unknown) {
   return value === null ? null : readPositiveInteger(value);
-}
-
-function readIntegerInRange(value: unknown, minimum: number, maximum: number) {
-  const integer = readNonnegativeInteger(value);
-  if (integer < minimum || integer > maximum) invalid();
-  return integer;
-}
-
-function readTimestamp(value: unknown) {
-  const text = readText(value);
-  const date = new Date(text);
-  if (Number.isNaN(date.valueOf()) || date.toISOString() !== text) invalid();
-  return text;
-}
-
-function readNullableTimestamp(value: unknown) {
-  return value === null ? null : readTimestamp(value);
-}
-
-function readTime(value: unknown) {
-  const text = readText(value);
-  if (!/^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/.test(text)) invalid();
-  return text;
-}
-
-function readNullableTime(value: unknown) {
-  return value === null ? null : readTime(value);
-}
-
-function readDate(value: unknown) {
-  const text = readText(value);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) invalid();
-  const parsed = new Date(`${text}T00:00:00.000Z`);
-  if (Number.isNaN(parsed.valueOf()) || parsed.toISOString().slice(0, 10) !== text) invalid();
-  return text;
-}
-
-function invalid(): never {
-  throw new InvalidSyncRequestError("Invalid sync mutation");
 }
