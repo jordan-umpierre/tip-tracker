@@ -9,6 +9,8 @@ Every file here answers one question. Find the question, open that file.
 | Why was this chosen over the alternative? | [decisions.md](decisions.md) |
 | How was this built, step by step? | [build-log/](build-log/) |
 | I didn't understand something — what was the answer? | [learning/](learning/) |
+| What does the app collect, and what do we tell users? | [privacy-policy.md](privacy-policy.md) |
+| What goes in the App Store and Play privacy forms? | [store-disclosures.md](store-disclosures.md) |
 
 Start with [roadmap.md](roadmap.md). Its `NEXT` section is at the top and is
 the single source of truth for what to work on.
