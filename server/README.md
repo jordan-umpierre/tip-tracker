@@ -68,7 +68,7 @@ It reads the same environment the server will get and proves the three things
 asymmetric signing keys this server can verify with, that
 `SUPABASE_SERVICE_ROLE_KEY` is accepted by the Auth admin API that account
 deletion calls, and that `DATABASE_URL` reaches a database whose schema is
-current. All three run even after one fails. It does not check the two Auth
+current. All three run even after one fails. It does not check the three Auth
 settings below, which need a Management API personal access token.
 
 Apply migrations with owner credentials before starting the runtime process:

@@ -147,12 +147,13 @@ function messageOf(error: unknown): string {
   return error.name;
 }
 
-// The two Supabase Auth settings in README.md -- the recovery template
-// containing {{ .Token }} and a minimum password length of 8 or less -- are not
-// checked here. Neither is readable with the keys this server holds; they need
-// a personal access token against the Management API, which is a human
-// credential and does not belong in a deployment environment. Verify those two
-// by eye in the dashboard, or catch them in the native acceptance pass.
+// The three Supabase Auth settings in README.md -- the recovery template
+// containing {{ .Token }}, a minimum password length of 8 or less, and an email
+// OTP length of exactly 6 -- are not checked here. None of them is readable
+// with the keys this server holds; they need a personal access token against
+// the Management API, which is a human credential and does not belong in a
+// deployment environment. Verify all three by eye in the dashboard, or catch
+// them in the native acceptance pass.
 if (failed) {
   console.error("\nProvider check failed. The server would start but misbehave against this project.");
   process.exitCode = 1;
