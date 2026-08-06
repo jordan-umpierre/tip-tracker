@@ -167,6 +167,19 @@ Supabase Auth to remove the identity. A provider outage returns
 the provider deletion without recreating the account. The local SQLite database
 is intentionally unchanged.
 
+## Provider settings the app depends on
+
+Two Supabase Auth settings are not optional, because app code assumes them:
+
+- The **Reset Password** email template must include `{{ .Token }}`. Recovery
+  in the app is a six-digit code the user types, not a link that reopens the
+  app, so a template offering only a link leaves the flow with nothing to
+  enter. Deep links were skipped deliberately: they would add a redirect
+  allowlist plus universal-link and app-link setup on both platforms.
+- The minimum password length must be at most 8. The app rejects a shorter new
+  password before sending it, and a project configured to require more would
+  reject a password the app just called acceptable.
+
 ## External gates
 
 No Supabase or Render resource is created by this repository. Deployment waits

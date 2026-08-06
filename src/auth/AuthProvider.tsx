@@ -23,7 +23,7 @@ import {
   verifyBackendAccount,
 } from './accountApi';
 import { authSetup } from './config';
-import { readAuthCredentials } from './form';
+import { readAuthCredentials, readEmail, readPasswordReset } from './form';
 import { supabaseClient } from './supabase';
 
 type AccountPhase =
@@ -33,6 +33,7 @@ type AccountPhase =
   | 'connected'
   | 'error'
   | 'mismatch'
+  | 'password_reset'
   | 'pending_verification'
   | 'signed_out';
 
@@ -54,6 +55,9 @@ type AuthContextValue = {
   createAccount(email: string, password: string): Promise<boolean>;
   deleteAccount(password: string): Promise<DeleteAccountResult>;
   dismissNotice(): void;
+  beginPasswordReset(): void;
+  requestPasswordResetCode(email: string): Promise<boolean>;
+  resetPassword(email: string, code: string, password: string): Promise<boolean>;
   email: string | null;
   localRecordCount: number;
   message: string | null;
@@ -325,6 +329,80 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [session, verifySession]);
 
+  // Password recovery, by emailed six-digit code rather than an emailed link.
+  //
+  // A link would have to come back into the app as a deep link, which means a
+  // redirect-URL allowlist in the provider, universal-link and app-link setup
+  // on both platforms, and a session exchanged out of a URL. The code path
+  // needs none of that: the user reads six digits and types them here. The
+  // cost is one provider-side setting, because Supabase's recovery email
+  // template has to include the token rather than only a link.
+  const requestPasswordResetCode = useCallback(async (emailInput: string) => {
+    if (!supabaseClient) return false;
+    let email: string;
+    try {
+      email = readEmail(emailInput);
+    } catch {
+      setMessage('Enter a valid email address.');
+      return false;
+    }
+
+    try {
+      await supabaseClient.auth.resetPasswordForEmail(email);
+    } catch {
+      setMessage('The code could not be sent. Try again.');
+      return false;
+    }
+
+    // The same answer whether or not that address has an account. Saying "no
+    // such account" would turn this form into a way to test which email
+    // addresses are registered.
+    setMessage('If that email has an account, a six-digit code is on its way.');
+    return true;
+  }, []);
+
+  const resetPassword = useCallback(
+    async (emailInput: string, codeInput: string, passwordInput: string) => {
+      if (!supabaseClient) return false;
+      let reset;
+      try {
+        reset = readPasswordReset(emailInput, codeInput, passwordInput);
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : 'Check the recovery fields.');
+        return false;
+      }
+
+      // Verifying the code is what proves the mailbox, and it signs the user
+      // in. Only then can the password be replaced: Supabase changes a
+      // password through an authenticated session, never through the code.
+      try {
+        const { error } = await supabaseClient.auth.verifyOtp({
+          email: reset.email,
+          token: reset.code,
+          type: 'recovery',
+        });
+        if (error) throw error;
+      } catch {
+        setMessage('That code was not accepted. It may have expired.');
+        return false;
+      }
+
+      try {
+        const { error } = await supabaseClient.auth.updateUser({ password: reset.password });
+        if (error) throw error;
+      } catch {
+        // The code was good, so the session is real and the user is signed in
+        // with their old password. Saying so beats implying nothing happened.
+        setMessage('You are signed in, but the new password could not be saved.');
+        return false;
+      }
+
+      setMessage(null);
+      return true;
+    },
+    []
+  );
+
   // Deleting the cloud account, which the App Store requires any app offering
   // account creation to provide in-app.
   //
@@ -469,9 +547,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const value: AuthContextValue = {
+    beginPasswordReset() {
+      // Recovery starts from a clean slate: a stale mismatch or deleted-account
+      // notice on screen would read as commentary on the reset itself.
+      signedOutNotice.current = null;
+      pendingVerification.current = false;
+      setMessage(null);
+      setPhase('password_reset');
+    },
     confirmConnection,
     createAccount,
     deleteAccount,
+    requestPasswordResetCode,
+    resetPassword,
     dismissNotice() {
       signedOutNotice.current = null;
       pendingVerification.current = false;

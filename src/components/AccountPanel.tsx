@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import { useAuth } from '../auth/AuthProvider';
+import { MINIMUM_NEW_PASSWORD_LENGTH } from '../auth/form';
 
 // fallow-ignore-next-line complexity -- The branches are mutually exclusive visible account states kept together for accessibility review.
 export default function AccountPanel() {
@@ -21,12 +22,28 @@ export default function AccountPanel() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleting, setDeleting] = useState(false);
+  // Recovery keeps its own three fields for the same reason the delete flow
+  // does: nothing typed for one purpose should be sitting in a field used for
+  // another.
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetCode, setResetCode] = useState('');
+  const [resetPassword, setResetPassword] = useState('');
 
   async function submit(action: 'create' | 'sign-in') {
     const succeeded = action === 'create'
       ? await account.createAccount(email, password)
       : await account.signIn(email, password);
     if (succeeded) setPassword('');
+  }
+
+  async function submitReset() {
+    if (await account.resetPassword(resetEmail, resetCode, resetPassword)) {
+      // A successful reset also signs the user in, so this panel is about to
+      // show the connected state. Clear the secrets rather than leave them
+      // behind a screen the user can come back to.
+      setResetCode('');
+      setResetPassword('');
+    }
   }
 
   function confirmSignOut() {
@@ -129,6 +146,84 @@ export default function AccountPanel() {
               onPress={() => { void submit('create'); }}
             >
               <Text style={styles.secondaryButtonText}>Create account</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              style={styles.linkButton}
+              onPress={() => {
+                setPassword('');
+                setResetEmail(email);
+                account.beginPasswordReset();
+              }}
+            >
+              <Text style={styles.linkText}>Forgot password?</Text>
+            </Pressable>
+          </View>
+        </>
+      ) : null}
+
+      {account.phase === 'password_reset' ? (
+        <>
+          <Text style={styles.copy}>
+            Send a six-digit code to your email, then use it to set a new password.
+          </Text>
+          {account.message ? (
+            <Text style={styles.copy} accessibilityLiveRegion="polite">{account.message}</Text>
+          ) : null}
+          <TextInput
+            accessibilityLabel="Email for password recovery"
+            autoCapitalize="none"
+            autoComplete="email"
+            keyboardType="email-address"
+            maxLength={254}
+            onChangeText={setResetEmail}
+            placeholder="Email"
+            style={styles.input}
+            value={resetEmail}
+          />
+          <Pressable
+            accessibilityRole="button"
+            style={styles.secondaryButton}
+            onPress={() => { void account.requestPasswordResetCode(resetEmail); }}
+          >
+            <Text style={styles.secondaryButtonText}>Send code</Text>
+          </Pressable>
+          <TextInput
+            accessibilityLabel="Six-digit recovery code"
+            autoCapitalize="none"
+            autoComplete="one-time-code"
+            keyboardType="number-pad"
+            maxLength={6}
+            onChangeText={setResetCode}
+            placeholder="Six-digit code"
+            style={styles.input}
+            value={resetCode}
+          />
+          <TextInput
+            accessibilityLabel="New password"
+            autoCapitalize="none"
+            autoComplete="new-password"
+            maxLength={1_024}
+            onChangeText={setResetPassword}
+            placeholder={`New password (${MINIMUM_NEW_PASSWORD_LENGTH}+ characters)`}
+            secureTextEntry
+            style={styles.input}
+            value={resetPassword}
+          />
+          <View style={styles.actions}>
+            <Pressable
+              accessibilityRole="button"
+              style={styles.primaryButton}
+              onPress={() => { void submitReset(); }}
+            >
+              <Text style={styles.primaryButtonText}>Set new password</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              style={styles.secondaryButton}
+              onPress={account.dismissNotice}
+            >
+              <Text style={styles.secondaryButtonText}>Back to sign in</Text>
             </Pressable>
           </View>
         </>
@@ -365,6 +460,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   secondaryButtonText: { color: '#2563eb', fontWeight: '600' },
+  // A text-only affordance, still 44pt tall so it meets the touch target
+  // minimum the rest of the panel's controls keep.
+  linkButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  linkText: { color: '#2563eb', fontWeight: '600' },
   // Red, bordered, and set apart from the rest of the panel, so the one
   // irreversible control on this screen never reads as another blue button.
   deleteBox: {
