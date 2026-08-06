@@ -20,6 +20,7 @@ import {
   readDeviceId,
   readNextMutationSnapshot,
   readPendingMutations,
+  releaseSyncAccount,
   RemoteChangeConflictError,
   StaleMutationError,
   SyncAccountMismatchError,
@@ -756,6 +757,75 @@ test('blocked response validation rejects non-JSON, bad codes, and oversized inp
       /too large/
     );
     assert.equal((await readPendingMutations(database)).length, 1);
+  } finally {
+    database.close();
+  }
+});
+
+test('releasing a deleted account leaves the device connectable again', async () => {
+  const database = new TestDatabase();
+  try {
+    // A device that has been connected and has synced: bound account, a pull
+    // cursor, server versions, and a blocked row someone was told to review.
+    await applyRemoteChanges(database, batch());
+    await database.runAsync(
+      `INSERT INTO shifts
+         (id, job_id, shift_date, duration_seconds, tips_cents, hourly_rate_cents,
+          note, deleted_at, created_at, updated_at, start_time, end_time)
+       VALUES ('shift-local', 'job-a', '2026-08-06', 3600, 1000, 1500,
+               NULL, NULL, ?, ?, NULL, NULL);`,
+      NOW,
+      NOW
+    );
+    const pendingBefore = await readPendingMutations(database);
+    assert.equal(pendingBefore.length, 1);
+    await blockMutation(database, {
+      kind: 'conflict',
+      code: 'stale_version',
+      localSequence: pendingBefore[0]!.local_sequence,
+      response: { error: 'stale_version' },
+    });
+    const highestSequenceBefore = pendingBefore[0]!.local_sequence;
+
+    await releaseSyncAccount(database);
+
+    // Nothing about the account survives: no binding, no cursor, no versions.
+    const state = await database.getFirstAsync<{
+      account_id: string | null;
+      last_server_change_sequence: number;
+    }>('SELECT account_id, last_server_change_sequence FROM sync_state WHERE singleton = 1;');
+    assert.equal(state?.account_id, null);
+    assert.equal(state?.last_server_change_sequence, 0);
+    const metadata = await database.getAllAsync('SELECT * FROM sync_metadata;');
+    assert.equal(metadata.length, 0);
+    assert.equal((await readBlockedMutations(database)).length, 0);
+
+    // Every local row is offered to whatever account connects next, parents
+    // first, and the shift the user made locally is still among them.
+    const pending = await readPendingMutations(database);
+    assert.deepEqual(
+      pending.map((mutation) => `${mutation.entity_type}:${mutation.entity_id}`),
+      [
+        'job:job-a',
+        'federal_withholding_setting:settings-a',
+        'shift:shift-a',
+        'shift:shift-local',
+      ]
+    );
+    assert.deepEqual(pending.map((mutation) => mutation.base_server_version), [
+      null,
+      null,
+      null,
+      null,
+    ]);
+
+    // Local sequences are half of the server's idempotency key, so a rebuilt
+    // outbox must not hand out a number this device already used.
+    assert.equal(pending[0]!.local_sequence > highestSequenceBefore, true);
+
+    // The whole point: a different account can now take this device.
+    await bindSyncAccount(database, ACCOUNT_B);
+    assert.equal((await inspectLocalAccountState(database)).accountId, ACCOUNT_B);
   } finally {
     database.close();
   }

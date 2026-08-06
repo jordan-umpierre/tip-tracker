@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { AppState } from 'react-native';
 import { getDb } from '../data/db';
-import { SyncAccountMismatchError } from '../data/sync';
+import { releaseSyncAccount, SyncAccountMismatchError } from '../data/sync';
 import { createSyncRunner, type SyncRunResult } from '../sync/transport';
 import {
   confirmAccountConnection,
@@ -19,6 +19,7 @@ import {
 import {
   AccountDeletedError,
   AccountIdentityMismatchError,
+  deleteBackendAccount,
   verifyBackendAccount,
 } from './accountApi';
 import { authSetup } from './config';
@@ -44,9 +45,14 @@ type SyncPhase =
   | 'syncing'
   | 'up_to_date';
 
+// What the screen shows after a delete attempt. Only 'deleted' ends the
+// account; the other two leave it exactly as it was.
+export type DeleteAccountResult = 'deleted' | 'pending' | 'rejected';
+
 type AuthContextValue = {
   confirmConnection(): Promise<void>;
   createAccount(email: string, password: string): Promise<boolean>;
+  deleteAccount(password: string): Promise<DeleteAccountResult>;
   dismissNotice(): void;
   email: string | null;
   localRecordCount: number;
@@ -319,6 +325,87 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [session, verifySession]);
 
+  // Deleting the cloud account, which the App Store requires any app offering
+  // account creation to provide in-app.
+  //
+  // The password is asked for again rather than reused from sign-in: the
+  // server refuses a deletion whose token carries no password authentication
+  // from the last five minutes, and a session restored from the Keychain days
+  // ago carries none. Signing in again is what mints a token that satisfies
+  // that rule, and it doubles as proof that whoever is holding the unlocked
+  // phone is the account owner.
+  //
+  // fallow-ignore-next-line complexity -- Each branch is a distinct server outcome with its own user consequence.
+  const deleteAccount = useCallback(async (passwordInput: string): Promise<DeleteAccountResult> => {
+    const email = session?.user.email;
+    if (!supabaseClient || !authSetup.config || !email) return 'rejected';
+
+    let credentials;
+    try {
+      credentials = readAuthCredentials(email, passwordInput);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Check the account fields.');
+      return 'rejected';
+    }
+
+    let proven: Session;
+    try {
+      const { data, error } = await supabaseClient.auth.signInWithPassword(credentials);
+      if (error || !data.session) throw error ?? new Error('No session was returned.');
+      proven = data.session;
+    } catch {
+      setMessage('The password was not accepted. The account was not deleted.');
+      return 'rejected';
+    }
+
+    let outcome;
+    try {
+      outcome = await deleteBackendAccount(authSetup.config.apiUrl, {
+        accessToken: proven.access_token,
+        userId: proven.user.id,
+      });
+    } catch {
+      setMessage('The account could not be deleted. Nothing was changed.');
+      return 'rejected';
+    }
+
+    if (outcome === 'reauthenticate') {
+      // The password just succeeded, so a refusal here is the server and the
+      // provider disagreeing rather than anything the user did wrong.
+      setMessage('The account could not be deleted. Try again.');
+      return 'rejected';
+    }
+    if (outcome === 'pending') {
+      // The cloud rows are already gone and the account is tombstoned; only
+      // the provider identity is left. Do not release the device or sign out,
+      // because repeating this exact request is what finishes the job.
+      setMessage('Deletion started but did not finish. Try again in a few minutes.');
+      return 'pending';
+    }
+
+    // The account is gone, so the binding pointing at it has to go too, or
+    // this device could never connect to a new account. Local jobs and shifts
+    // are untouched -- that is the promise the confirmation made.
+    try {
+      await releaseSyncAccount(await getDb());
+    } catch {
+      setMessage(
+        'The cloud account was deleted, but this device could not be released. Restart the app and sign out.'
+      );
+      return 'deleted';
+    }
+
+    signedOutNotice.current = {
+      message: 'The cloud account was deleted. Your jobs and shifts are still on this device.',
+      phase: 'error',
+    };
+    setSyncPhase('idle');
+    await clearSavedLogin(
+      'The cloud account was deleted, but the saved login could not be removed.'
+    );
+    return 'deleted';
+  }, [session]);
+
   const signOut = useCallback(async () => {
     if (!supabaseClient) return;
     signedOutNotice.current = null;
@@ -384,6 +471,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value: AuthContextValue = {
     confirmConnection,
     createAccount,
+    deleteAccount,
     dismissNotice() {
       signedOutNotice.current = null;
       pendingVerification.current = false;

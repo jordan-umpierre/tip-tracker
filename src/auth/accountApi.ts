@@ -76,6 +76,61 @@ export async function verifyBackendAccount(
   return account;
 }
 
+// What the server said about a deletion attempt, reduced to the three answers
+// the screen has to act on differently.
+//
+//   deleted        the cloud copy is gone; drop the local session
+//   reauthenticate the token is too old to authorize this; ask for the password
+//   pending        the provider failed mid-delete; the account is marked and
+//                  repeating the request finishes it
+export type AccountDeletionOutcome = 'deleted' | 'pending' | 'reauthenticate';
+
+export async function deleteBackendAccount(
+  apiUrl: string,
+  session: AccountSession,
+  options: { fetch?: typeof fetch; timeoutMs?: number } = {}
+): Promise<AccountDeletionOutcome> {
+  assertSession(session);
+  const fetchImplementation = options.fetch ?? fetch;
+  const timeoutMs = options.timeoutMs ?? 10_000;
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 30_000) {
+    throw new Error('The account request timeout is invalid.');
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let response: Response;
+  try {
+    response = await fetchImplementation(`${apiUrl}/v1/me`, {
+      headers: { Authorization: `Bearer ${session.accessToken}` },
+      method: 'DELETE',
+      signal: controller.signal,
+    });
+  } catch {
+    throw new AccountUnavailableError('The account deletion request failed.');
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  // 204 is the delete this call performed. 410 is the same account already
+  // gone, which is the honest answer to a retry after a dropped response and
+  // has to read as success or the user is stuck deleting something that no
+  // longer exists.
+  if (response.status === 204 || response.status === 410) return 'deleted';
+
+  // 401 is an expired token and 403 is the server's five-minute
+  // recent-password rule. Both are fixed the same way -- prove the password
+  // again -- so the screen does not need to tell them apart.
+  if (response.status === 401 || response.status === 403) return 'reauthenticate';
+
+  // The server tombstoned the account and removed its rows, then Supabase
+  // refused to remove the identity. Repeating the request retries only the
+  // provider half.
+  if (response.status === 503) return 'pending';
+
+  throw new AccountUnavailableError('The cloud account could not be deleted.');
+}
+
 async function requestAccount(
   apiUrl: string,
   accessToken: string,

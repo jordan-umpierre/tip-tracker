@@ -4,6 +4,7 @@ import {
   AccountDeletedError,
   AccountIdentityMismatchError,
   AccountUnavailableError,
+  deleteBackendAccount,
   verifyBackendAccount,
 } from './accountApi.ts';
 
@@ -109,6 +110,75 @@ test('bounds responses and aborts requests at the configured timeout', async () 
 
   await assert.rejects(
     verifyBackendAccount('https://api.example.com', session, async () => null, {
+      timeoutMs: 5,
+      fetch: (_input, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+        }),
+    }),
+    AccountUnavailableError
+  );
+});
+
+test('deletion maps each server answer to one action the screen can take', async () => {
+  const seen: { method?: string; url: RequestInfo | URL; auth?: string }[] = [];
+  const respond = (status: number) => async (input: RequestInfo | URL, init?: RequestInit) => {
+    seen.push({
+      auth: (init?.headers as Record<string, string> | undefined)?.Authorization,
+      method: init?.method,
+      url: input,
+    });
+    // 204 and 410 are null-body statuses; constructing a Response with a
+    // string body for those throws before the code under test sees it.
+    return new Response(null, { status });
+  };
+
+  assert.equal(
+    await deleteBackendAccount('https://api.example.com', session, { fetch: respond(204) }),
+    'deleted'
+  );
+  assert.equal(seen[0]?.method, 'DELETE');
+  assert.equal(seen[0]?.url, 'https://api.example.com/v1/me');
+  assert.equal(seen[0]?.auth, 'Bearer token-one');
+
+  // An account already gone reads as success, or a retry after a dropped
+  // response leaves the user deleting something that no longer exists.
+  assert.equal(
+    await deleteBackendAccount('https://api.example.com', session, { fetch: respond(410) }),
+    'deleted'
+  );
+
+  // Expired token and the server's recent-password rule are both fixed by
+  // proving the password again.
+  for (const status of [401, 403]) {
+    assert.equal(
+      await deleteBackendAccount('https://api.example.com', session, { fetch: respond(status) }),
+      'reauthenticate'
+    );
+  }
+
+  assert.equal(
+    await deleteBackendAccount('https://api.example.com', session, { fetch: respond(503) }),
+    'pending'
+  );
+
+  // Anything unrecognized must not be mistaken for a completed deletion.
+  for (const status of [200, 400, 404, 429, 500]) {
+    await assert.rejects(
+      deleteBackendAccount('https://api.example.com', session, { fetch: respond(status) }),
+      AccountUnavailableError
+    );
+  }
+
+  await assert.rejects(
+    deleteBackendAccount('https://api.example.com', { accessToken: '', userId: USER }, {
+      fetch: respond(204),
+    }),
+    AccountUnavailableError
+  );
+
+  await assert.rejects(
+    deleteBackendAccount('https://api.example.com', session, {
       timeoutMs: 5,
       fetch: (_input, init) =>
         new Promise((_resolve, reject) => {

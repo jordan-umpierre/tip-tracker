@@ -224,6 +224,66 @@ export async function bindSyncAccountIfEmpty(
   return bound;
 }
 
+// Undo the binding after the cloud account behind it is gone for good.
+//
+// Without this, deleting the cloud account leaves this database pointing at an
+// account id the server has tombstoned. Every later sign-in with a new account
+// would hit the mismatch guard in bindAccount, and the device could never use
+// cloud sync again -- a permanent consequence of an action the user was told
+// only removes the cloud copy.
+//
+// So the device goes back to the state it had before it ever connected: no
+// account, no cursor, and no server versions, because a version number issued
+// by a deleted account means nothing to the next one. The outbox is rebuilt
+// from the rows themselves for the same reason the 4-to-5 migration did it:
+// every local row is a fact that has to be offered to whatever account comes
+// next, and the entries left from the old one are keyed to versions that no
+// longer exist.
+//
+// The local sequences it hands out keep climbing rather than restarting,
+// because sync_outbox.local_sequence is AUTOINCREMENT. That matters: the
+// sequence is half of the server's idempotency key, and a reused one would
+// collide with a mutation the server already recorded for this device.
+export async function releaseSyncAccount(database: SyncDatabase): Promise<void> {
+  await database.withExclusiveTransactionAsync(async (transaction) => {
+    const state = await transaction.getFirstAsync<{ applying_remote: number }>(
+      'SELECT applying_remote FROM sync_state WHERE singleton = 1;'
+    );
+    // A pull is mid-apply. Clearing the binding underneath it would leave rows
+    // half-applied against an account that no longer owns them.
+    if (!state || state.applying_remote !== 0) {
+      throw new Error('The local sync state is unavailable.');
+    }
+
+    await transaction.runAsync(
+      `UPDATE sync_state
+       SET account_id = NULL, last_server_change_sequence = 0
+       WHERE singleton = 1;`
+    );
+    await transaction.runAsync('DELETE FROM sync_metadata;');
+    // This clears blocked entries too: blocked_kind and the stored response
+    // live on the outbox row, and a conflict with a deleted account is not a
+    // conflict anyone can resolve.
+    await transaction.runAsync('DELETE FROM sync_outbox;');
+
+    // Parents first, matching the order the remote apply uses, so a partially
+    // read outbox never offers a shift before the job it belongs to.
+    await transaction.runAsync(
+      `INSERT INTO sync_outbox (entity_type, entity_id, operation)
+       SELECT 'job', id, 'upsert' FROM jobs ORDER BY id;`
+    );
+    await transaction.runAsync(
+      `INSERT INTO sync_outbox (entity_type, entity_id, operation)
+       SELECT 'federal_withholding_setting', id, 'upsert'
+       FROM federal_withholding_settings ORDER BY id;`
+    );
+    await transaction.runAsync(
+      `INSERT INTO sync_outbox (entity_type, entity_id, operation)
+       SELECT 'shift', id, 'upsert' FROM shifts ORDER BY id;`
+    );
+  });
+}
+
 export async function readPendingMutations(database: SyncDatabase): Promise<PendingMutation[]> {
   return database.getAllAsync<PendingMutation>(
     `SELECT outbox.local_sequence, outbox.entity_type, outbox.entity_id,
