@@ -1690,3 +1690,68 @@ UI/UX bar from the product definition is achievable here.
 > **Revisit when:** a browser is a real product requirement — a desktop
 > entry surface for bulk editing, say — and is worth building the OPFS
 > database and browser file handling on purpose.
+
+### D28 — Run the API on Lambda behind an HTTP API, in the database's region (2026-08-06)
+
+> **Decision:** the API is an AWS Lambda function, `nodejs24.x` on arm64, in
+> `us-west-2`, reached through an API Gateway HTTP API. The Express app is not
+> modified to run there: the AWS Lambda Web Adapter layer starts it as an
+> ordinary HTTP server and translates each invoke into a request against it.
+> `scripts/package-lambda.sh` builds the zip and `scripts/deploy-lambda.sh`
+> creates or updates everything. `DATABASE_URL` points at Supabase's
+> transaction pooler, not the direct connection.
+>
+> **Alternatives:**
+> - App Runner, which is what an earlier draft of this plan named. It closed
+>   to new customers on 2026-04-30; the account gets
+>   `SubscriptionRequiredException` and cannot create a service.
+> - A Lambda Function URL, which is simpler and has no per-request cost. Built
+>   first, and it answered 403 without ever invoking the function.
+> - Render or Fly.io, either of which would have been running in under half an
+>   hour.
+> - ECS Fargate, the closest thing to a conventional answer, at roughly $25 a
+>   month mostly for a load balancer this traffic does not need.
+>
+> **Why:** the Function URL failure is the interesting half. Accounts created
+> recently block public access to Lambda by default, and that setting
+> overrides the function's own resource policy — so `get-policy` returns a
+> policy that reads as correct while granting nothing, and no log group is
+> ever created because the function is not reached. The documented workaround
+> is to also grant `lambda:InvokeFunction` to `*`, which works by being wider
+> than a Function URL needs and by stepping around a control that was switched
+> on deliberately. An HTTP API needs no public policy at all: API Gateway
+> invokes as a service principal, and the grant names one API's ARN. It is
+> also where this was going anyway, since a Function URL has no custom domain,
+> no throttling, and no staged deploys.
+>
+> Region follows the database rather than the developer. The Supabase project
+> resolves into `2600:1f14::/34`, which is `us-west-2`, and every request this
+> API serves talks to that Postgres.
+>
+> The pooler is not a preference. The direct host publishes only an AAAA
+> record, and a Lambda outside a VPC has no IPv6 egress, so the direct
+> connection is unreachable from where this now runs. Transaction pooling is
+> safe here only because no query is issued as a named prepared statement.
+>
+> Running the app unchanged is what keeps this reversible. Nothing in `src/`
+> knows it is on Lambda, so moving to Fargate or a container host later is a
+> packaging change, not a rewrite.
+>
+> **Known cost:** the fixed-window rate limiter in `rateLimit.ts` counts in one
+> process's memory, and Lambda runs concurrent environments that share none. It
+> is now a limit per instance rather than per caller, which is the one real
+> regression this decision introduces. The account also caps concurrency at 10
+> until AWS raises it, and secrets are Lambda environment variables — encrypted
+> at rest, but readable by anyone who can describe the function.
+>
+> **Evidence boundary:** `/health` answers 200 and `/v1/me` answers 401
+> unauthenticated, both from one laptop, cold start 1.16s and warm 0.22s.
+> `check-provider` passes against the pooler. That is the whole of it.
+> `TRUST_PROXY_HOPS=1` is a reading of how the adapter forwards the caller
+> address and has not been proven, because the request log does not record a
+> client address to check it against. Nothing here has been exercised by a
+> device, by a second address, or by more than one caller at a time.
+>
+> **Revisit when:** the rate limiter needs to hold across instances, which is
+> before anyone who is not the owner installs a build; or a custom domain is
+> wanted, which is the HTTP API's job and not a new decision.
