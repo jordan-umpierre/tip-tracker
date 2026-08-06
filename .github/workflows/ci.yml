@@ -1,0 +1,81 @@
+# Runs the same checks a commit runs locally, on a machine that has never seen
+# this project before.
+#
+# The point is not to invent a second definition of "the checks". The
+# pre-commit hook already is that definition, so this workflow installs the
+# dependencies, provides the two things a developer laptop happens to have
+# lying around (sqlite3 and a PostgreSQL server), and then runs the hook.
+# Anything added to .githooks/pre-commit is picked up here for free.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A second push to the same branch makes the first run's answer irrelevant.
+# Cancel it rather than paying for a result nobody will read.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+
+    # The server tests create and drop a real throwaway database per test
+    # (server/test/database.ts), so they need an actual PostgreSQL server, not
+    # a mock. TEST_DATABASE_URL below points the helper at this container.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        # Without a health check the steps can start before Postgres accepts
+        # connections, which fails as a confusing "connection refused" rather
+        # than as a wait.
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Pinned to the version the project is developed against. Node runs the
+      # TypeScript test files directly (type stripping), so the Node version is
+      # part of the toolchain here, not just a runtime detail.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+
+      # The three shell test scripts skip themselves with a WARN when sqlite3
+      # is missing, which is right for a laptop and wrong for CI: the run would
+      # go green having tested nothing. Fail here instead, loudly.
+      - name: Require sqlite3
+        run: sqlite3 --version
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Install server dependencies
+        run: npm ci --prefix server
+
+      # Not part of the hook, which stays fast for a per-commit run. A full
+      # Expo typecheck is slower than the hook's budget but well inside CI's.
+      - name: Typecheck the app
+        run: npx tsc --noEmit
+
+      # Also the documented fresh-clone setup step, so a broken instruction
+      # shows up here instead of on the next person's machine.
+      - name: Point git at the tracked hooks
+        run: git config core.hooksPath .githooks
+
+      - name: Run the repository checks
+        run: ./.githooks/pre-commit

@@ -199,11 +199,16 @@ rendering anything or opening a database.
 All run by the pre-commit hook:
 
 ```sh
-./scripts/check-docs.sh                # duplicate headings, dead references, broken links
-./scripts/test-schema.sh               # every constraint in schema.sql rejects bad data
-./scripts/test-migration.sh            # upgrades, rollback, preservation, and schema parity
+./scripts/check-docs.sh                 # duplicate headings, dead references, broken links
+./scripts/test-schema.sh                # every constraint in schema.sql rejects bad data
+./scripts/test-migration.sh             # upgrades, rollback, preservation, and schema parity
 ./scripts/test-backup-restore.sh        # backup row parity, foreign keys, integrity, rollback
+npm --prefix server run verify          # server typecheck plus real temporary-PostgreSQL tests
+node src/data/sync.test.ts              # the local SQLite outbox and remote-apply transaction
 for t in src/auth/*.test.ts; do         # public config and encrypted session adapter
+  node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON "$t"
+done
+for t in src/sync/*.test.ts; do         # the authenticated push/pull transport
   node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON "$t"
 done
 for t in src/lib/*.test.ts; do          # dates, editable-value round trips, money arithmetic
@@ -217,6 +222,13 @@ own:
 ```sh
 git config core.hooksPath .githooks
 ```
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs that same hook on
+every push and pull request, plus the full Expo typecheck the hook leaves out
+to stay fast. It deliberately does not re-list the checks: the hook is the one
+definition, and CI supplies the PostgreSQL server and the `sqlite3` binary a
+laptop already has. "It passes on my machine" is not evidence anyone else can
+verify.
 
 The doc checks exist because two stale-documentation bugs were committed on the
 same day, both from appending to a long file without re-reading it. The rule
