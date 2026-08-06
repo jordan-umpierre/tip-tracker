@@ -125,7 +125,7 @@ export function readNonemptyText(value: unknown): string {
   return text;
 }
 
-export function readNullableText(value: unknown) {
+function readNullableText(value: unknown) {
   return value === null ? null : readText(value);
 }
 
@@ -144,7 +144,7 @@ export function readNonnegativeInteger(value: unknown): number {
   return Number(value);
 }
 
-export function readIntegerInRange(value: unknown, minimum: number, maximum: number) {
+function readIntegerInRange(value: unknown, minimum: number, maximum: number) {
   const integer = readNonnegativeInteger(value);
   if (integer < minimum || integer > maximum) invalid();
   return integer;
@@ -159,21 +159,21 @@ export function readTimestamp(value: unknown): string {
   return text;
 }
 
-export function readNullableTimestamp(value: unknown) {
+function readNullableTimestamp(value: unknown) {
   return value === null ? null : readTimestamp(value);
 }
 
-export function readTime(value: unknown): string {
+function readTime(value: unknown): string {
   const text = readText(value);
   if (!/^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/.test(text)) invalid();
   return text;
 }
 
-export function readNullableTime(value: unknown) {
+function readNullableTime(value: unknown) {
   return value === null ? null : readTime(value);
 }
 
-export function readDate(value: unknown): string {
+function readDate(value: unknown): string {
   const text = readText(value);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) invalid();
   const parsed = new Date(`${text}T00:00:00.000Z`);

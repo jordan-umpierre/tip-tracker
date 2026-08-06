@@ -3,8 +3,12 @@ import type {
   BackupJob,
   BackupShift,
 } from '../lib/backup';
+// The entity names and the record shapes a mutation carries are the wire
+// format, not this file's own invention. They come from the shared contract so
+// the outbox cannot drift away from what the transport actually sends -- the
+// exact drift that broke pulled dates once already.
+import type { SyncEntityType, SyncRecord } from '../../contracts/syncFormat.ts';
 
-export type SyncEntityType = 'job' | 'shift' | 'federal_withholding_setting';
 export type BlockedMutationKind = 'conflict' | 'permanent';
 export type JsonValue = null | boolean | number | string | JsonValue[] | {
   [key: string]: JsonValue;
@@ -65,52 +69,6 @@ export type BlockMutation = {
   response: unknown;
 };
 
-export type JobMutationRecord = {
-  archivedAt: string | null;
-  createdAt: string;
-  hourlyRateCents: number;
-  name: string;
-  overtimeEnabled: boolean;
-  updatedAt: string;
-  workweekStartTime: string;
-  workweekStartWeekday: number;
-};
-
-export type ShiftMutationRecord = {
-  createdAt: string;
-  deletedAt: string | null;
-  durationSeconds: number;
-  endTime: string | null;
-  hourlyRateCents: number;
-  jobId: string;
-  note: string | null;
-  shiftDate: string;
-  startTime: string | null;
-  tipsCents: number;
-  updatedAt: string;
-};
-
-export type FederalWithholdingSettingMutationRecord = {
-  createdAt: string;
-  deletedAt: string | null;
-  effectiveFrom: string;
-  exempt: boolean;
-  filingStatus: BackupFederalWithholdingSettings['filing_status'];
-  jobId: string;
-  payPeriodsPerYear: number;
-  step2Checked: boolean;
-  step3CreditsCents: number;
-  step4aOtherIncomeCents: number;
-  step4bDeductionsCents: number;
-  step4cExtraWithholdingCents: number;
-  updatedAt: string;
-};
-
-export type MutationRecord =
-  | JobMutationRecord
-  | ShiftMutationRecord
-  | FederalWithholdingSettingMutationRecord;
-
 export type NextMutationSnapshot = {
   accountId: string;
   baseServerVersion: number | null;
@@ -119,7 +77,7 @@ export type NextMutationSnapshot = {
   entityType: SyncEntityType;
   operation: 'upsert' | 'delete';
   operationId: number;
-  record: MutationRecord | null;
+  record: SyncRecord | null;
 };
 
 export type MutationAcknowledgement = {
@@ -809,7 +767,7 @@ async function readMutationRecord(
   transaction: SyncTransaction,
   entityType: SyncEntityType,
   entityId: string
-): Promise<MutationRecord> {
+): Promise<SyncRecord> {
   if (entityType === 'job') {
     const row = await transaction.getFirstAsync<BackupJob>(
       `SELECT id, name, hourly_rate_cents, archived_at, created_at, updated_at,
