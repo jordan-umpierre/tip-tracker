@@ -1021,7 +1021,96 @@ launch.
     calculate Fallow estimates remain deliberately unsuppressed until the iOS
     and Android acceptance pass. No paycheck, result, backend, auth, or new
     dependency was added.
-76. Deployed the API. `d0a501a` packaged it for AWS Lambda behind the Web
+76. Built the authenticated backend foundation. `8451e78` added remote-JWKS
+    access-token verification and the account lifecycle, and the remediation
+    series `2023f23` through `9926627` closed the review blockers it opened:
+    durable deletion tombstones, recent-password proof, Supabase identity
+    deletion with retry semantics, canonical UUID subjects, lossless local text
+    identifiers and `HH:MM` times, checksum-tracked transactional migrations,
+    schema-aware readiness, and bounded HTTP failure coverage. Seven server
+    tests use real temporary PostgreSQL databases where persistence matters.
+    The full repository hook passes and Fallow reports no server health finding
+    without a suppression. No mobile client, sync route, provider resource, or
+    deployment was added. See build-log 23.
+77. Laid the local sync foundation. `402988d` recorded D23; `d68c2e1` then
+    added schema version 5 — trigger-owned dirty-row tracking, monotonic local
+    sequences, per-row server metadata, one canonical account binding, a server
+    pull cursor, and an exclusive remote-apply transaction that cannot
+    re-enqueue pulled rows. The 4-to-5 migration enqueues existing active,
+    archived, and tombstoned domain rows while a fresh database starts empty.
+    Federal settings retain tombstones and backup version 3 preserves them,
+    with version-1/schema-3 and version-2/schema-4 files still restorable.
+    `28057dd` separated Expo and server TypeScript checks by their real package
+    boundary. Real SQLite assertions cover direct-SQL capture, repeated-edit
+    compaction, in-flight acknowledgements, migration bootstrap and rollback,
+    restore rollback, parent-first remote apply, pull rollback and suppression,
+    dirty-row conflict protection, and account mismatch rejection. Local
+    plumbing only: no provider, network retry, conflict UI, or native migration
+    of the developer's real database. See build-log 24.
+78. Implemented the provider-free server half of sync. `7629f05` recorded D24
+    as the wire and conflict contract. `3dce9d6` added migration 002 and
+    `1bc12a9` corrected its replay scope before any endpoint shipped, since
+    account plus local sequence collides when two devices both start at one;
+    the corrected key is account, canonical device UUID, and operation id.
+    `eafcc45` added the strict one-mutation route with optimistic server
+    versions, exact replayed successes and conflicts, retained tombstones, and
+    no guessed deduplication. `ff8e6b3` persisted device sync identity and
+    failures, `38256bd` added the strict paged pull across all three entity
+    tables, and `871e20a` narrowed the service types. Real temporary PostgreSQL
+    plus local JWKS tests cover tenant isolation, duplicate-looking shifts,
+    archives, tombstones, stale and unique conflicts, replay misuse, payload
+    ceilings, transaction rollback, pagination, cursor order, and account
+    spoofing. Eleven server tests and the full hook pass. No mobile
+    authentication, HTTP client, retry scheduler, provider resource, or
+    deployment claim was added. See build-log 25.
+79. Added optional mobile accounts. `0dec381` recorded D25: Supabase owns email
+    and password identity, the app sends its access token only to Express, and
+    SQLite stays fully usable signed out. `3f3b470` added strict public
+    configuration, a nullable Supabase client, and bounded double-slot
+    SecureStore chunks whose manifest cannot point at a partial write.
+    `4ccdd62` added bounded `/v1/me` requests, one exact refresh-after-401
+    retry, backend/session identity equality, atomic empty-database binding,
+    populated-data consent, and hard mismatch rejection. `3d72bce` added the
+    account provider and accessible Manage data states without adding sync
+    traffic. The hook, TypeScript, Expo dependency check, Expo Doctor 20/20,
+    changed-file Fallow audit, and platform exports pass. Local integration
+    evidence only: no real signup email, provider token, API request, native
+    Keychain or Keystore restoration, or accessibility flow was exercised.
+    A Playwright attempt also confirmed the older web-runtime blocker later
+    settled by D27. See build-log 26.
+80. Added the mobile sync transport. `bae28cb` recorded D26: local writes never
+    wait for the network, and one foreground or manual run pushes exact atomic
+    SQLite snapshots serially before pulling strict pages. `972f034` added the
+    snapshot and durable blocked-mutation storage, `ff40764` the injected
+    authenticated transport with bounded transient retry, one
+    refresh-after-401, and a process mutex, and `00bdc91` the trigger points
+    and bounded status in Manage data. Nine transport tests plus thirteen local
+    sync tests pass. `4ecaeb1` then fixed the first real cross-boundary defect,
+    which no test on either side could see: `pg` parses Postgres `date` columns
+    into local-midnight `Date` objects, so every pulled shift and withholding
+    setting serialized as a full JavaScript date string and would have failed
+    the client decoder as malformed. The lesson is where the contract lives —
+    it is written twice, in `server/src/syncContract.ts` and `src/sync/wire.ts`,
+    and the transport tests used a hand-written fake `fetch`, so the real
+    serializer never met the real decoder and both suites passed while the
+    feature was broken end to end. `4918b8d` closed that gap by feeding a real
+    server pull response into the real client decoder. See build-log 27.
+81. Made the app release-ready on paper. `87727ee` moved the checks off one
+    laptop into GitHub Actions, running `.githooks/pre-commit` itself so
+    anything added to the hook is picked up for free, and failing on a missing
+    `sqlite3` rather than letting three suites skip themselves green. `4c5dc91`
+    added `eas.json` and the two missing store identifiers. `a970a81` bounded
+    request volume per client address and `9ef14df` logged one structured line
+    per finished request. `3ae6b57` added cloud account deletion from inside
+    the app and `02ba072` password recovery by emailed code. `4f0a061` closed
+    the three findings D26 left open, chiefly an unexpected sync error
+    reporting as `blocked` when the real cause was a database that would not
+    open. `2351614` stated what the app collects, `b9d0e66` split the account
+    panel by account state, and `3cba32a` removed the web target under D27
+    rather than repairing a platform that compiled and then crashed. Nothing
+    here was seen on a device, no provider resource existed, and no API was
+    deployed. See build-log 28.
+82. Deployed the API. `d0a501a` packaged it for AWS Lambda behind the Web
     Adapter layer, which runs the Express app unchanged and needs no build step
     or serverless adapter; `b673a67` deployed it behind an API Gateway HTTP API
     in `us-west-2`, the region the Supabase project resolves into. App Runner
@@ -1033,4 +1122,5 @@ launch.
     Lambda outside a VPC. `319b738` shipped the migration files the first zip
     omitted. `/health` answers 200 and `/v1/me` answers 401 from one laptop;
     nothing was exercised by a device, a second address, or concurrent callers,
-    and the in-memory rate limiter no longer holds across instances.
+    and the in-memory rate limiter no longer holds across instances. See
+    build-log 29.
