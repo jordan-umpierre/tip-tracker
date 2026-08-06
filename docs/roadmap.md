@@ -9,26 +9,36 @@ Last updated: 2026-08-06
 
 ## NEXT
 
-**Release readiness is implemented and statically verified. The app can now be
-built for both stores, the checks run on GitHub rather than one laptop, a user
-can delete their cloud account and recover a forgotten password from inside the
-app, the API bounds request volume and logs what it did, the privacy
-disclosures exist, and the three findings D26 left open are closed. Web is
-gone (D27). Nothing here has been seen on a device, no provider resource
-exists, and no API is deployed.**
+**The staging backend exists and answers. A real Supabase project holds the
+migrated schema, and the API is deployed to AWS Lambda behind an API Gateway
+HTTP API in `us-west-2` (D28). `/health` returns 200 and `/v1/me` returns 401
+unauthenticated. Everything above that is unchanged: release readiness is
+implemented and statically verified, both store targets can be built, the
+checks run on GitHub rather than one laptop, account deletion and password
+recovery work from inside the app, the privacy disclosures exist, and web is
+gone (D27). Nothing has been seen on a device, and no build exists.**
 
-**Do this next: the staging infrastructure and native acceptance unit.** It is
-now the only thing between this repo and a testable build, and everything below
-it depends on decisions only the owner can make. Choose and create the Supabase
-project and the API host, with their plans, regions, availability and budget
-limits, and retention policies. Apply the server migrations with owner
-credentials. Set `TRUST_PROXY_HOPS` to the real number of proxies in front of
-the API, or the rate limiter throttles every user at once. Configure the two
-Supabase Auth settings the app now assumes, both listed in
+**Do this next: the EAS build and native acceptance unit.** The infrastructure
+half of the old NEXT is done; what is left is a build and the decisions only
+the owner can make. Supply the three public `EXPO_PUBLIC_` values as EAS
+environment variables — `EXPO_PUBLIC_API_URL` is now the deployed HTTP API
+endpoint. Then run `eas init` and build a `preview` profile for each platform.
+
+Three provider settings are still unverified, and none of them can be read with
+the keys the server holds — they need a Management API token, so they are eyes
+on the dashboard or a failure caught during acceptance. All three are listed in
 [`server/README.md`](../server/README.md): the recovery email template must
-include `{{ .Token }}`, and the minimum password length must be at most 8.
-Supply only the three public `EXPO_PUBLIC_` values, as EAS environment
-variables. Then run `eas init` and build a `preview` profile for each platform.
+include `{{ .Token }}`, the minimum password length must be at most 8, and the
+email OTP length must be exactly 6.
+
+Two limits are known and not yet fixed. The rate limiter counts in one
+process's memory, and Lambda runs concurrent environments that share none, so
+it now bounds each instance rather than each caller; that is the one real
+regression D28 introduced and it must be closed before anyone who is not the
+owner installs a build. The AWS account is also capped at 10 concurrent
+executions until AWS raises it. `TRUST_PROXY_HOPS` is set to 1, which is a
+reading of how the adapter forwards the caller address rather than a measured
+fact — the request log records no client address to check it against.
 
 The native acceptance pass that follows has more to cover than it did before:
 auth, push/pull, interruption, offline relaunch, and cross-device convergence,
@@ -350,8 +360,8 @@ database refusal on iOS and Android.
 Optional accounts and authenticated cloud sync do not block pure local tax
 math. They still must precede any public tax projection or launch. D22 settles
 the provider, recovery ownership, cloud/local deletion boundary, and conflict
-authority. Hosting plans, regions, retention, SMTP, deployment, and the sync
-wire contract remain open; client clocks are never conflict authority.
+authority. D28 settles the host, the region, and how deployment happens. Plans,
+retention, and SMTP remain open; client clocks are never conflict authority.
 
 Android is no longer the stale platform. Its full regression passed on the API
 36 emulator. Neither platform has a VoiceOver or TalkBack claim.
@@ -380,8 +390,10 @@ reason.
 - **Framework/tooling:** Expo (D2)
 - **Navigation:** Expo Router with native peer tabs (D7, D11)
 - **Storage:** SQLite on device via `expo-sqlite` (D1)
-- **Backend:** optional-account Node/Express/Postgres foundation, not deployed;
-  no mobile auth or sync routes yet (D1, D22)
+- **Backend:** optional-account Node/Express/Postgres, with mobile auth and
+  sync routes (D1, D22, D24)
+- **Hosting:** AWS Lambda behind an API Gateway HTTP API in `us-west-2`, with
+  Supabase Postgres reached through its transaction pooler (D28)
 
 ---
 
@@ -1009,3 +1021,16 @@ launch.
     calculate Fallow estimates remain deliberately unsuppressed until the iOS
     and Android acceptance pass. No paycheck, result, backend, auth, or new
     dependency was added.
+76. Deployed the API. `d0a501a` packaged it for AWS Lambda behind the Web
+    Adapter layer, which runs the Express app unchanged and needs no build step
+    or serverless adapter; `b673a67` deployed it behind an API Gateway HTTP API
+    in `us-west-2`, the region the Supabase project resolves into. App Runner
+    was the original target and is closed to new customers; a Lambda Function
+    URL was built first and returned 403 without ever invoking the function,
+    because accounts created recently block public access to Lambda in a way
+    that overrides the resource policy (D28). `DATABASE_URL` moved to the
+    transaction pooler, the direct host being IPv6-only and unreachable from a
+    Lambda outside a VPC. `319b738` shipped the migration files the first zip
+    omitted. `/health` answers 200 and `/v1/me` answers 401 from one laptop;
+    nothing was exercised by a device, a second address, or concurrent callers,
+    and the in-memory rate limiter no longer holds across instances.

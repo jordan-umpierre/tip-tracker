@@ -143,16 +143,19 @@ user can delete their cloud account and recover a forgotten password from
 inside the app, the API bounds request volume and logs every request, and the
 privacy disclosures exist ([privacy-policy.md](docs/privacy-policy.md),
 [store-disclosures.md](docs/store-disclosures.md)). Web was removed rather than
-repaired ([D27](docs/decisions.md)). None of it has been seen on a device, no
-Supabase or API resource exists, and nothing is deployed.
+repaired ([D27](docs/decisions.md)). The backend is no longer hypothetical: a
+real Supabase project holds the migrated schema and the API runs on AWS Lambda
+behind an API Gateway HTTP API ([D28](docs/decisions.md)). None of it has been
+seen on a device, and no build exists.
 
 Next:
 
-- Create the external Supabase and API-host resources, apply the server
-  migrations, and build a `preview` profile for each platform. Then run the
-  native acceptance pass: auth, push/pull, interruption, offline relaunch,
-  cross-device convergence, and every screen added since. See
-  [docs/roadmap.md](docs/roadmap.md) for the exact evidence boundary.
+- Build a `preview` profile for each platform, then run the native acceptance
+  pass: auth, push/pull, interruption, offline relaunch, cross-device
+  convergence, and every screen added since. See
+  [docs/roadmap.md](docs/roadmap.md) for the exact evidence boundary, including
+  the rate limiter that no longer holds across instances now that the API runs
+  on Lambda.
 
 ## Stack
 
