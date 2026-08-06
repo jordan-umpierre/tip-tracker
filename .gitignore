@@ -39,6 +39,14 @@ expo-env.d.ts
 # Local agent tooling
 .fallow/
 .playwright-cli/
+# Skills an agent installs for itself, plus the lockfile pinning their
+# versions. Vendored from supabase/agent-skills; nothing in this repo reads
+# either one, so they stay out like the two above. .claude/skills/ is only
+# symlinks into .agents/, so it goes too -- but .claude/settings.json is
+# tracked, which is why this ignores the subdirectory and not all of .claude.
+.agents/
+skills-lock.json
+.claude/skills/
 
 # debug
 npm-debug.*
