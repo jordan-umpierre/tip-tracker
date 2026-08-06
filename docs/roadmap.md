@@ -3,21 +3,58 @@
 Where this project is, what's next, and everything done so far in order.
 This is the file to open first, every session.
 
-Last updated: 2026-08-05
+Last updated: 2026-08-06
 
 ---
 
 ## NEXT
 
-**The provider-free backend, sync foundations, the D25 mobile account boundary,
-and the D26 foreground sync transport are implemented and locally verified.
-Accounts remain optional. The app now supports Supabase email/password signup
-and sign-in, encrypted native session persistence, `/v1/me` identity
-verification, deliberate one-account SQLite binding, local-only sign-out, and a
-serialized push/pull sync run with bounded Manage data status. Express is still
-the only domain API and SQLite is still the offline source. No external provider
-resource, deployed API, SMTP configuration, recovery flow, deletion UI, conflict
-editor, or native account evidence exists yet.**
+**Release readiness is implemented and statically verified. The app can now be
+built for both stores, the checks run on GitHub rather than one laptop, a user
+can delete their cloud account and recover a forgotten password from inside the
+app, the API bounds request volume and logs what it did, the privacy
+disclosures exist, and the three findings D26 left open are closed. Web is
+gone (D27). Nothing here has been seen on a device, no provider resource
+exists, and no API is deployed.**
+
+**Do this next: the staging infrastructure and native acceptance unit.** It is
+now the only thing between this repo and a testable build, and everything below
+it depends on decisions only the owner can make. Choose and create the Supabase
+project and the API host, with their plans, regions, availability and budget
+limits, and retention policies. Apply the server migrations with owner
+credentials. Set `TRUST_PROXY_HOPS` to the real number of proxies in front of
+the API, or the rate limiter throttles every user at once. Configure the two
+Supabase Auth settings the app now assumes, both listed in
+[`server/README.md`](../server/README.md): the recovery email template must
+include `{{ .Token }}`, and the minimum password length must be at most 8.
+Supply only the three public `EXPO_PUBLIC_` values, as EAS environment
+variables. Then run `eas init` and build a `preview` profile for each platform.
+
+The native acceptance pass that follows has more to cover than it did before:
+auth, push/pull, interruption, offline relaunch, and cross-device convergence,
+plus every screen added on 2026-08-06 — account deletion including its
+`503 identity_deletion_pending` path, password recovery end to end with a real
+email, the blocked-record list and its discard action, and the withholding
+screen's out-of-year notice. VoiceOver and TalkBack remain a separate
+unverified gate over all of it.
+
+Two things are deliberately left undone and should not be mistaken for
+oversights:
+
+1. `AuthProvider` is 547 lines and is the only Fallow finding still standing.
+   Splitting a stateful provider is the kind of change whose bugs appear on a
+   device, and no device pass has happened yet. Split it after native
+   acceptance, not before.
+2. The account connection effect still re-verifies `/v1/me` on every new
+   session, including hourly token refreshes. That is a security check
+   re-running, not the D26 finding, which was about sync; it was left alone
+   rather than weakened. Revisit only if the brief `connecting` state it paints
+   turns out to be visible on a real device.
+
+Conflict resolution is half-built on purpose. A blocked record can be named and
+discarded in favor of the account's copy; keeping the local version instead
+needs the rebase semantics D26 declined to invent. Decide those rules against
+real conflicts from real devices, not in advance.
 
 `bc8e170` recorded D22. Email/password verification and reset belong to the
 managed auth provider, with custom SMTP required for reliable delivery. Cloud
@@ -118,31 +155,22 @@ were tested only against their own idea of it. The transport tests use a
 hand-written fake `fetch`, so the real serializer never met the real decoder.
 Both suites passed while the feature was broken end to end.
 
-**Do this next:** close that gap before staging, because staging will otherwise
-be the first place these two halves meet. Add one round-trip check that feeds a
-real server pull response into the real client decoder for all three entity
-types, using the existing temporary-PostgreSQL helpers rather than new
-scaffolding.
+`4918b8d` closed that gap by feeding a real server pull response into the real
+client decoder for all three entity types, using the existing
+temporary-PostgreSQL helpers rather than new scaffolding. Staging is no longer
+the first place the two halves meet.
 
-Three smaller review findings from D26 are open and deliberately not yet fixed,
-since two are product judgment rather than defects:
+The three smaller D26 review findings are also closed, in `4f0a061` on
+2026-08-06:
 
-1. `AuthProvider` catches every unexpected sync error as `blocked`, which tells
-   the user a record needs review even when the cause was a failed database
-   open. An unknown failure and a real conflict are not the same state.
-2. Supabase emits a new session object on `TOKEN_REFRESHED`, which re-runs the
-   sync effect. That is a fourth trigger D26 does not list, roughly hourly while
-   the app is foregrounded.
-3. `applySyncResult` is defined after the component's `return`, so the file no
-   longer reads top to bottom.
-
-After those, complete one staging infrastructure and native acceptance unit.
-Choose the Supabase and API plans, regions, availability/budget limits,
-retention policies, and SMTP provider; create least-privilege resources; apply
-the server migrations; supply only the three public Expo variables; then verify
-auth plus push/pull, interruption, offline relaunch, and cross-device
-convergence on iOS and Android. Password recovery, account deletion, and
-conflict resolution remain later lifecycle units with their own evidence.
+1. An unexpected sync error reported as `blocked`, which told the user a record
+   needed review when the real cause was a database that would not open.
+   Unknown failures now report as `failed`.
+2. Supabase emits a new session object on `TOKEN_REFRESHED`, which re-ran the
+   sync effect roughly hourly. The token is now read from a ref and the effect
+   is keyed on the account id, so the triggers stay the three D26 lists.
+3. `applySyncResult` was defined after the component's `return`. It moved above
+   its caller.
 
 The first complete local federal-withholding slice remains implemented: bounded
 2026 math, effective-dated per-job settings, lossless backup, and an opt-in

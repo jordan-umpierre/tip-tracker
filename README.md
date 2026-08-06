@@ -127,15 +127,31 @@ Done:
 - Local sync foundation ([D23](docs/decisions.md)): schema version 5 captures
   every job, shift, and withholding-setting mutation in a compact SQLite
   outbox, retains server metadata and one account binding, and applies remote
-  rows transactionally without re-enqueueing them. No mobile auth or HTTP sync
-  route exists yet
+  rows transactionally without re-enqueueing them
+- The authenticated API ([`server/`](server/), [D22 and D24](docs/decisions.md)):
+  account-owned Postgres schema, idempotent one-mutation push, paged pull,
+  account deletion, a fixed per-address request limit, and one structured log
+  line per request
+- Optional cloud accounts on the device ([D25 and D26](docs/decisions.md)):
+  encrypted session storage, deliberate one-account binding, serialized
+  foreground push/pull, in-app account deletion, emailed-code password
+  recovery, and named blocked records with a discard resolution
+
+**The app is release-ready on paper, and only on paper.** The checks run in
+GitHub Actions rather than on one laptop, both store targets can be built, a
+user can delete their cloud account and recover a forgotten password from
+inside the app, the API bounds request volume and logs every request, and the
+privacy disclosures exist ([privacy-policy.md](docs/privacy-policy.md),
+[store-disclosures.md](docs/store-disclosures.md)). Web was removed rather than
+repaired ([D27](docs/decisions.md)). None of it has been seen on a device, no
+Supabase or API resource exists, and nothing is deployed.
 
 Next:
 
-- Run the isolated iOS/Android migration, settings, calculation, accessibility,
-  and legacy-backup restore pass. Then choose and create the external Supabase,
-  Render, and SMTP resources before adding mobile authentication and explicit
-  HTTP push/pull contracts. See
+- Create the external Supabase and API-host resources, apply the server
+  migrations, and build a `preview` profile for each platform. Then run the
+  native acceptance pass: auth, push/pull, interruption, offline relaunch,
+  cross-device convergence, and every screen added since. See
   [docs/roadmap.md](docs/roadmap.md) for the exact evidence boundary.
 
 ## Stack

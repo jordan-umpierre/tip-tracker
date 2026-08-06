@@ -36,7 +36,7 @@ Not automated on purpose: deciding whether a commit is "real work" or
 bookkeeping needs a judgment a script can't make, and a check that guessed
 would either nag constantly or pass while missing things.
 
-Last updated: 2026-08-05
+Last updated: 2026-08-06
 
 ---
 
@@ -114,3 +114,7 @@ name — the number adds sequence without costing you the description.
     sessions, verified account binding, and local-only sign-out.
 27. [27-mobile-sync.md](27-mobile-sync.md) — D26, serialized foreground push
     and pull over the authenticated API while SQLite remains authoritative.
+28. [28-release-readiness.md](28-release-readiness.md) — everything between a
+    finished feature set and a build a stranger can install: CI, the store
+    build config, in-app account deletion, password recovery, rate limiting,
+    request logging, the privacy disclosures, and D27 dropping web.
