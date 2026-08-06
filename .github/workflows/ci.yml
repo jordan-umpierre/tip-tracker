@@ -12,6 +12,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # So a run can be started by hand from the Actions tab. Needed the first time
+  # a push produced no run at all and there was no way to ask for one.
+  workflow_dispatch:
 
 # A second push to the same branch makes the first run's answer irrelevant.
 # Cancel it rather than paying for a result nobody will read.
