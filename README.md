@@ -230,6 +230,27 @@ definition, and CI supplies the PostgreSQL server and the `sqlite3` binary a
 laptop already has. "It passes on my machine" is not evidence anyone else can
 verify.
 
+## Release builds
+
+[`eas.json`](eas.json) defines three profiles: `development` (a dev client),
+`preview` (an internal install for real-device testing), and `production` (the
+store build). Versioning is `remote`, so EAS owns `ios.buildNumber` and
+`android.versionCode` and increments them per production build; the
+human-facing `version` in [`app.json`](app.json) stays hand-edited.
+
+Two things are deliberately absent. There are no `channel` fields, because
+`expo-updates` is not installed and a channel with no update client is
+decoration. There is no `env` block, because the three
+`EXPO_PUBLIC_*` values in [`.env.example`](.env.example) differ per
+environment and belong in EAS environment variables, not in a tracked file.
+
+`ios.bundleIdentifier` and `android.package` are both
+`com.jordanumpierre.tiptracker`. Both are permanent once a build reaches
+either store.
+
+Still required before a first build: `eas init`, which writes the project ID
+into `app.json`, and an Apple Developer and Google Play account.
+
 The doc checks exist because two stale-documentation bugs were committed on the
 same day, both from appending to a long file without re-reading it. The rule
 they enforce: a convention nobody checks is a convention that quietly stops
