@@ -27,6 +27,16 @@ export function createAccessTokenVerifier(options: {
   };
 }
 
+// Reads the most recent password login out of the token's amr claim.
+//
+// This is the one place in the server that is tied to Supabase specifically.
+// Supabase writes amr as a list of {method, timestamp} objects, which is what
+// lets DELETE /v1/me demand a password login from the last five minutes. Plain
+// OIDC writes amr as a list of strings with no timestamps at all, so against
+// most other providers every entry here is unreadable and this returns null.
+// That fails closed -- account deletion becomes impossible rather than
+// unguarded -- but it is silent, so anyone swapping auth providers has to
+// replace the reauthentication signal here, not just repoint the JWKS URL.
 function latestPasswordAuthentication(value: unknown) {
   if (!Array.isArray(value)) return null;
   const timestamp = Math.max(...value.map(passwordTimestamp));
