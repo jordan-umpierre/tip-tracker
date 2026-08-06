@@ -51,6 +51,15 @@ oversights:
    rather than weakened. Revisit only if the brief `connecting` state it paints
    turns out to be visible on a real device.
 
+The staging SMTP sender is a test address and cannot reach a real user. Editing
+the recovery template at all requires custom SMTP, so the provider is wired to
+Resend on its shared `onboarding@resend.dev` sender, which only delivers to the
+address on the Resend account that owns the key. That is enough to prove the
+six-digit recovery flow against the owner's own mailbox and nothing more: every
+other recipient is rejected outright, so a tester who is not the owner sees a
+recovery that silently never arrives. Verify a real domain in Resend and change
+the sender before anyone else installs a build.
+
 Conflict resolution is half-built on purpose. A blocked record can be named and
 discarded in favor of the account's copy; keeping the local version instead
 needs the rebase semantics D26 declined to invent. Decide those rules against

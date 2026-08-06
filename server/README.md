@@ -183,7 +183,7 @@ is intentionally unchanged.
 
 ## Provider settings the app depends on
 
-Two Supabase Auth settings are not optional, because app code assumes them:
+Three Supabase Auth settings are not optional, because app code assumes them:
 
 - The **Reset Password** email template must include `{{ .Token }}`. Recovery
   in the app is a six-digit code the user types, not a link that reopens the
@@ -193,6 +193,16 @@ Two Supabase Auth settings are not optional, because app code assumes them:
 - The minimum password length must be at most 8. The app rejects a shorter new
   password before sending it, and a project configured to require more would
   reject a password the app just called acceptable.
+- The email OTP length must be exactly 6. `parseRecoveryForm` in
+  `src/auth/form.ts` matches `^[0-9]{6}$` and refuses anything else before a
+  request is ever made, so a project sending any other length breaks recovery
+  for every user with an error that blames the code the app itself just
+  rejected. The provider default is not reliably 6; read the field, do not
+  assume it.
+
+Editing the recovery template requires custom SMTP to be enabled first. The
+provider will not let the built-in sender use a modified template, so SMTP is a
+prerequisite for the `{{ .Token }}` change rather than a later hardening step.
 
 ## External gates
 
