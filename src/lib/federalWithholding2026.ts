@@ -9,6 +9,13 @@
 // caller supplies federal taxable wages from the paystub and the values from
 // the 2020-or-later W-4 actually on file for that job.
 
+// The only year these tables describe. Every other file that needs to say
+// "2026" -- the validator below, the disclosure text, the screen's heading and
+// its out-of-year notice -- reads it from here. Publishing 2027 tables means
+// changing this line and the brackets together, and nothing else can be left
+// behind claiming the old year.
+export const SUPPORTED_TAX_YEAR = 2026;
+
 export const FEDERAL_WITHHOLDING_PAY_PERIODS = [2, 4, 12, 24, 26, 52, 260] as const;
 
 const FEDERAL_FILING_STATUSES = [
@@ -175,7 +182,9 @@ function maximum(left: bigint, right: bigint): bigint {
 // fallow-ignore-next-line complexity -- Every rejected field shape is asserted in federalWithholding2026.test.ts.
 function validateInput(input: FederalWithholdingInput): void {
   if (!Number.isSafeInteger(input.taxYear)) throw new Error('Tax year must be a safe integer.');
-  if (input.taxYear !== 2026) throw new Error('Only tax year 2026 is supported.');
+  if (input.taxYear !== SUPPORTED_TAX_YEAR) {
+    throw new Error(`Only tax year ${SUPPORTED_TAX_YEAR} is supported.`);
+  }
   if (!VALID_FILING_STATUSES.has(input.filingStatus)) {
     throw new Error('Filing status is not supported.');
   }

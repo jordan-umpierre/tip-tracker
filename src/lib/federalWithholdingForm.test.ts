@@ -4,9 +4,11 @@ import {
   calculateSavedFederalWithholding,
   FEDERAL_WITHHOLDING_DISCLOSURE,
   isDuplicateFederalWithholdingSettingsError,
+  isSupportedPayDateYear,
   parseMoneyToCents,
 } from './federalWithholdingForm.ts';
 import type { FederalWithholdingSettingValues } from './federalWithholdingForm.ts';
+import { SUPPORTED_TAX_YEAR } from './federalWithholding2026.ts';
 
 const settings: FederalWithholdingSettingValues = {
   filing_status: 'single-or-married-filing-separately',
@@ -60,5 +62,18 @@ assert.equal(
 );
 assert.match(FEDERAL_WITHHOLDING_DISCLOSURE, /app gross is not used/);
 assert.match(FEDERAL_WITHHOLDING_DISCLOSURE, /not take-home pay/);
+// The disclosure names the year, so publishing new tables without updating
+// this constant would leave the screen telling the user the wrong one.
+assert.match(FEDERAL_WITHHOLDING_DISCLOSURE, new RegExp(`Estimate only for ${SUPPORTED_TAX_YEAR}`));
+
+// The screen disables its estimate button on the same answer the calculate
+// handler refuses on. A pay date the app cannot parse is not supported either,
+// so a year rolling over and a typo both land in the same disabled state.
+assert.equal(isSupportedPayDateYear('2026-01-01'), true);
+assert.equal(isSupportedPayDateYear('2026-12-31'), true);
+assert.equal(isSupportedPayDateYear('2027-01-01'), false);
+assert.equal(isSupportedPayDateYear('2025-12-31'), false);
+assert.equal(isSupportedPayDateYear('2026-02-30'), false);
+assert.equal(isSupportedPayDateYear(''), false);
 
 console.log('federal withholding form OK');

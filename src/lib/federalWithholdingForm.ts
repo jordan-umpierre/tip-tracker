@@ -1,6 +1,7 @@
 import { parseCalendarDate } from './dates.ts';
 import {
   calculateFederalWithholdingCents,
+  SUPPORTED_TAX_YEAR,
 } from './federalWithholding2026.ts';
 import type {
   FederalFilingStatus,
@@ -19,7 +20,17 @@ export type FederalWithholdingSettingValues = {
 };
 
 export const FEDERAL_WITHHOLDING_DISCLOSURE =
-  'Estimate only for 2026 federal income-tax withholding on one regular W-2 paycheck. It is not take-home pay, total payroll tax, annual tax liability, a refund, or an amount due. It excludes Social Security and Medicare taxes, state and local taxes, 1099 income, supplemental wages, nonresident-alien adjustments, part-year and cumulative-wage methods, and other special withholding methods. Enter federal taxable wages from the paystub; app gross is not used. Step 4(b) is accepted, but this app does not decide whether tips, overtime, or another deduction qualifies.';
+  `Estimate only for ${SUPPORTED_TAX_YEAR} federal income-tax withholding on one regular W-2 paycheck. It is not take-home pay, total payroll tax, annual tax liability, a refund, or an amount due. It excludes Social Security and Medicare taxes, state and local taxes, 1099 income, supplemental wages, nonresident-alien adjustments, part-year and cumulative-wage methods, and other special withholding methods. Enter federal taxable wages from the paystub; app gross is not used. Step 4(b) is accepted, but this app does not decide whether tips, overtime, or another deduction qualifies.`;
+
+// The estimate is only defined for pay dates inside the year the shipped
+// tables describe. Two callers need that answer and they must not disagree:
+// the screen, to say up front that the calculator is unavailable, and the
+// calculate handler, to refuse before touching SQLite. An unparseable date is
+// not supported either, so the caller's "enter a real date" message still
+// comes first.
+export function isSupportedPayDateYear(payDate: string): boolean {
+  return parseCalendarDate(payDate)?.year === SUPPORTED_TAX_YEAR;
+}
 
 // fallow-ignore-next-line complexity -- Empty, malformed, precision, and safe-integer branches are asserted in federalWithholdingForm.test.ts.
 export function parseMoneyToCents(value: string, required: boolean): number {

@@ -20,9 +20,11 @@ import { localDateString, parseCalendarDate } from '../lib/dates';
 import {
   calculateSavedFederalWithholding,
   FEDERAL_WITHHOLDING_DISCLOSURE,
+  isSupportedPayDateYear,
   parseMoneyToCents,
 } from '../lib/federalWithholdingForm';
 import type { FederalWithholdingSettingValues } from '../lib/federalWithholdingForm';
+import { SUPPORTED_TAX_YEAR } from '../lib/federalWithholding2026';
 import type { FederalFilingStatus } from '../lib/federalWithholding2026';
 import { formatCents } from '../lib/format';
 
@@ -82,6 +84,13 @@ export default function FederalWithholdingForm({ jobs }: Props) {
   const [result, setResult] = useState<Result | null>(null);
 
   const job = jobs.find((candidate) => candidate.id === jobId) ?? jobs[0];
+
+  // The shipped tables cover one year. Once the calendar rolls past it the pay
+  // date defaults to a day the calculator cannot answer for, so say that where
+  // the user is about to type instead of letting them fill the whole form and
+  // collect an alert. Saving W-4 settings is unaffected: those rows are
+  // effective-dated and outlive any one year's tables.
+  const payDateSupported = isSupportedPayDateYear(payDate);
 
   function chooseJob(nextJobId: string) {
     setJobId(nextJobId);
@@ -155,8 +164,15 @@ export default function FederalWithholdingForm({ jobs }: Props) {
       Alert.alert('Check the paycheck pay date', 'Enter a real date as YYYY-MM-DD.');
       return;
     }
-    if (parsedPayDate.year !== 2026) {
-      Alert.alert('Tax year not supported', 'Only 2026 federal withholding is supported.');
+    // The button below is already disabled for an unsupported year, so this is
+    // the second line rather than the first. It stays because the year rule
+    // belongs to the calculation, not to whether a control happens to be
+    // pressable.
+    if (!isSupportedPayDateYear(payDate)) {
+      Alert.alert(
+        'Tax year not supported',
+        `Only ${SUPPORTED_TAX_YEAR} federal withholding is supported.`
+      );
       return;
     }
 
@@ -187,13 +203,13 @@ export default function FederalWithholdingForm({ jobs }: Props) {
         withholdingCents: calculated.withholdingCents,
       });
     } catch (cause) {
+      // The unsupported-year message used to be re-read out of this error, but
+      // the guard above returns before the calculator can ever raise it, so
+      // the only failures that reach here are the database read and a saved
+      // row the calculator rejects. Neither is something the user can fix by
+      // reading an internal message.
       console.error('Could not calculate federal withholding.', cause);
-      Alert.alert(
-        'Estimate not calculated',
-        cause instanceof Error && cause.message.includes('Only tax year 2026')
-          ? cause.message
-          : 'Your settings could not be loaded. Try again.'
-      );
+      Alert.alert('Estimate not calculated', 'Your settings could not be loaded. Try again.');
     } finally {
       setCalculating(false);
     }
@@ -270,7 +286,14 @@ export default function FederalWithholdingForm({ jobs }: Props) {
           </Pressable>
           {savedNote ? <Text selectable style={styles.successText}>{savedNote}</Text> : null}
 
-          <Text style={styles.sectionTitle}>Estimate one 2026 paycheck</Text>
+          <Text style={styles.sectionTitle}>Estimate one {SUPPORTED_TAX_YEAR} paycheck</Text>
+          {!payDateSupported ? (
+            <Text selectable style={styles.warningText}>
+              This app only has {SUPPORTED_TAX_YEAR} withholding tables. Choose a{' '}
+              {SUPPORTED_TAX_YEAR} paycheck pay date, or wait for an update that adds
+              the next year.
+            </Text>
+          ) : null}
           <DateField
             label="Paycheck pay date"
             value={payDate}
@@ -293,9 +316,12 @@ export default function FederalWithholdingForm({ jobs }: Props) {
           />
           <Pressable
             accessibilityRole="button"
-            accessibilityState={{ disabled: calculating }}
-            disabled={calculating}
-            style={[styles.primaryButton, calculating && styles.disabledButton]}
+            accessibilityState={{ disabled: calculating || !payDateSupported }}
+            disabled={calculating || !payDateSupported}
+            style={[
+              styles.primaryButton,
+              (calculating || !payDateSupported) && styles.disabledButton,
+            ]}
             onPress={() => void handleCalculate()}
           >
             <Text style={styles.primaryText}>{calculating ? 'Calculating…' : 'Estimate federal withholding'}</Text>
@@ -417,7 +443,9 @@ function SwitchRow({ label, value, disabled, onChange }: {
 function WithholdingResult({ jobName, result }: { jobName: string; result: Result }) {
   return (
     <View accessibilityRole="summary" style={styles.result}>
-      <Text selectable style={styles.resultTitle}>Estimated 2026 federal withholding</Text>
+      <Text selectable style={styles.resultTitle}>
+        Estimated {SUPPORTED_TAX_YEAR} federal withholding
+      </Text>
       <Text selectable style={styles.resultAmount}>{formatCents(result.withholdingCents)}</Text>
       <Text selectable style={styles.resultLine}>{jobName} · Pay date {result.payDate}</Text>
       <Text selectable style={styles.resultLine}>Federal taxable wages: {formatCents(result.taxableWagesCents)}</Text>
@@ -467,6 +495,9 @@ const styles = StyleSheet.create({
   disabledButton: { opacity: 0.55 },
   primaryText: { color: '#fff', fontWeight: '700' },
   successText: { color: '#166534', lineHeight: 20 },
+  // Dark enough on the light background to clear the 4.5:1 contrast minimum,
+  // the same bar the rest of this screen's text is held to.
+  warningText: { color: '#92400e', lineHeight: 20 },
   result: { borderWidth: 1, borderColor: '#bfdbfe', borderRadius: 10, backgroundColor: '#eff6ff', padding: 16, gap: 6 },
   resultTitle: { color: '#1e3a8a', fontWeight: '700' },
   resultAmount: { color: '#1e3a8a', fontSize: 28, fontWeight: '800', fontVariant: ['tabular-nums'] },
