@@ -7,6 +7,7 @@
     "node": ">=24"
   },
   "scripts": {
+    "check-provider": "node src/checkProvider.ts",
     "migrate": "node src/migrate.ts",
     "start": "node src/index.ts",
     "typecheck": "tsc --noEmit",

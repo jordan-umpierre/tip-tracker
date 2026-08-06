@@ -57,6 +57,20 @@ look like it came from the balancer, so all traffic shares one bucket and the
 limit throttles everyone at once. Setting it higher than the real number lets a
 client forge the header and choose its own bucket.
 
+Once a real project exists, check the variables against it before deploying:
+
+```sh
+npm run check-provider
+```
+
+It reads the same environment the server will get and proves the three things
+`readConfig` cannot see from the strings alone: that the project publishes
+asymmetric signing keys this server can verify with, that
+`SUPABASE_SERVICE_ROLE_KEY` is accepted by the Auth admin API that account
+deletion calls, and that `DATABASE_URL` reaches a database whose schema is
+current. All three run even after one fails. It does not check the two Auth
+settings below, which need a Management API personal access token.
+
 Apply migrations with owner credentials before starting the runtime process:
 
 ```sh
