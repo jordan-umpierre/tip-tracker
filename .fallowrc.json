@@ -5,9 +5,8 @@
     "src/lib/*.test.ts",
     "src/sync/*.test.ts"
   ],
-  "ignoreDependencies": ["expo", "react-native-web"],
+  "ignoreDependencies": ["expo"],
   "ignoreExports": [
-    { "file": "src/auth/sessionStorage.native.ts", "exports": ["*"] },
-    { "file": "src/auth/sessionStorage.web.ts", "exports": ["*"] }
+    { "file": "src/auth/sessionStorage.native.ts", "exports": ["*"] }
   ]
 }
