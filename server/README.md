@@ -78,6 +78,46 @@ MIGRATION_DATABASE_URL="postgresql://..." npm run migrate
 npm start
 ```
 
+## Deploying
+
+This runs on AWS Lambda behind an API Gateway HTTP API, in `us-west-2` because
+that is where the Supabase project is. Reasoning is in
+[D28](../docs/decisions.md). One command, from the repository root:
+
+```sh
+./scripts/deploy-lambda.sh
+```
+
+It packages, then creates or updates everything, so re-running it is the normal
+way to ship a change. It prints the endpoint when it finishes.
+
+Nothing in `src/` knows it is on Lambda. The AWS Lambda Web Adapter layer
+starts `run.sh`, waits for the port, and turns each invoke into an ordinary
+HTTP request, which is what keeps this host swappable and keeps the local
+`npm start` path identical to the deployed one.
+
+Two prerequisites the script does not create: the AWS CLI configured for
+`us-west-2`, and an execution role named `tip-tracker-api-lambda` holding
+`AWSLambdaBasicExecutionRole`. It reads the same `.env` this document
+describes, so verify with `npm run check-provider` first.
+
+`DATABASE_URL` must be Supabase's **transaction pooler** on port 6543, not the
+direct connection. The direct host publishes only an AAAA record and a Lambda
+outside a VPC has no IPv6 egress, so the direct connection is unreachable from
+there. Transaction pooling is safe only while no query is issued as a named
+prepared statement.
+
+Logs:
+
+```sh
+aws logs tail /aws/lambda/tip-tracker-api --since 10m --region us-west-2
+```
+
+Two limits worth knowing before anyone else installs a build. The rate limiter
+counts in one process's memory, and Lambda runs concurrent environments that
+share none, so it currently bounds each instance rather than each caller. A new
+AWS account is also capped at 10 concurrent executions until AWS raises it.
+
 Migration-owner credentials and the database password are server secrets. They
 must never use Expo's `EXPO_PUBLIC_` prefix or enter the mobile application.
 The service-role key has the same server-only boundary.
