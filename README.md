@@ -71,7 +71,8 @@ Done:
 - Product definition and MVP scope
 - Architecture decided: local-first, SQLite on device, sync added later
 - Platform decided: Expo, with the escape hatch understood
-- [`schema.sql`](src/data/schema.sql) — the `jobs` and `shifts` tables, with tests
+- [`schema.sql`](src/data/schema.sql) — `jobs` and `shifts` first, now also
+  `federal_withholding_settings` and the three sync tables, with tests
   confirming every constraint rejects bad data
 - Expo app scaffolded, confirmed running on a physical device
 - `schema.sql` wired into `expo-sqlite` ([`db.ts`](src/data/db.ts)), including the
@@ -116,8 +117,8 @@ Done:
 - Pure 2026 federal withholding math
   ([`federalWithholding2026.ts`](src/lib/federalWithholding2026.ts),
   [D20](docs/decisions.md)) for one regular paycheck using user-entered federal
-  taxable wages and actual 2020-or-later W-4 values; no paycheck record or tax
-  paycheck record or calculated result is stored
+  taxable wages and actual 2020-or-later W-4 values; no paycheck record and no
+  calculated result is stored
 - Effective-dated per-job withholding-setting persistence ([D21](docs/decisions.md)):
   schema version 4 uses the first applicable paycheck pay date, and lossless
   backup covers every stored field
@@ -127,7 +128,9 @@ Done:
 - Local sync foundation ([D23](docs/decisions.md)): schema version 5 captures
   every job, shift, and withholding-setting mutation in a compact SQLite
   outbox, retains server metadata and one account binding, and applies remote
-  rows transactionally without re-enqueueing them
+  rows transactionally without re-enqueueing them. Schema version 6, the
+  current one, adds a stable per-installation device id and keeps a conflict or
+  permanent failure beside the exact mutation it blocked
 - The authenticated API ([`server/`](server/), [D22 and D24](docs/decisions.md)):
   account-owned Postgres schema, idempotent one-mutation push, paged pull,
   account deletion, a fixed per-address request limit, and one structured log
@@ -166,7 +169,8 @@ Next:
 | Tooling | Expo | [D2](docs/decisions.md) — `expo prebuild` is a real escape hatch |
 | Navigation | Expo Router native tabs | [D7 and D11](docs/decisions.md) — two peer screens, no custom tab bar or state store |
 | Storage | SQLite via `expo-sqlite` | [D1](docs/decisions.md) — logging a shift has to work with no signal |
-| Backend | None through Layer 1 | [D1](docs/decisions.md) — Node, Express and Postgres arrive with optional sign-in |
+| Backend | Node, Express, Postgres, behind optional sign-in | [D1, D22 and D24](docs/decisions.md) — Layer 0 and 1 shipped with none; accounts and sync added it |
+| Hosting | AWS Lambda behind an API Gateway HTTP API (`us-west-2`) | [D28](docs/decisions.md) — the API follows the database's region |
 
 Every one of these is written up with its rejected alternatives in
 [docs/decisions.md](docs/decisions.md). The alternatives stay in the file permanently; a
@@ -200,14 +204,21 @@ src/
   components/         focused pieces of screen UI
     account/          the cloud account states: sign in, recovery, sync, delete
   auth/               optional Supabase account/session boundary
-  data/               SQLite: db.ts, schema.sql, and one file per table
+  data/               SQLite: db.ts, schema.sql, migrations, one file per table
   lib/                pure calculation and formatting -- no I/O, so testable
                       on Node with no device and no database
+  sync/               the authenticated push/pull transport and its decoder
+contracts/            the sync wire format, shared verbatim by app and server
+server/               the Express API: routes, migrations, and its own tsconfig
 docs/                 see docs/README.md for which file answers what
 scripts/              the checks below
 .githooks/            pre-commit hook that runs them
 metro.config.js       bundler config (lets schema.sql ship as an asset)
 ```
+
+`contracts/` sits outside both `src/` and `server/` deliberately: neither side
+owns the format they speak to each other. It used to be two hand-written
+copies, and they drifted while both test suites stayed green ([D26](docs/decisions.md)).
 
 These folders describe ownership, not arbitrary filing: `app/` routes,
 `screens/` coordinates, `components/` renders focused UI, `data/` persists,
@@ -224,7 +235,8 @@ All run by the pre-commit hook:
 ./scripts/test-migration.sh             # upgrades, rollback, preservation, and schema parity
 ./scripts/test-backup-restore.sh        # backup row parity, foreign keys, integrity, rollback
 npm --prefix server run verify          # server typecheck plus real temporary-PostgreSQL tests
-node src/data/sync.test.ts              # the local SQLite outbox and remote-apply transaction
+node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON \
+  src/data/sync.test.ts                 # the local SQLite outbox and remote-apply transaction
 for t in src/auth/*.test.ts; do         # public config and encrypted session adapter
   node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON "$t"
 done
@@ -258,18 +270,23 @@ store build). Versioning is `remote`, so EAS owns `ios.buildNumber` and
 `android.versionCode` and increments them per production build; the
 human-facing `version` in [`app.json`](app.json) stays hand-edited.
 
-Two things are deliberately absent. There are no `channel` fields, because
-`expo-updates` is not installed and a channel with no update client is
-decoration. There is no `env` block, because the three
-`EXPO_PUBLIC_*` values in [`.env.example`](.env.example) differ per
-environment and belong in EAS environment variables, not in a tracked file.
+There are no `channel` fields, because `expo-updates` is not installed and a
+channel with no update client is decoration.
+
+The three `EXPO_PUBLIC_*` values in [`.env.example`](.env.example) are not
+tracked with their real values, because they differ per environment. They live
+in EAS environment variables instead; the `preview` profile names the
+environment to load them from (`"environment": "preview"`) rather than listing
+an `env` block of literals.
 
 `ios.bundleIdentifier` and `android.package` are both
 `com.jordanumpierre.tiptracker`. Both are permanent once a build reaches
 either store.
 
-Still required before a first build: `eas init`, which writes the project ID
-into `app.json`, and an Apple Developer and Google Play account.
+The app is linked to its EAS project: `extra.eas.projectId` and `owner` are in
+[`app.json`](app.json), so `eas init` is done. An Apple Developer membership is
+active. A Google Play account ($25, one time) is still outstanding, so Android
+can be built for internal distribution but not submitted.
 
 The doc checks exist because two stale-documentation bugs were committed on the
 same day, both from appending to a long file without re-reading it. The rule
