@@ -1154,7 +1154,8 @@ launch.
     justification citing the Function URL that the same script deletes; and
     `e8cba27` rewrote the server README's "External gates", which still said
     deployment was waiting on the owner and named Render, a host D28 rejected
-    and this project never used.
+    and this project never used. `3df85d6` then moved the CI workflow's two
+    actions off the Node 20 runtime GitHub had been annotating on every run.
 
     Verification went past reading passing output. Seven deliberate mutations
     to the money, schema, migration, doc, wire-contract, backup, and remote-apply

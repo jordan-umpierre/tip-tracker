@@ -111,6 +111,17 @@ settings `check-provider` cannot reach without a Management API token.
 accurate once the server required the Supabase identity configuration it lists
 further down the same file.
 
+## `3df85d6` — ci: move the workflow actions off the deprecated Node 20 runtime
+
+Found by reading the CI run rather than the repo. Every run carried an
+annotation: `actions/checkout@v4` and `actions/setup-node@v4` target Node.js 20
+and are being forced onto Node 24. Both actions are at v7 now.
+
+This workflow uses them plainly — no inputs on `checkout`, and `setup-node`
+only pins `node-version` — so there was nothing in the major bumps to trip
+over. Verified by the run the commit produced: 14 steps green and the
+annotation gone, rather than by reading two changelogs and assuming.
+
 ## Adversarial verification
 
 A passing suite is not evidence the suite works. Seven deliberate mutations
