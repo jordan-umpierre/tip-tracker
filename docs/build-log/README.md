@@ -36,7 +36,7 @@ Not automated on purpose: deciding whether a commit is "real work" or
 bookkeeping needs a judgment a script can't make, and a check that guessed
 would either nag constantly or pass while missing things.
 
-Last updated: 2026-08-06
+Last updated: 2026-08-07
 
 ---
 
@@ -121,3 +121,7 @@ name — the number adds sequence without costing you the description.
 29. [29-api-deployment.md](29-api-deployment.md) — D28, picking a host by
     elimination and deploying the API to AWS Lambda behind an API Gateway HTTP
     API in the database's own region.
+30. [30-repository-audit.md](30-repository-audit.md) — the second whole-repo
+    staleness audit: stale README and server-README claims, the one-sided
+    platform split left by dropping web, and seven mutations proving the checks
+    fail when they should.

@@ -3,7 +3,7 @@
 Where this project is, what's next, and everything done so far in order.
 This is the file to open first, every session.
 
-Last updated: 2026-08-06
+Last updated: 2026-08-07
 
 ---
 
@@ -20,9 +20,15 @@ gone (D27). Nothing has been seen on a device, and no build exists.**
 
 **Do this next: the EAS build and native acceptance unit.** The infrastructure
 half of the old NEXT is done; what is left is a build and the decisions only
-the owner can make. Supply the three public `EXPO_PUBLIC_` values as EAS
-environment variables — `EXPO_PUBLIC_API_URL` is now the deployed HTTP API
-endpoint. Then run `eas init` and build a `preview` profile for each platform.
+the owner can make. `eas init` is already done — `1a97318` wrote the project id
+and owner into `app.json`, and `d181736` pointed the `preview` profile at its
+EAS environment. So: supply the three public `EXPO_PUBLIC_` values as EAS
+environment variables in that `preview` environment — `EXPO_PUBLIC_API_URL` is
+the deployed HTTP API endpoint — and build a `preview` profile per platform.
+
+A Google Play account ($25, one time) is still outstanding, so Android can be
+built for internal distribution but not submitted. The Apple membership is
+active.
 
 Three provider settings are still unverified, and none of them can be read with
 the keys the server holds — they need a Management API token, so they are eyes
@@ -51,10 +57,20 @@ unverified gate over all of it.
 Two things are deliberately left undone and should not be mistaken for
 oversights:
 
-1. `AuthProvider` is 547 lines and is the only Fallow finding still standing.
-   Splitting a stateful provider is the kind of change whose bugs appear on a
-   device, and no device pass has happened yet. Split it after native
-   acceptance, not before.
+1. `AuthProvider` is 547 lines, the largest function in the repo. Splitting a
+   stateful provider is the kind of change whose bugs appear on a device, and
+   no device pass has happened yet. Split it after native acceptance, not
+   before.
+
+   It is not the only Fallow finding, which is what this said until the
+   2026-08-07 audit corrected it. `fallow health` names four refactoring
+   targets — `LogShiftForm.tsx`, `transport.ts`'s `runSync`,
+   `FederalWithholdingForm.tsx`, and `server/test/http.ts` — and 52
+   above-threshold complexity functions. What *is* clean, and is the claim
+   worth making, is `fallow dead-code` and `fallow dupes`: no dead files, no
+   dead exports, no duplication, and every one of the 46 complexity
+   suppressions now carries a machine-readable reason. The health findings are
+   triage signals against tested branches, not defects.
 2. The account connection effect still re-verifies `/v1/me` on every new
    session, including hourly token refreshes. That is a security check
    re-running, not the D26 finding, which was about sync; it was left alone
@@ -1124,3 +1140,33 @@ launch.
     nothing was exercised by a device, a second address, or concurrent callers,
     and the in-memory rate limiter no longer holds across instances. See
     build-log 29.
+83. Audited the whole repository for staleness, the second time after phase 18.
+    Five commits had landed after the last handoff update, so both handoff
+    documents described a repository that no longer existed. `16edd8d` gave the
+    three bare Fallow suppressions machine-readable reasons; `b8e325f` indexed
+    build-log phase 29, which had been tracked but unlisted; `a241316` fixed six
+    README claims, chiefly that `eas init` still needed running and that the
+    Stack table called the backend "None through Layer 1" twenty lines below a
+    paragraph describing it on Lambda; `9d0c3fc` deleted the one-sided
+    `sessionStorage` platform split and its `.d.ts` shim and Fallow exception,
+    left behind when D27 removed the web half; `8e9099b` corrected two comments
+    naming things the repo no longer has, including a `TRUST_PROXY_HOPS`
+    justification citing the Function URL that the same script deletes; and
+    `e8cba27` rewrote the server README's "External gates", which still said
+    deployment was waiting on the owner and named Render, a host D28 rejected
+    and this project never used.
+
+    Verification went past reading passing output. Seven deliberate mutations
+    to the money, schema, migration, doc, wire-contract, backup, and remote-apply
+    paths each made their check fail, with a `git diff` confirming the mutation
+    landed first — which caught two earlier attempts that reported a surviving
+    mutant only because the edit had silently matched nothing. A clean clone with
+    fresh `npm ci` passes the full hook; iOS and Android export; the Lambda zip
+    builds and its cross-directory import resolves from the packaged layout.
+
+    Three verified exceptions are recorded rather than suppressed:
+    `expo-constants`, `expo-linking`, and `react-native-screens` are unimported
+    but are declared `expo-router` peers; `ignoreDependencies: ["expo"]` is
+    load-bearing and was tested by removing it; and the single `npm audit`
+    advisory is fixable only by downgrading to Expo 46, so it stands. No feature
+    was added and nothing ran on a device. See build-log 30.
