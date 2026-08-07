@@ -152,7 +152,7 @@ done
 # the hook simply never fires, silently. That sat unnoticed on this machine
 # for a while despite a note claiming it was already done. Checked here too so
 # a manual `./scripts/check-docs.sh` run (e.g. the first step of a cold-agent
-# session, see CLAUDE.md) still catches it even when the hook itself can't.
+# session, see AGENTS.md) still catches it even when the hook itself can't.
 hooks_path=$(git config --get core.hooksPath 2>/dev/null || true)
 [ "$hooks_path" != ".githooks" ] && warn "core.hooksPath is '$hooks_path', not .githooks -- pre-commit checks are not running. Fix: git config core.hooksPath .githooks"
 

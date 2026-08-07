@@ -68,11 +68,15 @@ node --env-file=server/.env -e '
     // serve.
     AWS_LWA_READINESS_CHECK_PATH: "/health",
 
-    // One proxy sits in front of the app: the Function URL itself, which puts
-    // the caller address in X-Forwarded-For. Express needs the exact count or
-    // the rate limiter buckets every caller together. Raising this above the
-    // real number would instead let a caller forge the header and pick its own
-    // bucket.
+    // One proxy sits in front of the app: the API Gateway HTTP API created
+    // below, which puts the caller address in X-Forwarded-For. (This used to
+    // say "the Function URL", which the bottom of this script now deletes.)
+    // Express needs the exact count or the rate limiter buckets every caller
+    // together. Raising this above the real number would instead let a caller
+    // forge the header and pick its own bucket.
+    //
+    // Still a reading of how the adapter forwards the address, not a measured
+    // fact: the request log records no client address to check it against.
     TRUST_PROXY_HOPS: "1",
   });
 
