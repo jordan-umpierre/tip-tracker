@@ -86,9 +86,7 @@ type ChartTotals = Pick<CalendarTrend, 'durationSeconds' | 'tipsCents' | 'grossC
 
 type ChartPosition = { x: number; y: number };
 
-// This component is exercised on-device; the repo has no component coverage
-// reporter for Fallow's estimated CRAP score.
-// fallow-ignore-next-line complexity
+// fallow-ignore-next-line complexity -- Exercised on-device; the repo has no component coverage reporter for Fallow's estimated CRAP score.
 export default function IncomeTrendChart({
   range,
   scopeLabel,

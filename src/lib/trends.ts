@@ -152,9 +152,7 @@ function bucketForRange(range: TrendChartRange): TrendSeries['bucket'] {
   return range === 'quarter' ? 'week' : 'month';
 }
 
-// Every range branch is covered through calculateTrendSeries in the direct-run
-// assertions; this repo does not produce Istanbul data for Fallow's CRAP model.
-// fallow-ignore-next-line complexity
+// fallow-ignore-next-line complexity -- Every range branch is covered through calculateTrendSeries in the direct-run assertions; this repo produces no Istanbul data for Fallow's CRAP model.
 function seriesKeys(range: TrendChartRange, oldest: DatedShift, newest: DatedShift): string[] {
   if (range === 'week' || range === 'month') {
     const dayCount = range === 'week' ? 7 : 30;

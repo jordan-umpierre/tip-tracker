@@ -24,10 +24,7 @@ import {
 type SummaryMode = 'weekly' | 'allTime';
 type Breakdown = 'year' | 'month' | 'weekday';
 
-// This route-level component coordinates loading and the screen's independent
-// controls. Its calculation branches are tested below the UI and its flows are
-// device-checked; the repo has no component coverage reporter for CRAP scoring.
-// fallow-ignore-next-line complexity
+// fallow-ignore-next-line complexity -- Route-level coordinator: calculation branches are tested below the UI and its flows are device-checked; the repo has no component coverage reporter for CRAP scoring.
 export default function TrendsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
