@@ -1,9 +1,10 @@
 # Tip Tracker API
 
 This package is the authenticated cloud boundary from D22 and D24. It does not
-replace the Expo app's SQLite database. It exposes the provider-free,
-authenticated server half of push/pull; the mobile client that calls it landed
-with D26.
+replace the Expo app's SQLite database. It exposes the authenticated server
+half of push/pull; the mobile client that calls it landed with D26, and D28
+deployed it. Nothing in `src/` knows which host it runs on, but it does require
+the Supabase identity settings listed under Runtime configuration.
 
 Every finished request writes one JSON line to stdout with its method, path,
 status, duration, and — once a token has actually verified — the account
@@ -246,7 +247,27 @@ prerequisite for the `{{ .Token }}` change rather than a later hardening step.
 
 ## External gates
 
-No Supabase or Render resource is created by this repository. Deployment waits
-for the owner to choose and fund the plans, database and API regions, backup and
-deletion retention, availability expectations, and SMTP provider. Supabase,
-Render, GitHub, billing, database, and SMTP credentials remain manual inputs.
+This section used to say deployment was waiting on the owner and named Render
+as a candidate host. Both are out of date: D28 chose Lambda, Render was only
+ever a rejected alternative, and the deployment has happened.
+
+What exists now: a Supabase project holding the migrated schema, and the AWS
+Lambda function plus API Gateway HTTP API that `scripts/deploy-lambda.sh`
+creates and updates. No Supabase resource is created by this repository; the
+AWS ones are.
+
+Still open, and still the owner's to decide:
+
+- Plan tiers and funding on both Supabase and AWS. The AWS account is capped at
+  10 concurrent executions until AWS raises it.
+- Backup and deletion retention, and availability expectations.
+- A verified SMTP sending domain. The project sends through Resend's shared
+  `onboarding@resend.dev`, which only delivers to the address on the Resend
+  account that owns the key. That is enough to prove recovery against the
+  owner's own mailbox; every other recipient is rejected outright, so a tester
+  who is not the owner sees a recovery email that silently never arrives.
+- The three Auth settings above, which need a Management API personal access
+  token that `npm run check-provider` does not have.
+
+Supabase, AWS, GitHub, billing, database, and SMTP credentials remain manual
+inputs.
