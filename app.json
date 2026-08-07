@@ -9,7 +9,7 @@
     "userInterfaceStyle": "light",
     "ios": {
       "bundleIdentifier": "com.jordanumpierre.tiptracker",
-      "supportsTablet": true
+      "supportsTablet": false
     },
     "android": {
       "package": "com.jordanumpierre.tiptracker",
