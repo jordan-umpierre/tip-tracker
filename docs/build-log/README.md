@@ -125,3 +125,7 @@ name — the number adds sequence without costing you the description.
     staleness audit: stale README and server-README claims, the one-sided
     platform split left by dropping web, and seven mutations proving the checks
     fail when they should.
+31. [31-launch-prep.md](31-launch-prep.md) — what actually stands between this
+    and the App Store: the scaffold display name, an untested iPad claim, and
+    the empty production environment that would have shipped sign-in silently
+    missing.

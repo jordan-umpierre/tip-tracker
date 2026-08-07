@@ -18,17 +18,47 @@ checks run on GitHub rather than one laptop, account deletion and password
 recovery work from inside the app, the privacy disclosures exist, and web is
 gone (D27). Nothing has been seen on a device, and no build exists.**
 
-**Do this next: the EAS build and native acceptance unit.** The infrastructure
-half of the old NEXT is done; what is left is a build and the decisions only
-the owner can make. `eas init` is already done — `1a97318` wrote the project id
-and owner into `app.json`, and `d181736` pointed the `preview` profile at its
-EAS environment. So: supply the three public `EXPO_PUBLIC_` values as EAS
-environment variables in that `preview` environment — `EXPO_PUBLIC_API_URL` is
-the deployed HTTP API endpoint — and build a `preview` profile per platform.
+**Do this next: run the first build. Nothing else is in the way.**
+
+```sh
+eas build --platform ios --profile preview
+```
+
+Everything that command needs is in place and was verified on 2026-08-07:
+`eas init` is done (`1a97318`), the `preview` profile names its environment
+(`d181736`), and that environment holds all three `EXPO_PUBLIC_` values,
+byte-matching the local `.env`. The endpoint they point at is live — `/health`
+answered 200 and `/v1/me` answered 401 from this laptop. The Apple membership
+is active.
 
 A Google Play account ($25, one time) is still outstanding, so Android can be
-built for internal distribution but not submitted. The Apple membership is
-active.
+built for internal distribution but not submitted.
+
+**The `development` and `production` EAS environments are deliberately empty,
+and that fails quietly.** `readAuthConfig` in [`src/auth/config.ts`](../src/auth/config.ts)
+returns `null` with no error when all three values are absent — that is D25's
+signed-out local-only state, and it is correct for a user who never makes an
+account. It is a trap for a build: a `production` build with an empty
+environment compiles, passes review, and ships with sign-in and sync silently
+missing. Only a *partial* config throws. So when production is filled, fill all
+three at once, and confirm on the built app that Manage data offers an account
+rather than assuming the build was configured.
+
+Production is deferred on purpose. The current backend is staging — the Resend
+sender only reaches the owner's mailbox — so promoting it as-is would ship
+broken password recovery. Decide production infrastructure after preview has
+passed on a device, not before.
+
+Two store-facing defects were fixed the same day and are worth not
+reintroducing. `expo.name` was `tip-tracker`, which is what the home screen
+icon would have read (`172b6b7`). `ios.supportsTablet` was `true` while no
+layout had ever rendered on a tablet, which is a rejection risk and a demand
+for iPad screenshots (`7e57e6b`).
+
+Still required before submission, and none of it doable from a terminal:
+a hosted privacy-policy URL — [`docs/privacy-policy.md`](privacy-policy.md) is
+written but lives only in this repo — App Store Connect listing metadata,
+screenshots from a real device, and an app name that is actually available.
 
 Three provider settings are still unverified, and none of them can be read with
 the keys the server holds — they need a Management API token, so they are eyes
@@ -1171,3 +1201,22 @@ launch.
     load-bearing and was tested by removing it; and the single `npm audit`
     advisory is fixable only by downgrading to Expo 46, so it stands. No feature
     was added and nothing ran on a device. See build-log 30.
+84. Cleared the path to a first build. The three `EXPO_PUBLIC_` values were
+    already in the EAS `preview` environment and byte-match the local `.env`;
+    the endpoint they name was reached for the first time since D28 and
+    answered `/health` 200 and `/v1/me` 401. Three defects stood between that
+    and a submittable build. `172b6b7` changed `expo.name` from `tip-tracker`,
+    the slug-matching value left over from phase 14 that would have been the
+    home screen label, to `Tip Tracker`, and gave the `production` and
+    `development` profiles the `environment` key only `preview` had. `7e57e6b`
+    set `ios.supportsTablet` to false, because Apple reviews on iPad and
+    demands iPad screenshots while no layout here has ever rendered on one.
+
+    The find worth carrying forward is that an unconfigured build fails
+    quietly. `loadAuthSetup({})` returns `{config: null, error: null}` — D25's
+    supported signed-out state — so a production build with an empty
+    environment compiles, passes review, and ships with sign-in and sync
+    silently absent. Only a partial config throws. Production is deliberately
+    left empty until a preview build has run on a device, since the current
+    backend is staging and its Resend sender reaches only the owner. See
+    build-log 31.
