@@ -5,8 +5,5 @@
     "src/lib/*.test.ts",
     "src/sync/*.test.ts"
   ],
-  "ignoreDependencies": ["expo"],
-  "ignoreExports": [
-    { "file": "src/auth/sessionStorage.native.ts", "exports": ["*"] }
-  ]
+  "ignoreDependencies": ["expo"]
 }
