@@ -118,3 +118,6 @@ name — the number adds sequence without costing you the description.
     finished feature set and a build a stranger can install: CI, the store
     build config, in-app account deletion, password recovery, rate limiting,
     request logging, the privacy disclosures, and D27 dropping web.
+29. [29-api-deployment.md](29-api-deployment.md) — D28, picking a host by
+    elimination and deploying the API to AWS Lambda behind an API Gateway HTTP
+    API in the database's own region.
