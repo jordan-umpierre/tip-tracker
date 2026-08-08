@@ -16,20 +16,31 @@ unauthenticated. Everything above that is unchanged: release readiness is
 implemented and statically verified, both store targets can be built, the
 checks run on GitHub rather than one laptop, account deletion and password
 recovery work from inside the app, the privacy disclosures exist, and web is
-gone (D27). Nothing has been seen on a device, and no build exists.**
+gone (D27). The first build exists and runs on a real device.**
 
-**Do this next: run the first build. Nothing else is in the way.**
+**The iOS `preview` build was made and installed on 2026-08-07. The first thing
+ever verified on hardware passed: log a shift, force-quit, relaunch, and the
+shift is still there. That is local SQLite persistence, the floor the rest of
+the app stands on.**
+
+**Do this next: work through
+[`docs/acceptance.md`](acceptance.md) top to bottom.** It is the tracked
+checklist for everything that can only be proven on a device, in dependency
+order, with the cold-start item already marked passed. Record failures in the
+file rather than in your head. Nothing about production is decidable until that
+pass is done, and no second person should install a build until its section 7
+is clear.
+
+The build command that produced this is below, and everything it needs was
+verified the same day: `eas init` is done (`1a97318`), the `preview` profile
+names its environment (`d181736`), and that environment holds all three
+`EXPO_PUBLIC_` values, byte-matching the local `.env`. The endpoint they point
+at is live — `/health` answered 200 and `/v1/me` answered 401 from this laptop.
+The Apple membership is active.
 
 ```sh
 eas build --platform ios --profile preview
 ```
-
-Everything that command needs is in place and was verified on 2026-08-07:
-`eas init` is done (`1a97318`), the `preview` profile names its environment
-(`d181736`), and that environment holds all three `EXPO_PUBLIC_` values,
-byte-matching the local `.env`. The endpoint they point at is live — `/health`
-answered 200 and `/v1/me` answered 401 from this laptop. The Apple membership
-is active.
 
 A Google Play account ($25, one time) is still outstanding, so Android can be
 built for internal distribution but not submitted.
