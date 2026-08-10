@@ -1,20 +1,12 @@
+import { detectShiftCsvMapping } from './csvColumnMapping.ts';
+import type { ShiftCsvMapping } from './csvColumnMapping.ts';
 import { parseCalendarDate } from './dates.ts';
 
-const EXPECTED_HEADERS = [
-  'Date',
-  'Wage',
-  'Cash Tips',
-  'Credit Tips',
-  'Hours',
-  'Note',
-  'Daily Income',
-  'Start Time',
-  'End Time',
-] as const;
 const MAX_CSV_CHARACTERS = 1_000_000;
 const MAX_DATA_ROWS = 10_000;
 
-type ExpectedHeader = (typeof EXPECTED_HEADERS)[number];
+// Reads one column of one row by its header name, already trimmed.
+type FieldReader = (column: string) => string;
 
 export type ShiftImportRow = {
   sourceRow: number;
@@ -48,6 +40,11 @@ export type ShiftImportParseResult = {
   errors: CsvImportIssue[];
   warnings: CsvImportIssue[];
   summary: ShiftImportSummary;
+  // The file's own header line, and the columns that were read from it. The
+  // preview shows both so a wrong guess is visible before anything is written,
+  // and passes a corrected mapping back into parseShiftImportCsv.
+  headers: string[];
+  mapping: ShiftCsvMapping | null;
 };
 
 export type ShiftImportConflicts = {
@@ -69,7 +66,13 @@ type ExistingShift = {
 // File-shape and all-or-nothing validation branches are covered directly by
 // shiftImportCsv.test.ts; flattening them would hide distinct user errors.
 // fallow-ignore-next-line complexity -- Exact file errors are covered by shiftImportCsv.test.ts.
-export function parseShiftImportCsv(text: string): ShiftImportParseResult {
+// Pass a mapping to read the file with columns the user has confirmed or
+// corrected. Leave it out and the columns are detected from the header line,
+// which is what the first pass over a newly picked file does.
+export function parseShiftImportCsv(
+  text: string,
+  mapping?: ShiftCsvMapping
+): ShiftImportParseResult {
   if (text.length > MAX_CSV_CHARACTERS) {
     return emptyResult({ message: 'The CSV is too large. The limit is 1 MB.' });
   }
@@ -87,12 +90,37 @@ export function parseShiftImportCsv(text: string): ShiftImportParseResult {
     return emptyResult({ message: 'The CSV is empty.' });
   }
 
-  const headerIndexes = readHeaderIndexes(records[0]);
-  if (!headerIndexes) {
-    return emptyResult({
-      sourceRow: 1,
-      message: `Expected these columns: ${EXPECTED_HEADERS.join(', ')}.`,
-    });
+  // Headers are trimmed once here. Everything downstream -- detection, the
+  // mapping, and the per-row column lookup -- uses these trimmed strings, so a
+  // file with " Credit Tips" cannot map and then fail to index.
+  const headers = records[0].map((header) => header.trim());
+  const detection = detectShiftCsvMapping(headers);
+  const chosenMapping = mapping ?? detection.mapping;
+
+  if (!chosenMapping) {
+    return emptyResult(
+      {
+        sourceRow: 1,
+        message: `No column could be read as ${formatList(detection.missing)}. The header line is: ${headers.join(', ')}.`,
+      },
+      headers,
+      null
+    );
+  }
+
+  // A mapping supplied by the caller can name a column this file does not
+  // have -- picking a second file after editing the mapping for the first, for
+  // instance. Catching it here keeps the row parser free of undefined indexes.
+  const columnIndexes = readColumnIndexes(headers);
+  const unknownColumn = mappedColumns(chosenMapping).find(
+    (column) => !columnIndexes.has(column)
+  );
+  if (unknownColumn) {
+    return emptyResult(
+      { sourceRow: 1, message: `This CSV has no column named “${unknownColumn}.”` },
+      headers,
+      null
+    );
   }
 
   const dataRecords = records
@@ -101,10 +129,14 @@ export function parseShiftImportCsv(text: string): ShiftImportParseResult {
     .filter(({ values }) => !values.every((value) => value.trim() === ''));
 
   if (dataRecords.length > MAX_DATA_ROWS) {
-    return emptyResult({ message: `The CSV has more than ${MAX_DATA_ROWS} shift rows.` });
+    return emptyResult(
+      { message: `The CSV has more than ${MAX_DATA_ROWS} shift rows.` },
+      headers,
+      chosenMapping
+    );
   }
   if (dataRecords.length === 0) {
-    return emptyResult({ message: 'The CSV has no shift rows.' });
+    return emptyResult({ message: 'The CSV has no shift rows.' }, headers, chosenMapping);
   }
 
   const rows: ShiftImportRow[] = [];
@@ -112,7 +144,13 @@ export function parseShiftImportCsv(text: string): ShiftImportParseResult {
   const warnings: CsvImportIssue[] = [];
 
   for (const record of dataRecords) {
-    const parsed = parseShiftRecord(record.values, record.sourceRow, headerIndexes);
+    const parsed = parseShiftRecord(
+      record.values,
+      record.sourceRow,
+      headers.length,
+      columnIndexes,
+      chosenMapping
+    );
     errors.push(...parsed.errors);
     if (parsed.row) {
       rows.push(parsed.row);
@@ -122,7 +160,21 @@ export function parseShiftImportCsv(text: string): ShiftImportParseResult {
     }
   }
 
-  const summary = summarize(rows, dataRecords.length, warnings.length);
+  // Counted before the file-level warnings below are added, since every
+  // warning raised by the loop above is a daily-income disagreement and none
+  // of the ones added after it are.
+  const dailyIncomeMismatches = warnings.length;
+
+  // Said once for the file rather than once per row. A job with no tips is a
+  // real thing, but importing hundreds of shifts at zero tips because a column
+  // was named something unexpected is not, so it gets stated plainly.
+  if (chosenMapping.tips.length === 0) {
+    warnings.push({
+      message: 'No tips column was found, so every shift will import with $0.00 in tips.',
+    });
+  }
+
+  const summary = summarize(rows, dataRecords.length, dailyIncomeMismatches);
   if (!Number.isSafeInteger(summary.totalTipsCents)) {
     errors.push({ message: 'The combined tip total is too large to import safely.' });
   }
@@ -132,7 +184,7 @@ export function parseShiftImportCsv(text: string): ShiftImportParseResult {
     });
   }
 
-  return { rows, errors, warnings, summary };
+  return { rows, errors, warnings, summary, headers, mapping: chosenMapping };
 }
 
 export function inspectShiftImportConflicts(
@@ -156,36 +208,40 @@ export function inspectShiftImportConflicts(
 function parseShiftRecord(
   values: string[],
   sourceRow: number,
-  indexes: Map<ExpectedHeader, number>
+  headerCount: number,
+  indexes: Map<string, number>,
+  mapping: ShiftCsvMapping
 ): { row?: ShiftImportRow; errors: CsvImportIssue[]; warning?: CsvImportIssue } {
-  if (values.length !== EXPECTED_HEADERS.length) {
+  // Checked against this file's own header line rather than a fixed number, so
+  // extra columns the mapping ignores -- a "Day" column spelling out the
+  // weekday -- are fine, while a row that lost or gained a field is not.
+  if (values.length !== headerCount) {
     return {
       errors: [
-        {
-          sourceRow,
-          message: `Expected ${EXPECTED_HEADERS.length} fields but found ${values.length}.`,
-        },
+        { sourceRow, message: `Expected ${headerCount} fields but found ${values.length}.` },
       ],
     };
   }
 
-  const field = (header: ExpectedHeader) => values[indexes.get(header)!].trim();
+  const field: FieldReader = (column) => values[indexes.get(column)!].trim();
   const errors: CsvImportIssue[] = [];
-  const shiftDate = parseSourceDate(field('Date'));
-  const hourlyRateCents = parseCents(field('Wage'));
-  const cashTipsCents = parseCents(field('Cash Tips'));
-  const creditTipsCents = parseCents(field('Credit Tips'));
-  const durationSeconds = parseDurationSeconds(field('Hours'));
-  const dailyIncomeCents = parseCents(field('Daily Income'));
-  const startTime = parseSourceTime(field('Start Time'));
-  const endTime = parseSourceTime(field('End Time'));
+  const shiftDate = parseSourceDate(field(mapping.date));
+  const hourlyRateCents = parseCents(field(mapping.wage));
+  // No tips column in the file means a job that does not earn tips, not a
+  // parse failure. The preview says so before any of this is written.
+  const tipsCents = mapping.tips.length === 0 ? 0 : parseSummedCents(mapping.tips, field);
+  const durationSeconds = parseSummedDurationSeconds(mapping.hours, field);
+  // Optional columns read as "nothing to check" rather than as an error when
+  // the file does not have them.
+  const dailyIncomeCents = mapping.dailyIncome ? parseCents(field(mapping.dailyIncome)) : null;
+  const startTime = mapping.startTime ? parseSourceTime(field(mapping.startTime)) : null;
+  const endTime = mapping.endTime ? parseSourceTime(field(mapping.endTime)) : null;
 
   if (!shiftDate) errors.push({ sourceRow, message: 'Date must be a real MM/DD/YYYY or YYYY-MM-DD date.' });
   if (hourlyRateCents === null) errors.push({ sourceRow, message: 'Wage must be nonnegative with at most two decimals.' });
-  if (cashTipsCents === null) errors.push({ sourceRow, message: 'Cash Tips must be nonnegative with at most two decimals.' });
-  if (creditTipsCents === null) errors.push({ sourceRow, message: 'Credit Tips must be nonnegative with at most two decimals.' });
-  if (durationSeconds === null) errors.push({ sourceRow, message: 'Hours must be greater than 0, no more than 24, and use at most two decimals.' });
-  if (dailyIncomeCents === null) errors.push({ sourceRow, message: 'Daily Income must be nonnegative with at most two decimals.' });
+  if (tipsCents === null) errors.push({ sourceRow, message: `${formatList(mapping.tips)} must be nonnegative with at most two decimals.` });
+  if (durationSeconds === null) errors.push({ sourceRow, message: `${formatList(mapping.hours)} must total more than 0 hours, no more than 24, and use at most two decimals.` });
+  if (mapping.dailyIncome && dailyIncomeCents === null) errors.push({ sourceRow, message: `${mapping.dailyIncome} must be nonnegative with at most two decimals.` });
 
   if (startTime === undefined) {
     errors.push({ sourceRow, message: 'Start Time must be blank, “no data,” h:mm AM/PM, or 24-hour HH:MM.' });
@@ -208,33 +264,31 @@ function parseShiftRecord(
     errors.length > 0 ||
     !shiftDate ||
     hourlyRateCents === null ||
-    cashTipsCents === null ||
-    creditTipsCents === null ||
+    tipsCents === null ||
     durationSeconds === null ||
-    dailyIncomeCents === null ||
     startTime === undefined ||
     endTime === undefined
   ) {
     return { errors };
   }
 
-  const tipsCents = cashTipsCents + creditTipsCents;
-  if (
-    !Number.isSafeInteger(tipsCents) ||
-    !Number.isSafeInteger(durationSeconds * hourlyRateCents)
-  ) {
+  if (!Number.isSafeInteger(durationSeconds * hourlyRateCents)) {
     return { errors: [{ sourceRow, message: 'A money value is too large to import safely.' }] };
   }
 
-  const note = field('Note') || null;
+  const note = mapping.note ? field(mapping.note) || null : null;
   const computedIncomeCents =
     tipsCents + Math.round((durationSeconds * hourlyRateCents) / 3600);
+  // Only worth cross-checking when the file carries a total to check against.
+  // The calculated value is what gets stored either way, per D5.
+  const incomeDriftCents =
+    dailyIncomeCents === null ? 0 : Math.abs(computedIncomeCents - dailyIncomeCents);
   const warning =
-    computedIncomeCents === dailyIncomeCents
+    dailyIncomeCents === null || incomeDriftCents <= roundingAllowanceCents(hourlyRateCents)
       ? undefined
       : {
           sourceRow,
-          message: `Daily Income is ${formatPlainMoney(dailyIncomeCents)}, but the imported wage, hours, and tips calculate to ${formatPlainMoney(computedIncomeCents)}. The calculated value will be used.`,
+          message: `${mapping.dailyIncome} is ${formatPlainMoney(dailyIncomeCents)}, but the imported wage, hours, and tips calculate to ${formatPlainMoney(computedIncomeCents)}. The calculated value will be used.`,
         };
 
   return {
@@ -253,22 +307,106 @@ function parseShiftRecord(
   };
 }
 
-function readHeaderIndexes(values: string[]): Map<ExpectedHeader, number> | null {
-  const headers = values.map((value) => value.trim());
-  const uniqueHeaders = new Set(headers);
-  if (
-    headers.length !== EXPECTED_HEADERS.length ||
-    uniqueHeaders.size !== EXPECTED_HEADERS.length ||
-    !EXPECTED_HEADERS.every((header) => uniqueHeaders.has(header))
-  ) {
-    return null;
+// Column name to position. A file with the same header twice keeps the first
+// one, which matches how the mapping was detected from the same list.
+function readColumnIndexes(headers: string[]): Map<string, number> {
+  const indexes = new Map<string, number>();
+  for (const [index, header] of headers.entries()) {
+    if (!indexes.has(header)) indexes.set(header, index);
   }
+  return indexes;
+}
 
-  return new Map(EXPECTED_HEADERS.map((header) => [header, headers.indexOf(header)]));
+// Every column the mapping actually reads, so a name that is not in the file
+// can be caught once up front instead of on all 624 rows.
+function mappedColumns(mapping: ShiftCsvMapping): string[] {
+  return [
+    mapping.date,
+    mapping.wage,
+    ...mapping.hours,
+    ...mapping.tips,
+    mapping.dailyIncome,
+    mapping.note,
+    mapping.startTime,
+    mapping.endTime,
+  ].filter((column): column is string => column !== null);
 }
 
 function parseCents(value: string): number | null {
   return parseHundredths(value);
+}
+
+// Adds up the money columns mapped to one value -- cash plus credit tips, for
+// instance.
+//
+// A blank column contributes nothing rather than failing, because a split
+// column is routinely empty on rows it does not apply to. All of them being
+// blank is still an error: that is a row with no tip figure at all, and
+// importing it as $0.00 would invent data.
+function parseSummedCents(columns: string[], field: FieldReader): number | null {
+  let total = 0;
+  let sawValue = false;
+
+  for (const column of columns) {
+    const raw = field(column);
+    if (raw === '') continue;
+
+    const cents = parseCents(raw);
+    if (cents === null) return null;
+    total += cents;
+    sawValue = true;
+  }
+
+  return sawValue && Number.isSafeInteger(total) ? total : null;
+}
+
+// The same idea for hours, except the 24-hour ceiling applies to the total
+// rather than to each part. Regular 7.02 plus overtime 1.38 is one 8.40-hour
+// shift, and checking the parts separately would let 20 + 20 through.
+function parseSummedDurationSeconds(columns: string[], field: FieldReader): number | null {
+  let hundredths = 0;
+  let sawValue = false;
+
+  for (const column of columns) {
+    const raw = field(column);
+    if (raw === '') continue;
+
+    const part = parseHundredths(raw);
+    if (part === null) return null;
+    hundredths += part;
+    sawValue = true;
+  }
+
+  if (!sawValue || hundredths === 0 || hundredths > 2400) return null;
+  return hundredths * 36;
+}
+
+// How far the recalculated daily income may sit from the one the file records
+// before it is worth telling the user about.
+//
+// Hours arrive rounded to two decimals, so the duration stored here can be up
+// to 0.005 h away from the one the source used to work out that row's pay. The
+// money that is worth is 0.005 x wage, and one more cent covers rounding the
+// total itself. At $10.50/h that is seven cents.
+//
+// This is not cosmetic. Across the six exports in fake-data/ there are 790
+// disagreements: 778 are this rounding, one to seven cents, and 12 are real --
+// overtime rows where the source paid time-and-a-half and the app recomputes
+// overtime itself from the job's own settings. Warning on all 790 buries the
+// 12 that a person actually needs to look at.
+//
+// Derived from the row's wage rather than being a flat number, so a $50/h job
+// gets the room it genuinely needs instead of a threshold tuned for $10.
+function roundingAllowanceCents(hourlyRateCents: number): number {
+  return Math.ceil(hourlyRateCents * 0.005) + 1;
+}
+
+// "Date and Wage" / "Cash Tips, Credit Tips, and Hours". Used in the messages
+// that name several columns at once, so they read as a sentence.
+function formatList(values: string[]): string {
+  if (values.length <= 1) return values.join('');
+  if (values.length === 2) return `${values[0]} and ${values[1]}`;
+  return `${values.slice(0, -1).join(', ')}, and ${values[values.length - 1]}`;
 }
 
 function parseHundredths(value: string): number | null {
@@ -277,12 +415,6 @@ function parseHundredths(value: string): number | null {
 
   const hundredths = Number(match[1]) * 100 + Number((match[2] ?? '').padEnd(2, '0'));
   return Number.isSafeInteger(hundredths) ? hundredths : null;
-}
-
-function parseDurationSeconds(value: string): number | null {
-  const hundredths = parseHundredths(value);
-  if (!hundredths || hundredths > 2400) return null;
-  return hundredths * 36;
 }
 
 // Two date shapes reach this. "MM/DD/YYYY" is what the first supplied export
@@ -411,11 +543,20 @@ function formatPlainMoney(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
-function emptyResult(error: CsvImportIssue): ShiftImportParseResult {
+// Headers and mapping default to empty because most of the early exits happen
+// before either one is known -- an unreadable or oversized file has no header
+// line to report.
+function emptyResult(
+  error: CsvImportIssue,
+  headers: string[] = [],
+  mapping: ShiftCsvMapping | null = null
+): ShiftImportParseResult {
   return {
     rows: [],
     errors: [error],
     warnings: [],
+    headers,
+    mapping,
     summary: {
       sourceRows: 0,
       acceptedRows: 0,

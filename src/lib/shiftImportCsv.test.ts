@@ -65,14 +65,33 @@ const quoted = parseShiftImportCsv(
 assert.deepEqual(quoted.errors, []);
 assert.equal(quoted.rows[0].note, 'busy, "very"\nnight');
 
-for (const badHeader of [
-  'Date,Wage,Cash Tips,Credit Tips,Hours,Note,Daily Income,Start Time',
-  'Date,Date,Cash Tips,Credit Tips,Hours,Note,Daily Income,Start Time,End Time',
-  'Date,Wage,Cash Tips,Credit Tips,Hours,Note,Daily Income,Start Time,Extra',
+// A file is refused for missing a value a shift cannot exist without, not for
+// naming its columns differently. Each of these drops exactly one of the three
+// required values and must say which one is absent.
+for (const [missingValue, badHeader] of [
+  ['Date', 'Wage,Cash Tips,Credit Tips,Hours,Note,Daily Income,Start Time,End Time'],
+  ['Wage', 'Date,Cash Tips,Credit Tips,Hours,Note,Daily Income,Start Time,End Time'],
+  ['Hours', 'Date,Wage,Cash Tips,Credit Tips,Note,Daily Income,Start Time,End Time'],
 ]) {
-  assert.match(parseShiftImportCsv(`${badHeader}\n${row()}`).errors[0].message, /Expected these columns/);
+  const refused = parseShiftImportCsv(`${badHeader}\n${VALID_ROW.slice(0, 8).join(',')}`);
+  assert.equal(refused.rows.length, 0);
+  assert.match(refused.errors[0].message, new RegExp(`No column could be read as ${missingValue}`));
+  // The header line is echoed back so the user can see what the file did have.
+  assert.match(refused.errors[0].message, /The header line is:/);
 }
 
+// Losing one half of the time pair is not a rejection. The file still knows
+// when every shift happened and for how long; it just cannot say when they
+// started and ended, so the shifts import without times.
+const halfTimes = parseShiftImportCsv(
+  `Date,Wage,Cash Tips,Credit Tips,Hours,Note,Daily Income,Start Time\n${VALID_ROW.slice(0, 8).join(',')}`
+);
+assert.deepEqual(halfTimes.errors, []);
+assert.equal(halfTimes.rows[0].startTime, null);
+assert.equal(halfTimes.rows[0].endTime, null);
+
+// A row that lost or gained a field is still an integrity failure, but the
+// count now comes from the file's own header line rather than a fixed nine.
 assert.match(parseShiftImportCsv(`${HEADER}\n${VALID_ROW.slice(0, 8).join(',')}`).errors[0].message, /Expected 9 fields/);
 assert.match(parseShiftImportCsv(`${HEADER}\n${row({ 5: '"unclosed' })}`).errors[0].message, /unclosed quoted field/);
 assert.match(parseShiftImportCsv(`${HEADER}\n${row({ 5: '"done"junk' })}`).errors[0].message, /text after a closing quote/);
@@ -160,9 +179,23 @@ const mixedTimes = parseShiftImportCsv(
 assert.equal(mixedTimes.rows.length, 1);
 assert.equal(mixedTimes.errors.length, 1);
 
-// Daily Income is a source-side check, not stored truth. The attached file has
-// one one-cent disagreement, so a mismatch warns while keeping the row valid.
-const mismatch = parseShiftImportCsv(file(row({ 6: '229.14' })));
+// Daily Income is a source-side check, not stored truth.
+//
+// Hours carry two decimals, so a source that worked out pay from exact minutes
+// always disagrees by a few cents. At this row's $9.00 wage the allowance is
+// six cents: 0.005 h of wage, rounded up, plus a cent for rounding the total.
+// Inside it, silence. Real exports produce hundreds of these, and warning on
+// all of them buries the disagreements that mean something.
+for (const withinAllowance of ['229.15', '229.14', '229.09', '229.21']) {
+  const quiet = parseShiftImportCsv(file(row({ 6: withinAllowance })));
+  assert.equal(quiet.rows.length, 1);
+  assert.deepEqual(quiet.warnings, []);
+  assert.equal(quiet.summary.dailyIncomeMismatches, 0);
+}
+
+// One cent past the allowance is no longer rounding, so it is reported. The
+// row still imports: the recalculated value is what gets stored either way.
+const mismatch = parseShiftImportCsv(file(row({ 6: '229.08' })));
 assert.equal(mismatch.rows.length, 1);
 assert.equal(mismatch.errors.length, 0);
 assert.equal(mismatch.summary.dailyIncomeMismatches, 1);
@@ -239,5 +272,106 @@ assert.match(
   parseShiftImportCsv(`${maximumRows}${row()}\n`).errors[0].message,
   /more than 10000 shift rows/
 );
+
+// A file that names its columns differently reads end to end, with hours
+// summed from a regular and an overtime column. This is the driving export's
+// shape: an ignored "Day" column, ISO dates, and split hours.
+//
+// 7.02 + 1.38 is 8.40 hours, which is 30240 seconds.
+const alternateHeaders = parseShiftImportCsv(
+  'Date,Day,Clock In,Clock Out,Regular Hours,Overtime Hours,Hourly Wage,Tips,Total Pay,Notes\n' +
+    '2023-11-04,Saturday,12:30 PM,8:54 PM,7.02,1.38,8.50,17.75,95.01,busy\n'
+);
+assert.deepEqual(alternateHeaders.errors, []);
+assert.equal(alternateHeaders.rows[0].durationSeconds, 30240);
+assert.equal(alternateHeaders.rows[0].tipsCents, 1775);
+assert.equal(alternateHeaders.rows[0].hourlyRateCents, 850);
+assert.equal(alternateHeaders.rows[0].shiftDate, '2023-11-04');
+assert.equal(alternateHeaders.rows[0].startTime, '12:30');
+assert.equal(alternateHeaders.rows[0].endTime, '20:54');
+assert.equal(alternateHeaders.rows[0].note, 'busy');
+
+// That row is also the honest disagreement worth keeping. The source paid
+// time-and-a-half on the overtime hour and recorded $95.01; this stores 8.40
+// hours at the base rate, and the app works out overtime itself from the job's
+// settings. Well past a rounding allowance, so it is reported.
+assert.equal(alternateHeaders.summary.dailyIncomeMismatches, 1);
+assert.match(alternateHeaders.warnings[0].message, /Total Pay is \$95\.01/);
+
+// A blank part contributes nothing. Most rows have no overtime at all.
+const noOvertime = parseShiftImportCsv(
+  'Date,Regular Hours,Overtime Hours,Hourly Wage,Tips\n2023-11-05,6.00,,8.50,10.00\n'
+);
+assert.deepEqual(noOvertime.errors, []);
+assert.equal(noOvertime.rows[0].durationSeconds, 21600);
+
+// Every part blank is a row with no hours at all, which is not a zero-hour
+// shift -- it is a row that cannot be imported.
+const allPartsBlank = parseShiftImportCsv(
+  'Date,Regular Hours,Overtime Hours,Hourly Wage,Tips\n2023-11-05,,,8.50,10.00\n'
+);
+assert.equal(allPartsBlank.rows.length, 0);
+assert.match(allPartsBlank.errors[0].message, /Regular Hours and Overtime Hours must total more than 0/);
+
+// The 24-hour ceiling applies to the total, not to each part. Two legal-looking
+// halves must not add up to a 40-hour shift.
+const impossibleTotal = parseShiftImportCsv(
+  'Date,Regular Hours,Overtime Hours,Hourly Wage,Tips\n2023-11-05,20.00,20.00,8.50,10.00\n'
+);
+assert.equal(impossibleTotal.rows.length, 0);
+assert.match(impossibleTotal.errors[0].message, /no more than 24/);
+
+// No tips column means a job that does not earn tips. The rows import at zero
+// and the file says so once, rather than repeating it on every row.
+const withoutTips = parseShiftImportCsv(
+  'Date,Regular Hours,Hourly Wage\n2023-11-05,6.00,8.50\n2023-11-06,5.00,8.50\n'
+);
+assert.deepEqual(withoutTips.errors, []);
+assert.equal(withoutTips.rows.length, 2);
+assert.equal(withoutTips.summary.totalTipsCents, 0);
+assert.equal(withoutTips.warnings.length, 1);
+assert.match(withoutTips.warnings[0].message, /every shift will import with \$0\.00 in tips/);
+
+// A caller can override the detected columns, which is what the preview does
+// when the guess is wrong. Here the summary column is chosen over the parts.
+const overridden = parseShiftImportCsv(
+  'Date,Hours Worked,Regular Hours,Overtime Hours,Hourly Wage,Tips\n2023-11-04,8.40,7.02,1.38,8.50,17.75\n',
+  {
+    date: 'Date',
+    wage: 'Hourly Wage',
+    hours: ['Hours Worked'],
+    tips: ['Tips'],
+    dailyIncome: null,
+    note: null,
+    startTime: null,
+    endTime: null,
+  }
+);
+assert.deepEqual(overridden.errors, []);
+assert.equal(overridden.rows[0].durationSeconds, 30240);
+
+// An override naming a column the file does not have is caught once, up front,
+// rather than on every row.
+const staleOverride = parseShiftImportCsv(
+  'Date,Regular Hours,Hourly Wage,Tips\n2023-11-04,7.02,8.50,17.75\n',
+  {
+    date: 'Date',
+    wage: 'Hourly Wage',
+    hours: ['Hours Worked'],
+    tips: ['Tips'],
+    dailyIncome: null,
+    note: null,
+    startTime: null,
+    endTime: null,
+  }
+);
+assert.equal(staleOverride.rows.length, 0);
+assert.equal(staleOverride.errors.length, 1);
+assert.match(staleOverride.errors[0].message, /no column named “Hours Worked/);
+
+// The result carries the file's own header line and the columns that were
+// read, because the preview shows both and sends a correction back.
+assert.deepEqual(withoutTips.headers, ['Date', 'Regular Hours', 'Hourly Wage']);
+assert.deepEqual(alternateHeaders.mapping?.hours, ['Regular Hours', 'Overtime Hours']);
 
 console.log('shift import CSV OK');
