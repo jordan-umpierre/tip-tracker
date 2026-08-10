@@ -655,6 +655,11 @@ UI/UX bar from the product definition is achievable here.
 > component's wiring responsibility under `LogScreen.tsx` once Expo Router
 > owns the actual entrypoint.
 >
+> **Superseded in part by D29 (2026-08-10):** the tabs moved into
+> `app/(tabs)/` under a root stack so the log-a-shift flow can present over
+> them. "Do not add nested stacks until a tab has a real child route" was
+> satisfied rather than reversed -- that route now exists.
+>
 > **Alternatives:**
 > - Push Trends onto a stack from the Log screen
 > - Land on Trends (what shipped from 2026-08-01 through 2026-08-10)
@@ -1791,3 +1796,77 @@ UI/UX bar from the product definition is achievable here.
 > **Revisit when:** the rate limiter needs to hold across instances, which is
 > before anyone who is not the owner installs a build; or a custom domain is
 > wanted, which is the HTTP API's job and not a new decision.
+
+### D29 — Log a shift as a pushed flow, one question per screen (2026-08-10)
+
+> **Decision:** Logging a shift is a stack of screens pushed over the tabs:
+> job (only when more than one active job exists), date, details,
+> confirmation. The tab navigator moves into `app/(tabs)/` under a root
+> `Stack` so the flow renders over the tab bar rather than inside a tab.
+> Route files stay thin under `app/`; the screens live in
+> `src/screens/logShift/`.
+>
+> Editing does not walk the flow. Tapping a row pushes the details screen
+> directly with a `shiftId`, and the date becomes a field there that opens the
+> calendar in a sheet.
+>
+> The details screen shows four fields -- hourly wage, tips, hours, note --
+> with start and end times behind an Advanced toggle. State moves between
+> steps as route params, not a context or a store.
+>
+> **Alternatives:**
+> - Keep the inline form expanding in the history list's footer (what shipped
+>   through 2026-08-10)
+> - A single full-screen `Modal` holding a step counter
+> - A nested stack inside the Log tab, leaving the tab bar visible throughout
+> - Ask for the job every time, as the reference app does
+> - Carry the in-progress shift in a React context between steps
+> - Keep the "a shift already exists for this date" alert on date selection
+>
+> **Why:** the old screen put eight controls into the footer of a scrolling
+> history, so starting a shift changed content wherever the list happened to be
+> scrolled to, and every field competed with every other field and with the
+> rows above them. One question per screen is the whole point: nothing else is
+> on screen to read.
+>
+> D11 said not to add a nested stack until a tab had a real child route. This
+> is that route, so this decision is the one D11 deferred rather than a
+> reversal of it.
+>
+> Routes rather than a modal because the stack already provides the header, the
+> back button, the swipe-back gesture, and the Android hardware back. A modal
+> would mean writing all four by hand, and `typedRoutes` checks every path at
+> compile time, which a step counter cannot be.
+>
+> The flow presents over the tab bar rather than inside the tab because it is a
+> task the user finishes or abandons. Leaving the bar reachable invites
+> switching to Trends mid-entry, which is how a half-filled form gets lost.
+>
+> Route params rather than a context because the params *are* the flow's state,
+> they are already strings, and they survive the screens being unmounted. This
+> keeps D11's "no shared store" rule intact for the same reason it was made.
+>
+> The job step is skipped at one job because asking a question with one
+> possible answer is not a choice, it is a tap. It appears the moment a second
+> job exists, when the question becomes real.
+>
+> The date-conflict alert is dropped. The calendar dots days that already have
+> a shift and says so in a legend directly under the grid, so the information
+> is on screen before the tap rather than in a dialog after it. Doubles remain
+> legitimate and are still not blocked.
+>
+> The confirmation screen re-reads the saved row instead of being handed the
+> figures the form computed, so it reports what was stored rather than what was
+> intended.
+>
+> **Known cost:** logging is four screens where it was one, which is more taps
+> for someone who wanted the old dense form. The details screen re-reads jobs
+> and shifts on mount, which is a second read of what the Log tab already had
+> in memory -- the price of route-owned reads, and the same trade D11 made.
+> `Calendar` had to be split out of `CalendarPicker` to appear on a full screen,
+> so there is now a component and a sheet around it rather than one file.
+>
+> **Revisit when:** device use shows the extra steps are slower for a regular
+> user than the form was; a step needs state the params cannot carry; or the
+> settings pile on the Log tab gets the same treatment, which is the next
+> obvious piece of this and is deliberately not in it.

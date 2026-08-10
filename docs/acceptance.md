@@ -28,15 +28,24 @@ fails, the cloud sections are meaningless.
 - [x] **Cold-start persistence.** Log one shift, force-quit, reopen. The shift
       is still listed. *Passed 2026-08-07.*
 - [x] **Create a job.** Current jobs shows it after a relaunch.
-- [x] **Log a shift against that job**, with tips and hours. The Trends totals
-      and the weekday chart both change.
+- [ ] **Log a shift against that job**, with tips and hours. Walk the flow:
+      date, details, confirmation. The confirmation figures match what you
+      entered, and the Trends totals and weekday chart both change.
+      *Re-opened 2026-08-10: the flow replaced the inline form (D29).*
+- [ ] **Advanced fields.** Log a shift using start and end times instead of
+      typing hours. The stored duration matches the times.
+- [ ] **Job step.** With one job, Log a shift goes straight to the date screen.
+      Add a second job and it asks which one first.
+- [ ] **Back out.** Leave the flow part-way with the back gesture and the
+      hardware back button. Nothing is written.
 - [ ] **Overtime.** Log a shift long enough to cross the overtime threshold.
       Trends labels its figures as estimated and the gross reflects the
       overtime rate.
 - [ ] **Calendar.** Open Calendar, pick a past date, confirm the shift list
       filters to it.
 - [ ] **Row actions.** Edit a logged shift, then remove one. Both survive a
-      relaunch.
+      relaunch. Editing opens the details screen directly with the date as a
+      field. *Re-opened 2026-08-10: editing changed shape (D29).*
 - [ ] **Trends.** Open Trends with at least three shifts logged. The chart
       renders and does not clip on this screen size.
 - [ ] **Empty state.** A job with no shifts reads "No shifts yet." rather than
