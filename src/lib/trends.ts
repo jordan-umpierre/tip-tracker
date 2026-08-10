@@ -19,6 +19,10 @@ const WEEKDAYS = [
 export type HeadlineTrend = {
   grossPerHourCents: number | null;
   grossCents: number;
+  // Tips are carried separately so a caller can split gross into wage and
+  // tips without re-walking the shifts. The totals below already track it;
+  // this used to drop it on the floor.
+  tipsCents: number;
   durationSeconds: number;
   workedWeekCount: number;
   grossPerWorkedWeekCents: number | null;
@@ -292,6 +296,7 @@ export function calculateTrends(
     headline: {
       grossPerHourCents: centsPerHour(allTotals.grossCents, allTotals.durationSeconds),
       grossCents: allTotals.grossCents,
+      tipsCents: allTotals.tipsCents,
       durationSeconds: allTotals.durationSeconds,
       workedWeekCount,
       grossPerWorkedWeekCents: average(allTotals.grossCents, workedWeekCount),

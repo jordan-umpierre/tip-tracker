@@ -34,6 +34,7 @@ const empty = calculateTrends([]);
 assert.deepEqual(empty.headline, {
   grossPerHourCents: null,
   grossCents: 0,
+  tipsCents: 0,
   durationSeconds: 0,
   workedWeekCount: 0,
   grossPerWorkedWeekCents: null,
@@ -56,6 +57,8 @@ const jobATrends = calculateTrends(scopedShifts, 'job-a');
 assert.deepEqual(jobATrends.headline, {
   grossPerHourCents: 1300,
   grossCents: 5200,
+  // Both job-a shifts tipped 600. The job-b shift's 6000 must not appear here.
+  tipsCents: 1200,
   durationSeconds: 240 * 60,
   workedWeekCount: 2,
   grossPerWorkedWeekCents: 2600,
