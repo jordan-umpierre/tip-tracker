@@ -61,8 +61,9 @@ rewrite of the one before. That property is the reason to ship in this order.
   inherited from the job but overridable (raises happen, so do special events).
 - Multiple shifts per day, any number of days.
 - See a list of past shifts. Edit and delete them.
-- Import existing history from the supported nine-column CSV export after a
-  complete preview and explicit confirmation.
+- Import existing history from a shift CSV after a complete preview and
+  explicit confirmation. The columns are detected by name and shown for review
+  before anything is saved.
 - Gross totals only.
 
 This is a complete, shippable, useful app. Someone would actually use it.

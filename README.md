@@ -97,10 +97,12 @@ Done:
   an interactive gross timeline with five ranges, weighted gross per hour,
   gross/hours per worked week, and one selectable year, month, or weekday
   breakdown
-- Exact nine-column CSV import on the Log screen: choose one job, validate and
-  preview every row, review overlaps, then append the whole file atomically
-  ([D13](docs/decisions.md)); paired `h:mm AM/PM` times normalize to stored
-  `HH:MM`, though the supplied Breadmaker file has no real timed rows
+- CSV import on the Log screen: choose one job, validate and preview every row,
+  review the detected columns and any overlaps, then append the whole file
+  atomically ([D13](docs/decisions.md), [D30](docs/decisions.md)). Columns are
+  matched by name rather than by an exact header line, hours and tips can be
+  summed from several columns, dates may be `MM/DD/YYYY` or `YYYY-MM-DD`, and
+  times may be `h:mm AM/PM` or 24-hour; both normalize to stored `HH:MM`
 - CSV export of every logged shift to a folder the user picks, in the app's own
   spreadsheet format rather than the import contract, including exact duration
   seconds and optional shift times ([D16](docs/decisions.md))

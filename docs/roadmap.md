@@ -3,7 +3,7 @@
 Where this project is, what's next, and everything done so far in order.
 This is the file to open first, every session.
 
-Last updated: 2026-08-07
+Last updated: 2026-08-10
 
 ---
 
@@ -1231,3 +1231,25 @@ launch.
     left empty until a preview build has run on a device, since the current
     backend is staging and its Resend sender reaches only the owner. See
     build-log 31.
+
+85. Made the CSV importer read files it had not seen before. Six real exports
+    were refused at row 1 because the importer required one exact nine-column
+    header line, leaving 2,813 importable shifts unread. `b4bd9e3` accepted ISO
+    dates and 24-hour times, both unambiguous supersets. `fc3ef99` replaced the
+    fixed header with name matching and made hours and tips map to a list of
+    columns that get summed — the same thing the parser already did for cash
+    and credit tips, generalized to also cover regular plus overtime hours.
+    `22172c3` put the detected columns in the preview above the import button.
+
+    Two measurements shaped it. All 624 rows of one export confirmed that
+    `Regular + Overtime` equals the summary column wherever both appear and is
+    never blank, so summing beats any formula syntax. And the 790 daily-income
+    disagreements split at seven cents: 778 were hours-rounding arithmetic, and
+    the 12 real ones were all overtime rows paid at time-and-a-half, which the
+    app recomputes itself under D14. Warning on all 790 had buried the 12.
+
+    Detection is a guess and is shown rather than applied silently, since a
+    wrong money column produces a history that looks complete and is not. The
+    column picker is deliberately unbuilt — `parseShiftImportCsv` already takes
+    a corrected mapping, so it is UI work waiting on a file that guesses wrong.
+    See D30 and build-log 32.

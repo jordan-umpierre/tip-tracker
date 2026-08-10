@@ -1908,3 +1908,65 @@ UI/UX bar from the product definition is achievable here.
 > user than the form was; a step needs state the params cannot carry; or the
 > settings pile on the Log tab gets the same treatment, which is the next
 > obvious piece of this and is deliberately not in it.
+
+### D30 — Detect CSV columns by name, and show the guess before importing (2026-08-10)
+
+> **Decision:** Replace D13's exact nine-column header requirement with name
+> matching. Headers are normalized (lowercase, separators to spaces) and
+> compared against an alias list per value, so `Hourly Wage`, `hourly_wage`,
+> and `Wage` are one column. Columns no alias claims are ignored rather than
+> fatal. Hours and tips map to a *list* of columns that get summed; that is the
+> only combining rule. Date, wage, and hours are required, tips are not. Dates
+> may be `MM/DD/YYYY` or `YYYY-MM-DD` and times may be `h:mm AM/PM` or 24-hour.
+> The detected mapping is shown in the preview above the import button, and
+> `parseShiftImportCsv` accepts a corrected mapping so a picker is UI-only work.
+>
+> **Alternatives:**
+> - Keep the exact contract and convert files outside the app
+> - One adapter per vendor export
+> - An expression syntax for derived columns
+> - Auto-detect and import without showing the mapping
+> - A general CSV/mapping dependency
+>
+> **Why:** D13 chose a bounded contract because one format existed, and said to
+> revisit when a second real export appeared. Six now exist. Five failed at row
+> 1 on header names alone and the sixth on date format, with every row unread —
+> 2,813 importable shifts refused for naming. That is the trigger firing, not a
+> reversal.
+>
+> Summing a list of columns is the whole of the combining rule because it is
+> the only arithmetic any observed export needs, and D13 already did it for
+> cash plus credit tips. Generalizing it also covers regular plus overtime
+> hours and deletes the tips special case from the row parser. Where a file has
+> both parts and a summary column the parts win: in `driving_job_shifts.csv`
+> the summary column is blank on every row that has clock times, while regular
+> and overtime are filled on all 624 rows and agree with it wherever both
+> appear.
+>
+> Tips stopped being required because one export has no tips column — that job
+> earns none. Refusing a real record of real work would be wrong, so those rows
+> import at zero and the preview says so once for the file.
+>
+> Daily income now tolerates a wage-derived rounding allowance
+> (`ceil(wage x 0.005) + 1` cents). Hours carry two decimals, so a source that
+> computed pay from exact minutes always disagrees by a few cents. Across the
+> six exports that is 778 of 790 warnings; the surviving 12 are real, and all
+> of them are overtime rows where the source paid time-and-a-half. The app
+> stores duration and base rate and derives overtime itself per D14, so that
+> disagreement is correct and worth surfacing. Burying it under 778 rounding
+> notes was the actual bug.
+>
+> Detection is a guess, so it is never applied silently. A wrong column in a
+> money import produces a history that looks complete and is not, which is the
+> same trust argument D13 made for the preview and the atomic transaction.
+>
+> **Known cost:** aliases are a list of strings that grows as real exports
+> arrive, and a file whose columns are named nothing like the aliases is still
+> refused. There is no column picker yet, so correcting a bad guess means
+> renaming the column and choosing the file again. Overtime hours import as
+> plain duration, so a row's stored gross can differ from the premium the
+> source recorded until the job's own overtime settings are configured.
+>
+> **Revisit when:** a real file is guessed wrong, which is when the picker gets
+> built; or a file needs arithmetic that summing cannot express, which is when
+> conversion belongs outside the app rather than in a formula syntax.

@@ -36,7 +36,7 @@ Not automated on purpose: deciding whether a commit is "real work" or
 bookkeeping needs a judgment a script can't make, and a check that guessed
 would either nag constantly or pass while missing things.
 
-Last updated: 2026-08-07
+Last updated: 2026-08-10
 
 ---
 
@@ -129,3 +129,6 @@ name — the number adds sequence without costing you the description.
     and the App Store: the scaffold display name, an untested iPad claim, and
     the empty production environment that would have shipped sign-in silently
     missing.
+32. [32-csv-column-detection.md](32-csv-column-detection.md) — D30, why six real
+    shift exports were refused at their header line, and the column detection,
+    summed columns, and rounding allowance that let 2,813 rows in.

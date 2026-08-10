@@ -75,7 +75,16 @@ Local-only estimator. Nothing here is written to the server.
 - [ ] **Full backup** produces a file the share sheet accepts.
 - [ ] **Export CSV** opens the share sheet with a readable file.
 - [ ] **Import CSV** of a file you just exported round-trips without
-      duplicating or dropping rows.
+      duplicating or dropping rows. Column detection (D30) reads the export's
+      own headers, so this works where it previously could not — `Hourly Rate`
+      maps to the wage and `Gross` to the daily total, while `Job` and
+      `Duration Seconds` are ignored. Check the "Columns read" list in the
+      preview says exactly that before confirming.
+- [ ] **Import CSV** durations survive the round trip. `Hours` carries two
+      decimals, so a shift stored with an odd number of seconds comes back
+      rounded to the nearest 36 (D16). Log a shift with times, export, re-import
+      to a scratch job, and confirm the duration is within a minute rather than
+      identical — a difference here is expected, a large one is not.
 
 ## 4. Cloud account
 
