@@ -50,28 +50,26 @@ assert.deepEqual(
   grouped[0].months.map((month) => [month.period, month.shiftCount, month.grossCents]),
   [['2026-01', 3, 3351]]
 );
-// Jan 31 2026 is a Saturday in the week starting Jan 25; Jan 15 is in the week
-// starting Jan 11; Jan 2 is in the week starting Dec 28 2025. Newest first.
+// A month holds its shifts directly, newest first, whatever order they arrived
+// in. The query already returns them sorted, which is exactly why this asserts
+// it here instead of trusting it.
 assert.deepEqual(
-  grouped[0].months[0].weeks.map((week) => [week.period, week.shiftCount]),
-  [['2026-01-25', 1], ['2026-01-11', 1], ['2025-12-28', 1]]
+  grouped[0].months[0].shifts.map((entry) => entry.id),
+  ['late-january', 'mid-january', 'early-january']
 );
 
-// A week straddling a month boundary belongs to both months, holding only that
-// month's shifts in each, so a month's rows always add up to its own header.
-// Both halves share a week start but get distinct keys so collapsing one leaves
-// the other alone.
+// Consecutive days either side of a month boundary land in their own months.
+// This used to be the awkward case -- one calendar week appeared under both
+// months with two keys so the halves could collapse separately -- and dropping
+// the week level is what removed it.
 const straddling = groupShifts([
   shift('sat-august', '2026-08-01', 3600, 0, 1000),
   shift('fri-july', '2026-07-31', 3600, 0, 1000),
 ]);
 const [august, july] = straddling[0].months;
 assert.deepEqual([august.period, july.period], ['2026-08', '2026-07']);
-assert.equal(august.weeks.length, 1);
-assert.equal(july.weeks.length, 1);
-assert.equal(august.weeks[0].period, july.weeks[0].period);
-assert.notEqual(august.weeks[0].key, july.weeks[0].key);
-assert.equal(august.grossCents, august.weeks[0].grossCents);
+assert.deepEqual([august.shiftCount, july.shiftCount], [1, 1]);
+assert.equal(august.grossCents, 1000);
 
 // Display-only overtime values flow into every collapsed subtotal without
 // changing the stored Shift, and a mixed group is labeled estimated.
@@ -98,32 +96,17 @@ assert.deepEqual(
   flattenShifts(grouped, { '2026': true }).map((row) => row.key),
   ['2026', '2026-01', '2025']
 );
+// Opening the month reveals every shift in it. Two taps from a cold open, and
+// there is no third level between the month and the rows.
 assert.deepEqual(
   flattenShifts(grouped, { '2026': true, '2026-01': true }).map((row) => row.key),
-  ['2026', '2026-01', '2026-01:2026-01-25', '2026-01:2026-01-11', '2026-01:2025-12-28', '2025']
+  ['2026', '2026-01', 'late-january', 'mid-january', 'early-january', '2025']
 );
 
-// A shift only appears once its year, month, and week are all open. An open
-// group inside a shut ancestor stays hidden rather than leaking rows.
+// An open month inside a shut year stays hidden rather than leaking its rows.
 assert.deepEqual(
-  flattenShifts(grouped, { '2026-01': true, '2026-01:2026-01-25': true }).map((row) => row.key),
+  flattenShifts(grouped, { '2026-01': true }).map((row) => row.key),
   ['2026', '2025']
-);
-assert.deepEqual(
-  flattenShifts(grouped, {
-    '2026': true,
-    '2026-01': true,
-    '2026-01:2026-01-25': true,
-  }).map((row) => row.key),
-  [
-    '2026',
-    '2026-01',
-    '2026-01:2026-01-25',
-    'late-january',
-    '2026-01:2026-01-11',
-    '2026-01:2025-12-28',
-    '2025',
-  ]
 );
 
 // Two branches can be open at once; opening one does not close another.

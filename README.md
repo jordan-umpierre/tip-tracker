@@ -32,13 +32,18 @@ passed preview, confirmation, one-transaction import, totals refresh, and
 duplicate-warning checks in the Android emulator, and the iOS picker flow
 passed its physical-iPhone pass on 2026-08-04.
 
-**The August product revision is implemented.** Trends is the home tab and now
-opens with an interactive gross-income graph, exact touch-selected values, and
-1W/1M/3M/1Y/All ranges. Log opens to a fully collapsed year/month/week history
-with the Log a shift button and data tools beneath it, within reach of a thumb;
-a left swipe on a row reveals Edit and Delete, with tap, long-press and
-screen-reader alternatives. Those flows, the opaque tab bar, and remove-job
-confirmation passed in Android; preservation is schema-tested.
+**The August product revision is implemented.** Log is the home tab, because
+logging a shift is the recurring task. It opens to a fully collapsed
+year/month history, two taps from any shift, with the Log a shift button and
+data tools beneath it within reach of a thumb; a left swipe on a row reveals
+Edit and Delete, with tap, long-press and screen-reader alternatives. Logging
+is a pushed flow rather than an inline form — date, details, confirmation, plus
+a job step when more than one job exists. Trends draws an interactive
+wage/tips/total graph with exact touch-selected values and 1W/1M/3M/1Y/YTD/All
+ranges, over a flat totals table and a weekday chart. The tab bar, remove-job
+confirmation, and the pre-flow versions of those screens passed in Android;
+preservation is schema-tested. The reworked Log and Trends screens are pending
+their own device pass — see [`docs/acceptance.md`](docs/acceptance.md).
 
 **The shared Log and Trends flows are verified on a physical iPhone and an
 Android API 36 emulator as of 2026-08-04.** The iPhone pass produced the CSV

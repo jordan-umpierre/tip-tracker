@@ -1,9 +1,9 @@
-// Turns a flat shift history into the year > month > week tree the Log screen
-// lists, then flattens that tree back into the rows actually on screen.
+// Turns a flat shift history into the year > month tree the Log screen lists,
+// then flattens that tree back into the rows actually on screen.
 // Like totals.ts and trends.ts this only maps values onto other values: no
 // SQLite, React, formatting, or device clock.
 import type { Shift } from '../data/shifts';
-import { parseCalendarDate, weekStartString } from './dates.ts';
+import { parseCalendarDate } from './dates.ts';
 import { calculateShiftGrossCents } from './totals.ts';
 
 type GroupTotals = {
@@ -15,21 +15,19 @@ type GroupTotals = {
 const NO_GROSS_OVERRIDES: ReadonlyMap<string, number> = new Map();
 const NO_ESTIMATED_JOBS: ReadonlySet<string> = new Set();
 
-// Every level carries the same totals so a collapsed row can still say what is
-// inside it. `period` is what gets displayed ("2026", "2026-08", "2026-08-02");
-// `key` is what the screen toggles on. They differ only for weeks, where a week
-// split across two months would otherwise collapse both halves at once.
+// Both levels carry the same totals so a collapsed row can still say what is
+// inside it. `period` is what gets displayed ("2026", "2026-08") and `key` is
+// what the screen toggles on. They were once different values, because a week
+// split across two months needed its two halves keyed apart; with weeks gone
+// they are always equal, and the pair is kept only because the row type reads
+// better naming what each string is for.
 export type ShiftGroup = GroupTotals & {
   key: string;
   period: string;
 };
 
-export type ShiftWeek = ShiftGroup & {
-  shifts: Shift[];
-};
-
 export type ShiftMonth = ShiftGroup & {
-  weeks: ShiftWeek[];
+  shifts: Shift[];
 };
 
 export type ShiftYear = ShiftGroup & {
@@ -50,26 +48,19 @@ export function groupShifts(
 ): ShiftYear[] {
   const years = new Map<string, ShiftYear>();
   const months = new Map<string, ShiftMonth>();
-  const weeks = new Map<string, ShiftWeek>();
 
   for (const shift of shifts) {
-    const date = parseCalendarDate(shift.shift_date);
-    if (!date) {
+    // Still parsed even though only the string slices below are used for
+    // grouping: a stored date that is not a real calendar date has to fail
+    // here rather than be filed under a silently wrong month.
+    if (!parseCalendarDate(shift.shift_date)) {
       // The form and the importer both reject bad dates, so reaching this means
-      // a corrupt stored row. Throwing surfaces it instead of filing the shift
-      // under some silently wrong week.
+      // a corrupt stored row.
       throw new Error(`Invalid shift date: ${shift.shift_date}`);
     }
 
     const yearPeriod = shift.shift_date.slice(0, 4);
     const monthPeriod = shift.shift_date.slice(0, 7);
-    const weekPeriod = weekStartString(date);
-    // A week straddling two months belongs to both, holding only that month's
-    // shifts in each. That is deliberate: a month's rows have to add up to the
-    // total in its own header, and splitting the week is the only way both
-    // stay true. Keying the week by month as well keeps the two halves
-    // independently collapsible.
-    const weekKey = `${monthPeriod}:${weekPeriod}`;
 
     let year = years.get(yearPeriod);
     if (!year) {
@@ -79,16 +70,9 @@ export function groupShifts(
 
     let month = months.get(monthPeriod);
     if (!month) {
-      month = { key: monthPeriod, period: monthPeriod, weeks: [], shiftCount: 0, grossCents: 0, estimated: false };
+      month = { key: monthPeriod, period: monthPeriod, shifts: [], shiftCount: 0, grossCents: 0, estimated: false };
       months.set(monthPeriod, month);
       year.months.push(month);
-    }
-
-    let week = weeks.get(weekKey);
-    if (!week) {
-      week = { key: weekKey, period: weekPeriod, shifts: [], shiftCount: 0, grossCents: 0, estimated: false };
-      weeks.set(weekKey, week);
-      month.weeks.push(week);
     }
 
     // Same D5 per-shift calculation the totals and Trends use, so no header can
@@ -97,8 +81,7 @@ export function groupShifts(
     const estimated = estimatedJobIds.has(shift.job_id);
     addTo(year, grossCents, estimated);
     addTo(month, grossCents, estimated);
-    addTo(week, grossCents, estimated);
-    week.shifts.push(shift);
+    month.shifts.push(shift);
   }
 
   // Newest first at every level. The query already returns shifts in that
@@ -110,10 +93,7 @@ export function groupShifts(
   for (const year of sorted) {
     year.months.sort((left, right) => right.key.localeCompare(left.key));
     for (const month of year.months) {
-      month.weeks.sort((left, right) => right.key.localeCompare(left.key));
-      for (const week of month.weeks) {
-        week.shifts.sort((left, right) => right.shift_date.localeCompare(left.shift_date));
-      }
+      month.shifts.sort((left, right) => right.shift_date.localeCompare(left.shift_date));
     }
   }
 
@@ -121,7 +101,7 @@ export function groupShifts(
 }
 
 export type ShiftGroupRow = ShiftGroup & {
-  kind: 'year' | 'month' | 'week';
+  kind: 'year' | 'month';
   expanded: boolean;
 };
 
@@ -164,14 +144,8 @@ export function flattenShifts(
       rows.push(monthRow);
       if (!monthRow.expanded) continue;
 
-      for (const week of month.weeks) {
-        const weekRow = groupRow('week', week, toggled);
-        rows.push(weekRow);
-        if (!weekRow.expanded) continue;
-
-        for (const shift of week.shifts) {
-          rows.push({ kind: 'shift', key: shift.id, shift });
-        }
+      for (const shift of month.shifts) {
+        rows.push({ kind: 'shift', key: shift.id, shift });
       }
     }
   }

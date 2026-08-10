@@ -606,9 +606,9 @@ UI/UX bar from the product definition is achievable here.
 > where a selected chip that was not the leftmost read as a default turned off.
 >
 > The month and year lists were deleted rather than restyled because
-> `shiftGroups.ts` already groups history by year, month, and week for the Log
-> tab's list, and does it with the individual shifts attached. Two
-> implementations of the same grouping is the cost; the one with less in it went.
+> `shiftGroups.ts` already groups history by year and month for the Log tab's
+> list, and does it with the individual shifts attached. Two implementations of
+> the same grouping is the cost; the one with less in it went.
 >
 > Cash and credit tips stay unsplit. The schema stores one `tips_cents` per
 > shift, and a column exists when a user has said they need it, not when a
@@ -857,13 +857,13 @@ UI/UX bar from the product definition is achievable here.
 > and tests exist. Non-midnight workweek boundaries were in that list until
 > D18 stored the inputs they need.
 
-### D15 — Collapse the shift history into a year/month/week tree (2026-08-03; revised 2026-08-03)
+### D15 — Collapse the shift history into a year/month tree (2026-08-03; revised 2026-08-10)
 
-> **Decision:** The Log nests shifts under year, then month, then week rows,
-> each carrying its own gross and shift count. Everything starts collapsed, so
-> the tab opens to one row per year. The tree is flattened into one array of
-> typed rows and rendered through a single `FlatList`. Expansion state stores
-> only the groups the user has tapped.
+> **Decision:** The Log nests shifts under year, then month rows, each carrying
+> its own gross and shift count. Everything starts collapsed, so the tab opens
+> to one row per year and a shift is two taps away. The tree is flattened into
+> one array of typed rows and rendered through a single `FlatList`. Expansion
+> state stores only the groups the user has tapped.
 >
 > **Alternatives:**
 > - Keep the flat, fully expanded list and rely on virtualization alone
@@ -871,6 +871,8 @@ UI/UX bar from the product definition is achievable here.
 > - Month sections, collapsed, one level deep (what shipped first, 2026-08-03)
 > - Open the newest year, month, and week by default (shipped 2026-08-03,
 >   replaced the same day)
+> - A third week level between month and shift (shipped 2026-08-03 through
+>   2026-08-10)
 > - A month stepper showing exactly one month at a time, with no full scroll
 > - Infinite scroll paging in older shifts as the user reaches the bottom
 > - Nested `FlatList`s, one per level
@@ -893,16 +895,32 @@ UI/UX bar from the product definition is achievable here.
 > scrollers fight over the same gesture and the inner one loses virtualization,
 > which is the thing making a long history cheap.
 >
-> **Known cost:** collapsed groups hide their rows from search-by-scrolling,
-> and there is no expand-all — worse now than at one level, since every shift
-> is three closed groups deep from a cold open, including the one just logged. Sticky headers were lost in the move off
-> `SectionList`; they were solving orientation mid-scroll, which a
-> collapsed-by-default tree does not have enough scroll to need. A week
-> crossing a month boundary is split so that each month's rows add up to its
-> own header, which means one calendar week can appear twice under different
-> months. Group subtotals also duplicate a calculation the Trends tab presents,
-> so both have to keep using the same D5 per-shift gross or they will disagree
-> in front of the user.
+> **Revised 2026-08-10 — drop the week level.** Reaching one shift cost four
+> taps: 2026, then August, then Week of Aug 9, then the row. The week rows were
+> paying for themselves only in the largest months, and charging every month for
+> it. A month is also the unit people already use for a pay period and for
+> comparing one stretch of work against another, so it is the right place to
+> stop.
+>
+> This removes the ugliest part of the grouping with it. A calendar week
+> straddling two months had to be split so that each month's rows still added up
+> to its own header, which meant one week appeared twice under different months
+> and needed a compound key to keep the two halves independently collapsible.
+> With months holding shifts directly, that case does not exist.
+>
+> An open month can now be thirty rows where it was once four or five week
+> headers. That is the trade: scrolling within one month, in exchange for two
+> fewer taps to reach any shift, on every month.
+>
+> **Known cost:** collapsed groups hide their rows from search-by-scrolling and
+> there is no expand-all, so a shift just logged is still two closed groups
+> deep. Sticky headers were lost in the move off `SectionList`; they were
+> solving orientation mid-scroll, which a collapsed-by-default tree does not
+> have enough scroll to need — an argument that weakens as months get longer,
+> and is the first thing to revisit if scrolling an open month feels lost.
+> Group subtotals also duplicate a calculation the Trends tab presents, so both
+> have to keep using the same D5 per-shift gross or they will disagree in front
+> of the user.
 >
 > **Revisit when:** a shift search or a job filter lands on the Log. Either one
 > changes what "the newest group" should default to, and a filtered result set

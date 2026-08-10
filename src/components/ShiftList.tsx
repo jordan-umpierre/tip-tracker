@@ -249,17 +249,10 @@ function GroupRow({ row, onPress }: { row: ShiftGroupRow; onPress: () => void })
 }
 
 // Each level only names the part its parent has not already said: the year row
-// carries the year, so a month underneath it is just "August", and a week
-// under that is just its start date.
-// fallow-ignore-next-line complexity -- Calendar group labels are device-checked and date-tested.
+// carries the year, so a month underneath it is just "August".
 function formatGroupLabel(row: ShiftGroupRow): string {
   if (row.kind === 'year') return row.period;
-  if (row.kind === 'month') return MONTH_NAMES[Number(row.period.slice(5, 7)) - 1] ?? row.period;
-
-  const date = parseCalendarDate(row.period);
-  return date
-    ? `Week of ${MONTH_NAMES[date.month - 1].slice(0, 3)} ${date.day}`
-    : row.period;
+  return MONTH_NAMES[Number(row.period.slice(5, 7)) - 1] ?? row.period;
 }
 
 // The group rows above already say the year and the month, so a shift only
@@ -514,8 +507,6 @@ const styles = StyleSheet.create({
   yearLabel: { fontSize: 16, fontWeight: '700' },
   monthRow: { backgroundColor: '#f3f4f6', paddingLeft: 26 },
   monthLabel: { fontSize: 15, fontWeight: '600' },
-  weekRow: { minHeight: 38, backgroundColor: '#f9fafb', paddingLeft: 40 },
-  weekLabel: { color: '#374151', fontSize: 13, fontWeight: '500' },
   rowText: {
     flex: 1,
   },
@@ -574,5 +565,4 @@ const styles = StyleSheet.create({
 const GROUP_STYLES = {
   year: { row: styles.yearRow, label: styles.yearLabel },
   month: { row: styles.monthRow, label: styles.monthLabel },
-  week: { row: styles.weekRow, label: styles.weekLabel },
 } as const;

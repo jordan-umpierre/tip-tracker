@@ -47,6 +47,9 @@ fails, the cloud sections are meaningless.
       overtime rate.
 - [ ] **Calendar.** Open Calendar, pick a past date, confirm the shift list
       filters to it.
+- [ ] **Reaching a shift.** From a cold open, a shift is two taps: the year,
+      then the month. There is no week row in between, and an open month lists
+      every shift in it. *Added 2026-08-10 (D15 revision).*
 - [ ] **Row actions.** Edit a logged shift, then remove one. Both survive a
       relaunch. Editing opens the details screen directly with the date as a
       field. *Re-opened 2026-08-10: editing changed shape (D29).*
