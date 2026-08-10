@@ -642,10 +642,10 @@ UI/UX bar from the product definition is achievable here.
 > ask for a separate tip-efficiency view, or a remembered job/date filter
 > becomes more useful than the predictable all-jobs/all-history default.
 
-### D11 — Use native peer tabs with route-owned SQLite reads (2026-08-01; revised 2026-08-03)
+### D11 — Use native peer tabs with route-owned SQLite reads (2026-08-01; revised 2026-08-10)
 
-> **Decision:** Make Trends and Log two static root tabs using Expo Router's
-> SDK 57 `NativeTabs`, with Trends mapped to the index route and shown first.
+> **Decision:** Make Log and Trends two static root tabs using Expo Router's
+> SDK 57 `NativeTabs`, with **Log** mapped to the index route and shown first.
 > Keep route files under `app/` thin and keep screen composition under
 > `src/screens/`. Do not add nested stacks until a tab has a real child route.
 >
@@ -657,6 +657,8 @@ UI/UX bar from the product definition is achievable here.
 >
 > **Alternatives:**
 > - Push Trends onto a stack from the Log screen
+> - Land on Trends (what shipped from 2026-08-01 through 2026-08-10)
+> - Reorder the triggers and leave Trends on the index route
 > - Use Expo Router's stable JavaScript tabs
 > - Build a custom tab bar
 > - Put jobs and shifts in a shared React context
@@ -667,6 +669,17 @@ UI/UX bar from the product definition is achievable here.
 > repeatedly. A stack is the right shape for details and temporary flows, but
 > would make Trends secondary and less discoverable. Future details can gain a
 > stack inside the relevant tab when the first such screen exists.
+>
+> Log is the landing tab because logging a shift is the recurring task and
+> reading trends is the occasional one. A server opening the app after a shift
+> is there to record it; opening on a chart puts a tap between them and the
+> only thing that produces data at all. Trends is also worth less on a cold
+> install, where it has nothing to draw.
+>
+> Landing is controlled by which file is `app/index.tsx`, not by trigger order:
+> `NativeTabs` orders the bar and the index route is the default selected tab.
+> So the screens swap route files rather than swapping positions in the layout,
+> and the layout is reordered separately to keep the landing tab leftmost.
 >
 > Native tabs support the product's native-feeling UI goal without making the
 > app own tab accessibility, safe areas, animation, and platform behavior.
