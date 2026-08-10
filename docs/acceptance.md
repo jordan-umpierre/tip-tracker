@@ -27,11 +27,12 @@ fails, the cloud sections are meaningless.
 
 - [x] **Cold-start persistence.** Log one shift, force-quit, reopen. The shift
       is still listed. *Passed 2026-08-07.*
-- [ ] **Create a job.** Current jobs shows it after a relaunch.
-- [ ] **Log a shift against that job**, with tips and hours. Summary and
-      Breakdown both change.
+- [x] **Create a job.** Current jobs shows it after a relaunch.
+- [x] **Log a shift against that job**, with tips and hours. The Trends totals
+      and the weekday chart both change.
 - [ ] **Overtime.** Log a shift long enough to cross the overtime threshold.
-      The breakdown separates regular from overtime pay.
+      Trends labels its figures as estimated and the gross reflects the
+      overtime rate.
 - [ ] **Calendar.** Open Calendar, pick a past date, confirm the shift list
       filters to it.
 - [ ] **Row actions.** Edit a logged shift, then remove one. Both survive a
