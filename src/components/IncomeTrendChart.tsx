@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityActionEvent,
   LayoutChangeEvent,
@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import Svg, { Circle, Line, Path } from 'react-native-svg';
+import Svg, { Circle, Line, Path, Text as SvgText } from 'react-native-svg';
 import { formatCents, formatHours } from '../lib/format';
 import type { CalendarTrend, TrendChartRange, TrendSeries } from '../lib/trends';
 
@@ -16,6 +16,27 @@ const GRAPH_HEIGHT = 194;
 const GRAPH_TOP = 12;
 const GRAPH_BOTTOM = 12;
 const GRAPH_SIDE_PADDING = 9;
+// Everything vertical is measured against this, so it is worked out once here
+// rather than in both the point math and the gridline math.
+const PLOT_HEIGHT = GRAPH_HEIGHT - GRAPH_TOP - GRAPH_BOTTOM;
+
+// Where the horizontal gridlines sit, as a fraction of the way down the plot.
+// 0 is the top, which is the largest gross in the window; there is no line at 1
+// because the bottom edge is always zero and drawing it says nothing.
+const AXIS_FRACTIONS = [0, 0.25, 0.5, 0.75];
+
+// The three lines the chart draws, in paint order. Total is last so it lands on
+// top of the two parts that make it up, and so `.at(-1)` is the line the scrub
+// marker rides -- one marker, on the figure the big number above already shows.
+//
+// They deliberately share one vertical scale. Drawing tips against their own
+// maximum would give a $40 tip week the same shape as a $400 income week, which
+// is the opposite of what someone comparing them wants to see.
+const incomeLines = [
+  { key: 'wage', label: 'Wage', color: '#d97706', value: (p: CalendarTrend) => p.grossCents - p.tipsCents },
+  { key: 'tips', label: 'Tips', color: '#059669', value: (p: CalendarTrend) => p.tipsCents },
+  { key: 'total', label: 'Total', color: '#2563eb', value: (p: CalendarTrend) => p.grossCents },
+] as const;
 
 const dayFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -101,10 +122,25 @@ export default function IncomeTrendChart({
   const selectedPoint = selectedIndex === null ? null : series.points[selectedIndex] ?? null;
   const displayed = selectedPoint ?? total;
   const pointWindowKey = `${series.bucket}:${series.points[0]?.period}:${series.points.at(-1)?.period}:${series.points.length}`;
-  const positions = useMemo(
-    () => pointPositions(series.points, chartWidth),
-    [chartWidth, series.points]
+  // Null means there is nothing to scale against. That is also the signal not to
+  // print dollar figures up the side of an empty chart.
+  const maxGross = useMemo(
+    () =>
+      series.points.length === 0
+        ? null
+        : Math.max(1, ...series.points.map((point) => point.grossCents)),
+    [series.points]
   );
+  const lines = useMemo(
+    () =>
+      incomeLines.map((line) => ({
+        ...line,
+        positions: pointPositions(series.points, chartWidth, maxGross ?? 1, line.value),
+      })),
+    [chartWidth, maxGross, series.points]
+  );
+  // The total line, by the paint-order convention above.
+  const positions = lines[lines.length - 1].positions;
 
   useEffect(() => {
     setSelectedIndex(null);
@@ -224,7 +260,12 @@ export default function IncomeTrendChart({
         {...panResponder.panHandlers}
       >
         {chartWidth > 0 ? (
-          <IncomeLine width={chartWidth} positions={positions} selected={selectedPosition} />
+          <IncomeLines
+            width={chartWidth}
+            lines={lines}
+            maxGross={maxGross}
+            selected={selectedPosition}
+          />
         ) : null}
         {series.points.length === 0 ? (
           <Text style={styles.empty}>Log a shift to start your income trend.</Text>
@@ -232,6 +273,7 @@ export default function IncomeTrendChart({
       </View>
 
       <ChartAxisLabels series={series} />
+      <ChartLegend />
       <Text style={styles.hint}>Swipe across the line for exact values.</Text>
 
       <RangePicker
@@ -245,34 +287,56 @@ export default function IncomeTrendChart({
   );
 }
 
-function IncomeLine({
+type DrawnLine = (typeof incomeLines)[number] & { positions: ChartPosition[] };
+
+// fallow-ignore-next-line complexity -- Drawing only; every branch here is an empty-data guard, and the repo has no component coverage reporter.
+function IncomeLines({
   width,
-  positions,
+  lines,
+  maxGross,
   selected,
 }: {
   width: number;
-  positions: ChartPosition[];
+  lines: DrawnLine[];
+  maxGross: number | null;
   selected: ChartPosition | null;
 }) {
-  const path = svgPath(positions);
-  const latest = positions.at(-1);
+  const latest = lines[lines.length - 1].positions.at(-1);
 
   return (
     <Svg pointerEvents="none" width={width} height={GRAPH_HEIGHT}>
-      {[0.25, 0.5, 0.75].map((fraction) => {
-        const y = GRAPH_TOP + fraction * (GRAPH_HEIGHT - GRAPH_TOP - GRAPH_BOTTOM);
-        return <Line key={fraction} x1="0" x2={width} y1={y} y2={y} stroke="#e5e7eb" />;
+      {AXIS_FRACTIONS.map((fraction) => {
+        const y = GRAPH_TOP + fraction * PLOT_HEIGHT;
+        return (
+          <Fragment key={fraction}>
+            <Line x1="0" x2={width} y1={y} y2={y} stroke="#e5e7eb" />
+            {/* The figure sits below its line rather than above it. The top
+                line is only GRAPH_TOP from the edge of the SVG, so a label
+                above that one would be cut off. */}
+            {maxGross === null ? null : (
+              <SvgText x="0" y={y + 12} fill="#9ca3af" fontSize="10">
+                {axisMoneyLabel(maxGross * (1 - fraction))}
+              </SvgText>
+            )}
+          </Fragment>
+        );
       })}
-      {path ? (
-        <Path
-          d={path}
-          fill="none"
-          stroke="#2563eb"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="3"
-        />
-      ) : null}
+      {lines.map((line) => {
+        const path = svgPath(line.positions);
+        return path ? (
+          <Path
+            key={line.key}
+            d={path}
+            fill="none"
+            stroke={line.color}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            // Total is the headline figure, so it stays the heaviest stroke and
+            // the two parts under it read as supporting detail.
+            strokeWidth={line.key === 'total' ? '3' : '2'}
+          />
+        ) : null;
+      })}
       {latest ? <Circle cx={latest.x} cy={latest.y} fill="#2563eb" r="3" /> : null}
       {selected ? (
         <>
@@ -320,6 +384,22 @@ function ChartAxisLabels({ series }: { series: TrendSeries }) {
   );
 }
 
+// Names the three colours. It reads to a screen reader as three short words,
+// which is worth leaving audible: the figures under the big number are in the
+// same wage/tips order, so hearing the legend explains that ordering too.
+function ChartLegend() {
+  return (
+    <View style={styles.legend}>
+      {incomeLines.map((line) => (
+        <View key={line.key} style={styles.legendItem}>
+          <View style={[styles.legendSwatch, { backgroundColor: line.color }]} />
+          <Text style={styles.legendText}>{line.label}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 function RangePicker({
   selectedRange,
   onSelect,
@@ -361,9 +441,14 @@ function totalPoints(points: CalendarTrend[]): ChartTotals {
   );
 }
 
-function pointPositions(points: CalendarTrend[], width: number): ChartPosition[] {
-  const maxGross = Math.max(1, ...points.map((point) => point.grossCents));
-  const availableHeight = GRAPH_HEIGHT - GRAPH_TOP - GRAPH_BOTTOM;
+// maxGross is passed in rather than derived here so all three lines are plotted
+// against the same ceiling -- see the incomeLines comment.
+function pointPositions(
+  points: CalendarTrend[],
+  width: number,
+  maxGross: number,
+  value: (point: CalendarTrend) => number
+): ChartPosition[] {
   const availableWidth = Math.max(0, width - 2 * GRAPH_SIDE_PADDING);
 
   return points.map((point, index) => ({
@@ -371,8 +456,16 @@ function pointPositions(points: CalendarTrend[], width: number): ChartPosition[]
       points.length === 1
         ? width / 2
         : GRAPH_SIDE_PADDING + (index / (points.length - 1)) * availableWidth,
-    y: GRAPH_TOP + (1 - point.grossCents / maxGross) * availableHeight,
+    y: GRAPH_TOP + (1 - value(point) / maxGross) * PLOT_HEIGHT,
   }));
+}
+
+// Axis ticks only need a magnitude. formatCents is right for the exact figures
+// above the chart and far too wide here: "$4,515.46" laid over a gridline
+// covers the gridline. Cents go, and thousands abbreviate.
+function axisMoneyLabel(cents: number): string {
+  const dollars = Math.round(cents / 100);
+  return dollars >= 1000 ? `$${(dollars / 1000).toFixed(1)}k` : `$${dollars}`;
 }
 
 function svgPath(positions: ChartPosition[]): string {
@@ -461,6 +554,12 @@ const styles = StyleSheet.create({
   axisLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
   axisText: { color: '#9ca3af', fontSize: 11, fontVariant: ['tabular-nums'] },
   singleAxisText: { flex: 1, textAlign: 'center' },
+  legend: { flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 8 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  // A short bar rather than a dot, so it reads as the same mark that is drawn
+  // on the chart.
+  legendSwatch: { width: 14, height: 3, borderRadius: 2 },
+  legendText: { color: '#4b5563', fontSize: 12, fontWeight: '600' },
   hint: { color: '#6b7280', fontSize: 12, textAlign: 'center', marginTop: 8 },
   ranges: { flexDirection: 'row', gap: 6, marginTop: 12 },
   rangeButton: {
