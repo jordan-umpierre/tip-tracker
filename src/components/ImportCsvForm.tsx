@@ -4,6 +4,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Job } from '../data/jobs';
 import { importShifts } from '../data/shifts';
 import type { Shift } from '../data/shifts';
+import { describeMapping } from '../lib/csvColumnMapping';
 import { timeInputValue } from '../lib/dates';
 import { formatCents, formatHours } from '../lib/format';
 import {
@@ -179,10 +180,11 @@ function ImportPanel({
     <View style={styles.content}>
       <Text style={styles.title}>Import CSV</Text>
       <Text style={styles.explanation}>
-        Requires Date, Wage, Cash Tips, Credit Tips, Hours, Note, Daily Income,
-        Start Time, and End Time. Cash and credit tips are combined. Daily Income
-        is checked but not stored. Start and end must both be blank/“no data” or
-        use h:mm AM/PM.
+        Needs a date, an hourly wage, and hours worked. Tips, notes, clock-in
+        and clock-out times, and a daily total are used when the file has them.
+        Column names are worked out for you and shown before anything is saved.
+        Dates can be MM/DD/YYYY or YYYY-MM-DD, and times can be h:mm AM/PM or
+        24-hour.
       </Text>
       <JobChoices
         jobs={jobs}
@@ -328,6 +330,7 @@ function ImportPreview({
         {formatHours(parsed.summary.totalDurationSeconds)} · {formatCents(parsed.summary.totalTipsCents)} tips
       </Text>
       <Text style={styles.previewText}>Destination: {job.name}. No data has been saved yet.</Text>
+      <PreviewMapping mapping={parsed.mapping} />
       <PreviewRows rows={parsed.rows} />
       <PreviewWarnings warnings={warnings} />
       <ImportButton count={parsed.rows.length} importing={importing} onPress={onConfirm} />
@@ -352,6 +355,32 @@ function InvalidImportPreview({ preview }: { preview: Preview }) {
         <Text style={styles.issueText}>And {errors.length - 3} more errors.</Text>
       ) : null}
     </View>
+  );
+}
+
+// Which column of the file was read as which value.
+//
+// This is the whole reason detection is allowed to guess. The guess is shown
+// before the import button, so reading "Wage: Hourly Wage" wrong is a thing a
+// person can catch in two seconds, rather than something discovered months
+// later in a pay total that was quietly built from the wrong column.
+//
+// ponytail: display only. parseShiftImportCsv already takes a corrected
+// mapping, so a column picker is UI work and nothing else -- add it the first
+// time a real file gets guessed wrong. Until then a wrong guess is fixed by
+// renaming the column in the spreadsheet and picking the file again.
+function PreviewMapping({ mapping }: { mapping: ShiftImportParseResult['mapping'] }) {
+  if (!mapping) return null;
+
+  return (
+    <>
+      <Text style={styles.label}>Columns read</Text>
+      {describeMapping(mapping).map((line) => (
+        <Text selectable key={line} style={styles.rowPreview}>
+          {line}
+        </Text>
+      ))}
+    </>
   );
 }
 

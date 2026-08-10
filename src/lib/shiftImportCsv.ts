@@ -168,8 +168,12 @@ export function parseShiftImportCsv(
   // Said once for the file rather than once per row. A job with no tips is a
   // real thing, but importing hundreds of shifts at zero tips because a column
   // was named something unexpected is not, so it gets stated plainly.
+  //
+  // Goes to the front because it is true of every row, and the preview only
+  // has room to show the first few. A per-row rounding note must not push the
+  // one warning that applies to the whole file out of sight.
   if (chosenMapping.tips.length === 0) {
-    warnings.push({
+    warnings.unshift({
       message: 'No tips column was found, so every shift will import with $0.00 in tips.',
     });
   }
