@@ -1,4 +1,4 @@
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -64,6 +64,25 @@ export default function TrendsScreen() {
             <Text style={styles.retryText}>Try again</Text>
           </Pressable>
         ) : null}
+        <StatusBar style="auto" />
+      </SafeAreaView>
+    );
+  }
+
+  if (shifts.length === 0) {
+    return (
+      <SafeAreaView style={styles.centered} edges={['top']}>
+        <Text style={styles.emptyTitle}>Your income story starts here.</Text>
+        <Text style={styles.emptyText}>
+          Log a shift and Trends will show your earnings, hours, and patterns over time.
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          style={styles.primaryButton}
+          onPress={() => router.navigate('/')}
+        >
+          <Text style={styles.primaryButtonText}>Log your first shift</Text>
+        </Pressable>
         <StatusBar style="auto" />
       </SafeAreaView>
     );
@@ -401,6 +420,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   errorText: { color: '#444', fontSize: 16, textAlign: 'center' },
+  emptyTitle: { color: '#111827', fontSize: 22, fontWeight: '700', textAlign: 'center' },
+  emptyText: { color: '#4b5563', fontSize: 16, lineHeight: 24, textAlign: 'center' },
+  primaryButton: {
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 20,
+  },
+  primaryButtonText: { color: '#fff', fontWeight: '700' },
   retryButton: {
     minHeight: 44,
     justifyContent: 'center',
