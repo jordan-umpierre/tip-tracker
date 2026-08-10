@@ -1,14 +1,33 @@
 // Run with: node src/lib/format.test.ts
 //
-// Only the form-input helpers are tested here. formatCents and formatHours
-// produce read-only display text, where "does it look right" is a judgment a
-// person makes by looking. These two feed an editable field whose contents get
+// formatCents and formatHours are not tested: they produce read-only display
+// text, where "does it look right" is a judgment a person makes by looking.
+// The form-input helpers below feed an editable field whose contents get
 // converted back and saved, so "does it survive the round trip" is a property
 // with a yes-or-no answer, which is exactly the kind worth a test.
+//
+// formatClockSpan is display text too, but it earns a test anyway: it is the
+// label that has to make a two-minute clock window obvious, and the reason it
+// exists is that formatHours rendered that same span as "0.0h".
 import assert from 'node:assert/strict';
-import { hoursInputValue, moneyInputValue } from './format.ts';
+import { formatClockSpan, hoursInputValue, moneyInputValue } from './format.ts';
 
-// These mirror what LogShiftForm does on submit. If that conversion ever
+// The span the user actually hit: 4:08 PM to 4:10 PM read as zero hours, so an
+// entered 8 looked like it agreed with the times.
+assert.equal(formatClockSpan(120), '2m');
+assert.equal(formatClockSpan(0), '0m');
+assert.equal(formatClockSpan(59), '1m');
+assert.equal(formatClockSpan(3600), '1h');
+assert.equal(formatClockSpan(3660), '1h 1m');
+assert.equal(formatClockSpan(27000), '7h 30m');
+// Rounds to the nearest minute rather than truncating, so 89 seconds is not
+// reported as one minute when it is nearer two.
+assert.equal(formatClockSpan(89), '1m');
+assert.equal(formatClockSpan(90), '2m');
+// An overnight span, which durationSecondsBetween wraps for.
+assert.equal(formatClockSpan(8 * 3600), '8h');
+
+// These mirror what the details screen does on submit. If that conversion ever
 // changes, these have to change with it -- that coupling is the point.
 const savedSeconds = (shown: string) => Math.round(parseFloat(shown) * 3600);
 const savedCents = (shown: string) => Math.round(parseFloat(shown) * 100);
@@ -46,4 +65,4 @@ assert.equal(moneyInputValue(1550), '15.50');
 assert.equal(moneyInputValue(1501), '15.01');
 assert.equal(moneyInputValue(0), '0.00');
 
-console.log('format OK (86400 round-trips + 12 checks)');
+console.log('format OK (86400 round-trips + 21 checks)');

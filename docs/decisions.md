@@ -1097,7 +1097,7 @@ UI/UX bar from the product definition is achievable here.
 > a maintained library is worth re-pricing — checking first, as here, whether its
 > gesture dependencies work on the React Native of the day.
 
-### D18 — Store shift times and the employer's workweek (2026-08-04)
+### D18 — Store shift times and the employer's workweek (2026-08-04; revised 2026-08-10)
 
 > **Decision:** Schema version 3. `shifts` gains optional `start_time` and
 > `end_time` as local `HH:MM`; `jobs` gains `overtime_enabled`,
@@ -1154,6 +1154,26 @@ UI/UX bar from the product definition is achievable here.
 > `HH:MM`. Edit mode leaves derived hours blank so changing either time
 > recalculates, but preserves an entered duration when it differs from elapsed
 > time until the user changes a time.
+>
+> **Revised 2026-08-10 — say when hours and times disagree.** The rule above
+> is unchanged: an entered hours value still wins, because an unpaid break is
+> real and the app has no other way to record one. What was missing is that it
+> won *silently*. A shift entered as 4:08 PM to 4:10 PM with 8 in hours worked
+> saved eight hours against a two-minute clock window and said nothing.
+>
+> Entered hours **shorter** than the clock span stays silent — that is the break
+> case, and warning about it would nag on the legitimate use. Entered hours
+> **longer** than the clock span is not a break and cannot be true, so it is one
+> of the two fields being wrong and the app cannot tell which. It asks, offering
+> the clock span, the entered hours, or cancel.
+>
+> The advanced fields also state the span in hours and minutes as soon as both
+> times are set. `formatHours` could not do that job: at one decimal place a
+> two-minute span renders as "0.0h", which read as agreeing with whatever was
+> in the hours field. `formatClockSpan` exists for this and is tested.
+>
+> Forbidding hours alongside times was considered and rejected. It would remove
+> the break case this decision added the override for.
 >
 > **Revised 2026-08-04 — crossing the workweek boundary.** If a timed shift
 > crosses the boundary and its paid duration differs from its clock span, split

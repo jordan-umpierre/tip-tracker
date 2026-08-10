@@ -34,6 +34,21 @@ export function formatHours(durationSeconds: number): string {
   return `${(durationSeconds / 3600).toFixed(1)}h`;
 }
 
+// A clock span in hours and minutes, for saying what two entered times imply.
+// formatHours is the wrong tool here: at one decimal place a two-minute span
+// reads "0.0h", and a span that reads as zero is exactly how an eight-hour
+// entry got past a two-minute clock window without anyone noticing.
+//
+// Rounds to whole minutes because it describes two values the user typed to
+// the minute. Nothing is stored from this -- it is a label.
+export function formatClockSpan(durationSeconds: number): string {
+  const totalMinutes = Math.round(durationSeconds / 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours === 0) return `${minutes}m`;
+  return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;
+}
+
 // --- Values for editable form fields ---------------------------------------
 //
 // Different job from the two above, and the difference matters. Those produce

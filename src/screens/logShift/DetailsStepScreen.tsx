@@ -17,7 +17,7 @@ import CalendarPicker from '../../components/CalendarPicker';
 import { Job, listJobs } from '../../data/jobs';
 import { createShift, listShifts, Shift, updateShift } from '../../data/shifts';
 import { durationSecondsBetween, parseCalendarDate, timeInputValue } from '../../lib/dates';
-import { hoursInputValue, moneyInputValue } from '../../lib/format';
+import { formatClockSpan, hoursInputValue, moneyInputValue } from '../../lib/format';
 
 // The last step of logging, and the whole of editing.
 //
@@ -115,6 +115,13 @@ export default function DetailsStepScreen() {
   );
   const selectedJob = jobs.find((job) => job.id === selectedJobId);
 
+  // What the two entered times imply, wrapped across midnight by the same
+  // helper submission uses. Shown under the fields so the span is readable
+  // before submitting, rather than only being checked afterwards.
+  const elapsedSeconds = startTime && endTime
+    ? durationSecondsBetween(startTime, endTime)
+    : null;
+
   function pickerValue(time: string | null): Date {
     const value = new Date();
     if (time) value.setHours(Number(time.slice(0, 2)), Number(time.slice(3)), 0, 0);
@@ -194,7 +201,7 @@ export default function DetailsStepScreen() {
     }
 
     const durationSeconds = hoursValue === null
-      ? startTime && endTime ? durationSecondsBetween(startTime, endTime) : null
+      ? elapsedSeconds
       : Math.round(hoursValue * 3600);
 
     if (durationSeconds === null || durationSeconds <= 0) {
@@ -202,46 +209,78 @@ export default function DetailsStepScreen() {
       return;
     }
 
-    // Guards the double-tap. Without it a slow write can be submitted twice and
-    // log the shift twice, which is the one mistake this screen must not make.
-    setSaving(true);
-    try {
-      if (editingId !== null) {
-        await updateShift(
-          editingId,
+    // The write, defined before the two places that reach it: the warning below
+    // saves either duration depending on which the user picks, so the write
+    // cannot live inline in the happy path. Everything it needs is validated by
+    // the time it runs.
+    async function writeShift(seconds: number) {
+      // Guards the double-tap. Without it a slow write can be submitted twice
+      // and log the shift twice, which is the one mistake this screen must not
+      // make.
+      setSaving(true);
+      try {
+        if (editingId !== null) {
+          await updateShift(
+            editingId,
+            selectedJobId,
+            shiftDate,
+            seconds,
+            tipsCents,
+            hourlyRateCents,
+            noteValue,
+            startTime,
+            endTime
+          );
+          // Editing has no confirmation screen: the user came from the list to
+          // change one thing, and the changed row is the confirmation.
+          router.dismissAll();
+          return;
+        }
+
+        const id = await createShift(
           selectedJobId,
           shiftDate,
-          durationSeconds,
+          seconds,
           tipsCents,
           hourlyRateCents,
           noteValue,
           startTime,
           endTime
         );
-        // Editing has no confirmation screen: the user came from the list to
-        // change one thing, and the changed row is the confirmation.
-        router.dismissAll();
-        return;
+        // replace, not push: the form is finished, and backing out of the
+        // confirmation should leave the flow rather than re-open a saved shift.
+        router.replace({ pathname: '/log-shift/done', params: { shiftId: id } });
+      } catch (cause) {
+        console.error('Could not save the shift.', cause);
+        Alert.alert('Shift not saved', 'Nothing was written. Try again.');
+        setSaving(false);
       }
-
-      const id = await createShift(
-        selectedJobId,
-        shiftDate,
-        durationSeconds,
-        tipsCents,
-        hourlyRateCents,
-        noteValue,
-        startTime,
-        endTime
-      );
-      // replace, not push: the form is finished, and backing out of the
-      // confirmation should leave the flow rather than re-open a saved shift.
-      router.replace({ pathname: '/log-shift/done', params: { shiftId: id } });
-    } catch (cause) {
-      console.error('Could not save the shift.', cause);
-      Alert.alert('Shift not saved', 'Nothing was written. Try again.');
-      setSaving(false);
     }
+
+    // An entered duration shorter than the clock span is an unpaid break, which
+    // D18 says wins on purpose. Longer than the clock span is not a break --
+    // nobody works eight hours inside a two-minute window -- so it is one of
+    // the two fields being wrong, and the app cannot tell which. Ask.
+    if (hoursValue !== null && elapsedSeconds !== null && durationSeconds > elapsedSeconds) {
+      Alert.alert(
+        'Hours are longer than the times',
+        `Those times are ${formatClockSpan(elapsedSeconds)} apart, but hours worked says ${formatClockSpan(durationSeconds)}.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: `Use the times (${formatClockSpan(elapsedSeconds)})`,
+            onPress: () => void writeShift(elapsedSeconds),
+          },
+          {
+            text: `Keep ${formatClockSpan(durationSeconds)}`,
+            onPress: () => void writeShift(durationSeconds),
+          },
+        ]
+      );
+      return;
+    }
+
+    await writeShift(durationSeconds);
   }
 
   if (!loaded) {
@@ -349,6 +388,16 @@ export default function DetailsStepScreen() {
                 </View>
               ) : null}
 
+              {/* Says the span in minutes, which formatHours cannot: it renders
+                  one decimal, so two minutes read as "0.0h" and looked like it
+                  agreed with whatever was in Hours. */}
+              {elapsedSeconds !== null ? (
+                <Text style={styles.spanHint}>
+                  These times are {formatClockSpan(elapsedSeconds)} apart. Leave Hours blank to
+                  use that, or enter fewer hours for an unpaid break.
+                </Text>
+              ) : null}
+
               {startTime || endTime ? (
                 <Pressable
                   style={styles.clearTimes}
@@ -448,6 +497,7 @@ const styles = StyleSheet.create({
   timePickerPanel: { gap: 8 },
   timePickerDone: { alignSelf: 'flex-end', padding: 10 },
   timePickerDoneText: { color: '#2563eb', fontWeight: '600' },
+  spanHint: { color: '#6b7280', fontSize: 13, lineHeight: 18, marginTop: 4 },
   clearTimes: { alignSelf: 'flex-start', paddingVertical: 4 },
   clearTimesText: { color: '#6b7280' },
   // Outside the scroller, so the action stays put while the fields move.

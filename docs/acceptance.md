@@ -33,7 +33,11 @@ fails, the cloud sections are meaningless.
       entered, and the Trends totals and weekday chart both change.
       *Re-opened 2026-08-10: the flow replaced the inline form (D29).*
 - [ ] **Advanced fields.** Log a shift using start and end times instead of
-      typing hours. The stored duration matches the times.
+      typing hours. The stored duration matches the times, and the screen says
+      how far apart the times are.
+- [ ] **Hours longer than the times.** Enter 4:08 PM to 4:10 PM and 8 hours.
+      Saving warns and offers both durations. Then enter times eight hours
+      apart with 7.5 hours, an unpaid break: that saves 7.5 without a warning.
 - [ ] **Job step.** With one job, Log a shift goes straight to the date screen.
       Add a second job and it asks which one first.
 - [ ] **Back out.** Leave the flow part-way with the back gesture and the
