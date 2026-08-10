@@ -496,29 +496,30 @@ UI/UX bar from the product definition is achievable here.
 > **Revisit when:** users need comparison series, custom dates, zooming, or
 > explicit navigation to an older week/month at its original resolution.
 
-### D10 — Define Trends as scoped, weighted calendar summaries (2026-07-31; revised 2026-08-03)
+### D10 — Define Trends as scoped, weighted calendar summaries (2026-07-31; revised 2026-08-10)
 
 > **Decision:** Trends defaults to all jobs and offers one job filter that
-> applies to the entire screen. The summary card is scoped to the chart's
-> selected range; the weekday, month, and year breakdown uses all recorded
-> non-deleted shifts in the job scope. Do not persist the selected filter or
-> range in Layer 1.
+> applies to the entire screen. The totals table is scoped to the chart's
+> selected range; the weekday breakdown uses all recorded non-deleted shifts in
+> the job scope. Nothing on the screen is hidden behind a mode toggle. Do not
+> persist the selected filter or range in Layer 1.
 >
 > **Formulas and outputs:**
-> - Both summaries cover exactly the shifts the chart drew: every shift whose
+> - The totals table covers exactly the shifts the chart drew: every shift whose
 >   `shift_date` falls between the series' start date and its anchor date,
->   inclusive, then narrowed to the job scope. The chart and the card therefore
+>   inclusive, then narrowed to the job scope. The chart and the table therefore
 >   cannot describe different sets, which is asserted per range by summing the
 >   series points and comparing.
-> - The default summary is **Per hour**: gross per hour,
->   `round(total gross cents * 3600 / total duration seconds)`, total gross,
->   and total duration. It does not repeat the full-history shift count in the
->   headline.
-> - A **Per week** choice shows average gross and hours per **worked week**.
+> - The table is five rows, all visible at once: gross from wage
+>   (`total gross - total tips`), gross from tips, hours worked, average income
+>   per hour, and average income per worked week. It does not repeat the shift
+>   count, which the weekday bars below already carry as sample context.
+> - Gross per hour is `round(total gross cents * 3600 / total duration seconds)`.
+> - Per **worked week** divides total gross cents and total duration seconds by
+>   the number of unique worked weeks, rounding back to whole cents and seconds.
 >   A worked week is a Sunday-Saturday calendar week containing at least one
->   logged shift in the selected job scope. Divide total gross cents and total
->   duration seconds by the number of unique worked weeks, rounding back to
->   whole cents and seconds. All jobs counts an overlapping week once.
+>   logged shift in the selected job scope. All jobs counts an overlapping week
+>   once.
 > - Each weekday uses the same gross-per-hour formula over that weekday's
 >   shifts:
 >   `round(total gross cents * 3600 / total duration seconds)`.
@@ -527,12 +528,10 @@ UI/UX bar from the product definition is achievable here.
 > - Rates are weighted by time. Never average the per-hour values of individual
 >   shifts, because a short shift would count as much as a long one.
 > - Weekday rates retain shift count and total duration as sample context.
-> - Month and year rows are calendar periods derived from `shift_date`. Each
->   shows gross, tips, total duration, and shift count. The current incomplete
->   month or year remains visible and is labeled as being to date.
-> - A group with no shifts has no rate. Represent it as `null` and display
->   "No shifts," not `$0.00/hr`; no observations and a measured zero are
->   different facts.
+> - A group with no shifts has no rate. Represent it as `null`, never `$0.00/hr`;
+>   no observations and a measured zero are different facts. A weekday bar and a
+>   screen reader say "No shifts"; a table cell shows an em dash, because a
+>   column of figures has to hold its shape.
 > - The chart defaults to 3M. Its fixed choices are 1W (7 daily points), 1M
 >   (30 daily points), 3M (13 Sunday-start weekly points), 1Y (12 monthly
 >   points), YTD (January through the newest shift's month), and All (one point
@@ -545,17 +544,20 @@ UI/UX bar from the product definition is achievable here.
 >   and the newest shift in it, rather than describing the calculation that
 >   produced it. Ranges measured in months name months; the rest name days.
 > - Each chart point sums D5 gross, tips, and duration for its calendar bucket.
->   The line shows gross only; touch inspection exposes the exact breakdown.
+>   Three lines are drawn from those sums -- wage, tips, and total -- against one
+>   shared vertical scale, and touch inspection exposes the exact breakdown.
 >   This is recorded gross under the current contract, not overtime-adjusted
 >   or after-tax income until D14's required profiles exist.
+> - Gridlines are labeled with the magnitude they represent, rounded to whole
+>   dollars and abbreviated above a thousand. Exact figures belong above the
+>   chart, where there is room for them.
 >
 > Exact calculation results remain integer cents and integer seconds under D8.
 > Formatting hours and money into strings remains a component concern.
-> Weekday is the default breakdown because it is the only view that compares
-> like periods against each other rather than listing history in order, which
-> the chart above already does better. Weekday, Month, and Year are mutually
-> exclusive views, ordered default-first and widening to the right; the screen
-> does not stack every historical row into one long page.
+> Weekday is the only breakdown because it is the only view that compares like
+> periods against each other. Listing history in order is what the chart above
+> does, and what the Log tab's grouped shift list does in more detail; a month
+> and year breakdown here was a third telling of the same thing.
 >
 > **Alternatives:**
 > - Default to one job
@@ -568,6 +570,11 @@ UI/UX bar from the product definition is achievable here.
 > - Keep the summary on all history regardless of the selected chart range
 >   (what shipped through 2026-08-03)
 > - Scope the breakdown to the chart range as well, for one scope per screen
+> - Keep Per hour and Per week as a two-mode summary card, and weekday, month,
+>   and year as three breakdown views (what shipped through 2026-08-10)
+> - Restyle the month and year lists rather than deleting them
+> - Split cash and credit tips as separate rows, as tip-logging apps commonly do
+> - Give each chart line its own vertical scale so its shape fills the plot
 >
 > **Why:** All jobs is the only non-arbitrary default and answers the first
 > question most users have: what the work they logged earned overall. The
@@ -578,26 +585,38 @@ UI/UX bar from the product definition is achievable here.
 >
 > The date scope is deliberately not uniform, which this decision originally
 > forbade. Changing the chart range while the number under it stayed fixed made
-> the range buttons look broken, so the summary follows the range. Applying the
-> same range to the breakdown was rejected on what it produces: under 1W, the
-> Month and Year views collapse to a single row and the weekday bars drop to
-> whichever days that week happened to include, which is a worse chart than
-> the all-history one it replaced. The card names its own window on every
+> the range buttons look broken, so the totals follow the range. Applying the
+> same range to the weekday bars was rejected on what it produces: under 1W they
+> drop to whichever days that week happened to include, which is a worse chart
+> than the all-history one it replaced. The table names its own window on every
 > render, so the two scopes are stated rather than inferred.
 >
-> Gross per hour is both the headline and weekday metric because the product
+> Gross per hour is both a totals row and the weekday metric because the product
 > question is what the user's time actually earned after hourly wages and tips
 > are combined. Physical iPhone testing showed that tips per hour alone was not
-> a satisfying top-level answer. Tips remain visible in month and year totals;
-> keeping a second hourly headline would add density without answering a new
-> primary question.
+> a satisfying top-level answer. Tips are their own row in the table, so no
+> second hourly metric is needed to keep them visible.
 >
-> All time leads because it answers "what has this work earned" without the
-> worked-week denominator needing to be explained first. Weekly average was the
-> default until 2026-08-03; device use showed the weekly framing is the more
-> specific question, worth a tap rather than worth landing on. It sits second in
-> the row to match, since a selected chip that is not the leftmost one reads as
-> though a default was turned off.
+> Nothing in the table is behind a toggle, which reverses the 2026-08-03
+> arrangement of a two-mode summary card above a three-mode breakdown. Two chip
+> rows had to be operated before the screen would show a figure it already knew,
+> and the per-hour and per-week answers were mutually exclusive for no reason
+> other than that a card has one large number in it. A list has as many rows as
+> there are answers. That also removes the ordering problem those chips created,
+> where a selected chip that was not the leftmost read as a default turned off.
+>
+> The month and year lists were deleted rather than restyled because
+> `shiftGroups.ts` already groups history by year, month, and week for the Log
+> tab's list, and does it with the individual shifts attached. Two
+> implementations of the same grouping is the cost; the one with less in it went.
+>
+> Cash and credit tips stay unsplit. The schema stores one `tips_cents` per
+> shift, and a column exists when a user has said they need it, not when a
+> competitor's screenshot shows one.
+>
+> The three chart lines share one vertical scale so their shapes are comparable.
+> Given its own scale, a $40 tip week would draw the same shape as a $400 income
+> week, which inverts the exact comparison the second line was added to support.
 >
 > Worked weeks avoid calling an unlogged or unemployed week a measured zero.
 > Including empty weeks would require an employment start/end date the app does
@@ -610,10 +629,14 @@ UI/UX bar from the product definition is achievable here.
 > as working conditions change. The explicit scope label, job filter, and
 > sample context make those limits visible but do not remove them.
 >
-> The summary and the breakdown now answer over different date ranges on one
-> screen. The window label in the card is the only thing distinguishing them,
-> and a user who does not read it can compare a 1W rate against an all-history
-> weekday chart and think they are the same measurement.
+> The totals table and the weekday bars still answer over different date ranges
+> on one screen. The window label under the table heading is the only thing
+> distinguishing them, and a user who does not read it can compare a 1W rate
+> against an all-history weekday chart and think they are the same measurement.
+>
+> Three lines and a labeled axis put more ink in the same space than one line
+> did, and the axis figures are drawn inside the plot rather than in a reserved
+> left gutter, so a low-running wage line can pass under a label.
 >
 > **Revisit when:** real use shows old shifts obscuring current patterns, users
 > ask for a separate tip-efficiency view, or a remembered job/date filter
