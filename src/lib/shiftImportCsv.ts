@@ -180,7 +180,7 @@ function parseShiftRecord(
   const startTime = parseSourceTime(field('Start Time'));
   const endTime = parseSourceTime(field('End Time'));
 
-  if (!shiftDate) errors.push({ sourceRow, message: 'Date must be a real MM/DD/YYYY date.' });
+  if (!shiftDate) errors.push({ sourceRow, message: 'Date must be a real MM/DD/YYYY or YYYY-MM-DD date.' });
   if (hourlyRateCents === null) errors.push({ sourceRow, message: 'Wage must be nonnegative with at most two decimals.' });
   if (cashTipsCents === null) errors.push({ sourceRow, message: 'Cash Tips must be nonnegative with at most two decimals.' });
   if (creditTipsCents === null) errors.push({ sourceRow, message: 'Credit Tips must be nonnegative with at most two decimals.' });
@@ -188,10 +188,10 @@ function parseShiftRecord(
   if (dailyIncomeCents === null) errors.push({ sourceRow, message: 'Daily Income must be nonnegative with at most two decimals.' });
 
   if (startTime === undefined) {
-    errors.push({ sourceRow, message: 'Start Time must be blank, “no data,” or h:mm AM/PM.' });
+    errors.push({ sourceRow, message: 'Start Time must be blank, “no data,” h:mm AM/PM, or 24-hour HH:MM.' });
   }
   if (endTime === undefined) {
-    errors.push({ sourceRow, message: 'End Time must be blank, “no data,” or h:mm AM/PM.' });
+    errors.push({ sourceRow, message: 'End Time must be blank, “no data,” h:mm AM/PM, or 24-hour HH:MM.' });
   }
   if (
     startTime !== undefined &&
@@ -285,26 +285,59 @@ function parseDurationSeconds(value: string): number | null {
   return hundredths * 36;
 }
 
+// Two date shapes reach this. "MM/DD/YYYY" is what the first supplied export
+// used. "YYYY-MM-DD" is what every other payroll export and spreadsheet tool
+// writes, and it is what the database stores anyway.
+//
+// They cannot be mistaken for each other -- one is slash-separated with the
+// year last, the other is dash-separated with the year first -- so accepting
+// both rejects nothing that already worked. This is not the importer guessing:
+// each shape has exactly one meaning.
 function parseSourceDate(value: string): string | null {
-  const match = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(value);
-  if (!match) return null;
+  const slashed = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(value);
+  if (slashed) {
+    const isoDate = `${slashed[3]}-${slashed[1].padStart(2, '0')}-${slashed[2].padStart(2, '0')}`;
+    return parseCalendarDate(isoDate) ? isoDate : null;
+  }
 
-  const isoDate = `${match[3]}-${match[1].padStart(2, '0')}-${match[2].padStart(2, '0')}`;
-  return parseCalendarDate(isoDate) ? isoDate : null;
+  // parseCalendarDate already requires the exact YYYY-MM-DD shape and rejects
+  // impossible days like 2023-02-30, so it is the entire check for this branch.
+  return parseCalendarDate(value) ? value : null;
 }
 
-// The explicit blank, format, AM/PM, and 12-hour conversion branches are
-// pinned by shiftImportCsv.test.ts.
+// Returns the stored "HH:MM" string, null for a deliberately empty time, or
+// undefined for a value that could not be read at all. The caller needs those
+// three cases kept apart: null is a valid shift with no times recorded,
+// undefined is a row that has to be rejected.
+//
+// Both 12-hour and 24-hour input are accepted. A trailing am/pm is what makes
+// a value 12-hour, and nothing without that suffix can be read as 12-hour, so
+// the two branches cannot claim the same string. The space before am/pm is
+// optional because "8:15AM" is just as common as "8:15 AM" in real exports.
+//
+// The explicit blank, format, AM/PM, and hour-conversion branches are pinned
+// by shiftImportCsv.test.ts.
 // fallow-ignore-next-line complexity -- Source-time branches have direct parser coverage.
 function parseSourceTime(value: string): string | null | undefined {
   if (value === '' || value.toLowerCase() === 'no data') return null;
 
-  const match = /^(0?[1-9]|1[0-2]):([0-5]\d) (am|pm)$/i.exec(value);
-  if (!match) return undefined;
+  const twelveHour = /^(0?[1-9]|1[0-2]):([0-5]\d) ?(am|pm)$/i.exec(value);
+  if (twelveHour) {
+    // 12 and 24 are the awkward ones: 12:30 AM is hour 0, 12:30 PM is hour 12.
+    // The modulo maps 12 to 0 first, then PM adds the 12 back.
+    const sourceHour = Number(twelveHour[1]);
+    const hour = sourceHour % 12 + (twelveHour[3].toLowerCase() === 'pm' ? 12 : 0);
+    return `${String(hour).padStart(2, '0')}:${twelveHour[2]}`;
+  }
 
-  const sourceHour = Number(match[1]);
-  const hour = sourceHour % 12 + (match[3].toLowerCase() === 'pm' ? 12 : 0);
-  return `${String(hour).padStart(2, '0')}:${match[2]}`;
+  // 00:00 through 23:59. The hour is padded because the database column is a
+  // fixed-width "HH:MM" string that gets compared and sorted as text.
+  const twentyFourHour = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(value);
+  if (twentyFourHour) {
+    return `${twentyFourHour[1].padStart(2, '0')}:${twentyFourHour[2]}`;
+  }
+
+  return undefined;
 }
 
 function summarize(

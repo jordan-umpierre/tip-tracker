@@ -105,8 +105,39 @@ for (const oneSided of [
   assert.match(parseShiftImportCsv(file(oneSided)).errors.at(-1)!.message, /must both contain a time/);
 }
 
-for (const malformedTime of ['00:00 AM', '13:00 PM', '9:5 AM', '9:00AM', '9:60 AM', '21:00']) {
+for (const malformedTime of ['00:00 AM', '13:00 PM', '9:5 AM', '9:60 AM', '24:00', '23:60', '9:5']) {
   assert.match(parseShiftImportCsv(file(row({ 7: malformedTime, 8: '5:00 PM' }))).errors[0].message, /Start Time/);
+}
+
+// 24-hour times are what the driving-job exports in fake-data/ contain, and
+// nothing without an am/pm suffix could ever have parsed as 12-hour, so the
+// two shapes stay distinguishable. Midnight is the one worth pinning: "00:22"
+// is a real clock-out on an overnight shift, not a missing value.
+const twentyFourHour = parseShiftImportCsv(file(row({ 7: '13:30', 8: '00:22' })));
+assert.deepEqual(twentyFourHour.errors, []);
+assert.equal(twentyFourHour.rows[0].startTime, '13:30');
+assert.equal(twentyFourHour.rows[0].endTime, '00:22');
+
+// An unpadded 24-hour hour still has to reach the database padded, because
+// start_time is compared and sorted as fixed-width text.
+const unpadded = parseShiftImportCsv(file(row({ 7: '9:15', 8: '17:00' })));
+assert.equal(unpadded.rows[0].startTime, '09:15');
+
+// Real exports write both "8:15 AM" and "8:15AM". The space is optional.
+const noSpaceMeridiem = parseShiftImportCsv(file(row({ 7: '8:15AM', 8: '4:30PM' })));
+assert.deepEqual(noSpaceMeridiem.errors, []);
+assert.equal(noSpaceMeridiem.rows[0].startTime, '08:15');
+assert.equal(noSpaceMeridiem.rows[0].endTime, '16:30');
+
+// ISO dates are what every export other than the original supplied one uses.
+// Slash and dash dates cannot be confused, so both are accepted as-is.
+const isoDate = parseShiftImportCsv(file(row({ 0: '2023-08-01' })));
+assert.deepEqual(isoDate.errors, []);
+assert.equal(isoDate.rows[0].shiftDate, '2023-08-01');
+
+// Leniency about the shape must not become leniency about the calendar.
+for (const impossibleDate of ['2023-02-30', '2023-13-01', '2023-8-1', 'not-a-date']) {
+  assert.match(parseShiftImportCsv(file(row({ 0: impossibleDate }))).errors[0].message, /Date must be/);
 }
 
 const absentTimes = parseShiftImportCsv(file(row({ 7: '', 8: 'NO DATA' })));
