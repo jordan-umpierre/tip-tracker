@@ -135,3 +135,5 @@ name — the number adds sequence without costing you the description.
 33. [33-shared-rate-limit.md](33-shared-rate-limit.md) — D31, moving the API's
     fixed-window counter from Lambda process memory into the shared Postgres
     database and verifying the migration and reset behavior.
+34. [34-final-simplification.md](34-final-simplification.md) — removing the
+    duplicated log-flow date formatter after the final Fallow pass.
