@@ -10,7 +10,7 @@
 // label that has to make a two-minute clock window obvious, and the reason it
 // exists is that formatHours rendered that same span as "0.0h".
 import assert from 'node:assert/strict';
-import { formatClockSpan, hoursInputValue, moneyInputValue } from './format.ts';
+import { formatClockSpan, formatLongDate, hoursInputValue, moneyInputValue } from './format.ts';
 
 // The span the user actually hit: 4:08 PM to 4:10 PM read as zero hours, so an
 // entered 8 looked like it agreed with the times.
@@ -65,4 +65,7 @@ assert.equal(moneyInputValue(1550), '15.50');
 assert.equal(moneyInputValue(1501), '15.01');
 assert.equal(moneyInputValue(0), '0.00');
 
-console.log('format OK (86400 round-trips + 21 checks)');
+assert.equal(formatLongDate('2026-08-10'), 'August 10, 2026');
+assert.equal(formatLongDate('not-a-date'), 'not-a-date');
+
+console.log('format OK (86400 round-trips + 23 checks)');

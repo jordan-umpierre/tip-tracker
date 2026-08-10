@@ -17,7 +17,7 @@ import CalendarPicker from '../../components/CalendarPicker';
 import { Job, listJobs } from '../../data/jobs';
 import { createShift, listShifts, Shift, updateShift } from '../../data/shifts';
 import { durationSecondsBetween, parseCalendarDate, timeInputValue } from '../../lib/dates';
-import { formatClockSpan, hoursInputValue, moneyInputValue } from '../../lib/format';
+import { formatClockSpan, formatLongDate, hoursInputValue, moneyInputValue } from '../../lib/format';
 
 // The last step of logging, and the whole of editing.
 //
@@ -303,7 +303,7 @@ export default function DetailsStepScreen() {
         >
           <View style={styles.headingRow}>
             <View style={styles.headingText}>
-              <Text selectable style={styles.title}>{formatHeadingDate(shiftDate)}</Text>
+              <Text selectable style={styles.title}>{formatLongDate(shiftDate)}</Text>
               {selectedJob ? <Text style={styles.subtitle}>{selectedJob.name}</Text> : null}
             </View>
             <Pressable
@@ -450,19 +450,6 @@ export default function DetailsStepScreen() {
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
-}
-
-// "August 10, 2026" from a stored YYYY-MM-DD, without pulling the value through
-// a Date and risking the timezone shift that would show the day before.
-function formatHeadingDate(date: string): string {
-  const parsed = parseCalendarDate(date);
-  if (!parsed) return date;
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(new Date(`${date}T00:00:00Z`));
 }
 
 const styles = StyleSheet.create({

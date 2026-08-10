@@ -1,3 +1,5 @@
+import { parseCalendarDate } from './dates.ts';
+
 // Turning the database's integer cents and integer seconds into strings a
 // person reads. Split out once a third component started doing it -- ShiftList
 // was already formatting money in two spots, and three copies of "divide by
@@ -75,4 +77,14 @@ export function hoursInputValue(durationSeconds: number): string {
 // rounded, and it converts back to the same cent count by construction.
 export function moneyInputValue(cents: number): string {
   return (cents / 100).toFixed(2);
+}
+
+export function formatLongDate(date: string): string {
+  if (!parseCalendarDate(date)) return date;
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(`${date}T00:00:00Z`));
 }

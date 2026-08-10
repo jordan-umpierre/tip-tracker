@@ -3,8 +3,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { listShifts, Shift } from '../../data/shifts';
-import { parseCalendarDate } from '../../lib/dates';
-import { formatCents, formatHours } from '../../lib/format';
+import { formatCents, formatHours, formatLongDate } from '../../lib/format';
 import { calculateShiftGrossCents } from '../../lib/totals';
 
 // The payoff. Logging a shift used to end with a form collapsing and a row
@@ -75,16 +74,6 @@ function Figure({ label, value }: { label: string; value: string }) {
       <Text selectable style={styles.figureValue}>{value}</Text>
     </View>
   );
-}
-
-function formatLongDate(date: string): string {
-  if (!parseCalendarDate(date)) return date;
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(new Date(`${date}T00:00:00Z`));
 }
 
 const styles = StyleSheet.create({
