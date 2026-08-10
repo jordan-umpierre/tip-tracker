@@ -3,7 +3,10 @@ import { createServer } from "node:http";
 import { after, before, test } from "node:test";
 
 import { createApp } from "../src/app.ts";
+import { applyMigrations } from "../src/migrations.ts";
+import { createPostgresRateLimitStore } from "../src/rateLimit.ts";
 import { close, listen } from "./http.ts";
+import { withTestDatabase } from "./database.ts";
 
 // The limiter's budget is 600 requests a minute, which is deliberately too
 // many to send one at a time in a test. So this app gets a clock it does not
@@ -77,4 +80,22 @@ test("health and readiness answer a probe that the limiter would refuse", async 
   assert.equal(health.status, 200);
   const ready = await fetch(`${baseUrl}/ready`);
   assert.equal(ready.status, 200);
+});
+
+test("the Postgres store shares a counter across callers", async () => {
+  await withTestDatabase(async (database) => {
+    await applyMigrations(database);
+    const store = createPostgresRateLimitStore(database);
+
+    const counts = [];
+    for (let index = 0; index < 10; index += 1) {
+      counts.push(await store.consume("shared-client", 1_000, 60_000));
+    }
+    assert.deepEqual(counts.map((window) => window.count).sort((a, b) => a - b), [
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+    ]);
+
+    const nextWindow = await store.consume("shared-client", 61_000, 60_000);
+    assert.deepEqual(nextWindow, { count: 1, resetAt: 120_000 });
+  });
 });

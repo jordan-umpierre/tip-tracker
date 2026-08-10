@@ -3,7 +3,7 @@ import express, { type ErrorRequestHandler, type RequestHandler } from "express"
 import type { Accounts } from "./accounts.ts";
 import { requireAuth, wasRecentlyPasswordAuthenticated, type VerifyAccessToken } from "./auth.ts";
 import type { AuthAdmin } from "./authAdmin.ts";
-import { createRateLimiter } from "./rateLimit.ts";
+import { createRateLimiter, type RateLimitStore } from "./rateLimit.ts";
 import { createRequestLogger, type RequestLogLine } from "./requestLog.ts";
 import { InvalidSyncQueryError, InvalidSyncRequestError, type SyncService } from "./sync.ts";
 
@@ -44,6 +44,7 @@ export function createApp(dependencies?: {
   logError?: (error: unknown) => void;
   logRequest?: (line: RequestLogLine) => void;
   now?: () => number;
+  rateLimitStore?: RateLimitStore;
   readiness: () => Promise<void>;
   sync: SyncService;
   trustProxyHops?: number;
@@ -89,6 +90,7 @@ export function createApp(dependencies?: {
   app.use(createRateLimiter({
     max: RATE_LIMIT_MAX,
     now: dependencies?.now,
+    store: dependencies?.rateLimitStore,
     windowMs: RATE_LIMIT_WINDOW_MS,
   }));
 

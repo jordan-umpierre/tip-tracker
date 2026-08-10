@@ -8,6 +8,7 @@ import { createAccessTokenVerifier } from "./auth.ts";
 import { createSupabaseAuthAdmin } from "./authAdmin.ts";
 import { readConfig } from "./config.ts";
 import { assertSchemaCurrent } from "./migrations.ts";
+import { createPostgresRateLimitStore } from "./rateLimit.ts";
 import { createSyncService } from "./sync.ts";
 
 const config = readConfig(process.env);
@@ -24,6 +25,7 @@ const readiness = () => assertSchemaCurrent(database);
 const server = createServer(createApp({
   accounts: createAccounts(database),
   authAdmin,
+  rateLimitStore: createPostgresRateLimitStore(database),
   readiness,
   sync: createSyncService(database),
   trustProxyHops: config.trustProxyHops,

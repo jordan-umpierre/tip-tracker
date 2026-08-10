@@ -6,7 +6,7 @@ import { withTestDatabase } from "./database.ts";
 
 test("migration preserves ownership, versions, tombstones, and rollback", async () => {
   const migrations = await readMigrations();
-  assert.equal(migrations.length, 2);
+  assert.equal(migrations.length, 3);
   await withTestDatabase(async (database) => {
       await assert.rejects(
         applyMigrations(database, [

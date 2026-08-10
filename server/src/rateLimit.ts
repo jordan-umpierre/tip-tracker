@@ -1,63 +1,114 @@
 import type { RequestHandler } from "express";
+import type pg from "pg";
 
-// A fixed-window request limit, counted in this process's memory.
-//
-// ponytail: in-memory and per-process, which is exactly right for the one
-// instance this API runs as and wrong the moment it runs as two -- each would
-// then allow the full budget on its own. The upgrade path is a shared counter
-// (Postgres or Redis) behind this same interface, not a bigger Map.
-//
-// Fixed window rather than a sliding one because the failure it has to prevent
-// is a flood, not a precisely fair rate. A client can send up to double the
-// budget across a window boundary; that is a known and acceptable edge.
+// A fixed-window request limit. Production uses the database-backed store below
+// so concurrent Lambda environments share one counter. Tests and local app
+// instances can use the in-memory store without needing a database.
 
 export type RateLimitOptions = {
   max: number;
   windowMs: number;
-  // Injected so the tests can move time without sleeping.
   now?: () => number;
 };
 
 type Window = { count: number; resetAt: number };
 
-export function createRateLimiter({ max, windowMs, now = Date.now }: RateLimitOptions): RequestHandler {
-  const windows = new Map<string, Window>();
-  let nextSweepAt = now() + windowMs;
+export type RateLimitStore = {
+  consume(key: string, now: number, windowMs: number): Promise<Window>;
+};
 
-  return (request, response, next) => {
-    const currentTime = now();
+export function createRateLimiter({
+  max,
+  now = Date.now,
+  store = createInMemoryRateLimitStore(),
+  windowMs,
+}: RateLimitOptions & { store?: RateLimitStore }): RequestHandler {
+  return async (request, response, next) => {
+    try {
+      const currentTime = now();
+      const window = await store.consume(request.ip ?? "unknown", currentTime, windowMs);
 
-    // Without this the map grows once per distinct client address and never
-    // shrinks, which turns the limiter itself into the memory exhaustion it
-    // was added to prevent. One pass per window is cheap and bounded.
-    if (currentTime >= nextSweepAt) {
-      for (const [key, window] of windows) {
-        if (currentTime >= window.resetAt) windows.delete(key);
+      if (window.count > max) {
+        const retryAfterSeconds = Math.max(1, Math.ceil((window.resetAt - currentTime) / 1000));
+        response.set("Retry-After", String(retryAfterSeconds));
+        response.status(429).json({ error: "too_many_requests" });
+        return;
       }
-      nextSweepAt = currentTime + windowMs;
-    }
 
-    // request.ip is only trustworthy because app.ts sets "trust proxy" to the
-    // exact number of proxies in front of this server. Trusting the header
-    // blindly would let any client pick its own bucket by sending an
-    // X-Forwarded-For, which is a rate limit that limits nobody.
-    const key = request.ip ?? "unknown";
-    const window = windows.get(key);
-
-    if (!window || currentTime >= window.resetAt) {
-      windows.set(key, { count: 1, resetAt: currentTime + windowMs });
       next();
-      return;
+    } catch (error) {
+      next(error);
     }
+  };
+}
 
-    window.count += 1;
-    if (window.count > max) {
-      const retryAfterSeconds = Math.max(1, Math.ceil((window.resetAt - currentTime) / 1000));
-      response.set("Retry-After", String(retryAfterSeconds));
-      response.status(429).json({ error: "too_many_requests" });
-      return;
-    }
+function createInMemoryRateLimitStore(): RateLimitStore {
+  const windows = new Map<string, Window>();
+  let nextSweepAt = 0;
 
-    next();
+  return {
+    async consume(key, currentTime, windowMs) {
+      nextSweepAt = sweepExpiredWindows(windows, currentTime, nextSweepAt, windowMs);
+
+      const window = windows.get(key);
+      if (!window || currentTime >= window.resetAt) {
+        const nextWindow = { count: 1, resetAt: currentTime + windowMs };
+        windows.set(key, nextWindow);
+        return nextWindow;
+      }
+
+      window.count += 1;
+      return window;
+    },
+  };
+}
+
+function sweepExpiredWindows(
+  windows: Map<string, Window>,
+  currentTime: number,
+  nextSweepAt: number,
+  windowMs: number,
+): number {
+  if (currentTime < nextSweepAt) return nextSweepAt;
+
+  for (const [windowKey, window] of windows) {
+    if (currentTime >= window.resetAt) windows.delete(windowKey);
+  }
+  return currentTime + windowMs;
+}
+
+export function createPostgresRateLimitStore(
+  database: Pick<pg.Pool, "query">,
+): RateLimitStore {
+  return {
+    async consume(key, now, windowMs) {
+      const windowStart = Math.floor(now / windowMs) * windowMs;
+      const result = await database.query<{ request_count: number; window_start_ms: string }>(
+        `WITH expired AS (
+           DELETE FROM app.rate_limit_windows
+           WHERE window_start_ms + $1 <= $2
+         )
+         INSERT INTO app.rate_limit_windows (client_key, window_start_ms, request_count)
+         VALUES ($3, $4, 1)
+         ON CONFLICT (client_key) DO UPDATE
+         SET window_start_ms = CASE
+               WHEN app.rate_limit_windows.window_start_ms + $1 <= $2 THEN $4
+               ELSE app.rate_limit_windows.window_start_ms
+             END,
+             request_count = CASE
+               WHEN app.rate_limit_windows.window_start_ms + $1 <= $2 THEN 1
+               ELSE app.rate_limit_windows.request_count + 1
+             END
+         RETURNING request_count, window_start_ms`,
+        [windowMs, now, key, windowStart],
+      );
+
+      const row = result.rows[0];
+      if (!row) throw new Error("Rate limiter did not return its counter");
+      return {
+        count: row.request_count,
+        resetAt: Number(row.window_start_ms) + windowMs,
+      };
+    },
   };
 }
