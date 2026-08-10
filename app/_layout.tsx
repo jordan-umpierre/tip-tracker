@@ -15,6 +15,20 @@ export default function RootLayout() {
         {/* The tabs draw their own bar and each screen its own title, so the
             stack header would be a second, empty one on top of that. */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+
+        {/* The log-a-shift flow. Declared here rather than left to discovery so
+            the whole sequence is readable in one place, and so each step gets
+            the header title and back button the stack provides -- which is the
+            reason this is routes and not a modal with a step counter in it. */}
+        <Stack.Screen name="log-shift/job" options={{ title: 'Log a shift' }} />
+        <Stack.Screen name="log-shift/date" options={{ title: 'Log a shift' }} />
+        <Stack.Screen name="log-shift/details" options={{ title: 'Shift details' }} />
+        {/* No back button: the shift is already written, so stepping back into
+            the form would offer to save a second copy of it. */}
+        <Stack.Screen
+          name="log-shift/done"
+          options={{ title: 'Logged', headerBackVisible: false, gestureEnabled: false }}
+        />
       </Stack>
     </AuthProvider>
   );

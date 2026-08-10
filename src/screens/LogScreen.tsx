@@ -1,4 +1,4 @@
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -9,7 +9,6 @@ import CreateJobForm from '../components/CreateJobForm';
 import ExportCsvButton from '../components/ExportCsvButton';
 import FederalWithholdingForm from '../components/FederalWithholdingForm';
 import ImportCsvForm from '../components/ImportCsvForm';
-import LogShiftForm from '../components/LogShiftForm';
 import OvertimeSettingsForm from '../components/OvertimeSettingsForm';
 import ShiftList from '../components/ShiftList';
 import { getDb } from '../data/db';
@@ -25,12 +24,10 @@ export default function LogScreen() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [allJobs, setAllJobs] = useState<Job[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
-  const [editingShift, setEditingShift] = useState<Shift | null>(null);
   const [addingJob, setAddingJob] = useState(false);
-  // The form and the data tools both start closed. This screen is mostly a
-  // history to read, and opening it onto seven input boxes made a glance at
-  // last week's shifts feel like being handed paperwork.
-  const [loggingShift, setLoggingShift] = useState(false);
+  // The data tools start closed. This screen is a history to read, and opening
+  // it onto a pile of controls made a glance at last week's shifts feel like
+  // being handed paperwork.
   const [managingData, setManagingData] = useState(false);
 
   // SQLite is the source of truth. Re-query after every write and whenever
@@ -105,7 +102,11 @@ export default function LogScreen() {
         grossByShift={grossByShift}
         estimatedJobIds={estimatedJobIds}
         onShiftDeleted={refresh}
-        onShiftPress={setEditingShift}
+        // Editing is the details step on its own, reached directly. There is no
+        // date or job step to walk: the user came here to correct one shift.
+        onShiftPress={(shift) =>
+          router.push({ pathname: '/log-shift/details', params: { shiftId: shift.id } })
+        }
         header={
           <View>
             <Text style={styles.historyTitle}>Logged shifts</Text>
@@ -124,14 +125,10 @@ export default function LogScreen() {
             jobs={jobs}
             allJobs={allJobs}
             shifts={shifts}
-            editingShift={editingShift}
             addingJob={addingJob}
-            loggingShift={loggingShift}
             managingData={managingData}
             refresh={refresh}
             setAddingJob={setAddingJob}
-            setEditingShift={setEditingShift}
-            setLoggingShift={setLoggingShift}
             setManagingData={setManagingData}
           />
         }
@@ -153,39 +150,33 @@ function LogControls({
   jobs,
   allJobs,
   shifts,
-  editingShift,
   addingJob,
-  loggingShift,
   managingData,
   refresh,
   setAddingJob,
-  setEditingShift,
-  setLoggingShift,
   setManagingData,
 }: {
   jobs: Job[];
+  // Active jobs drive what can be logged; the full list is only here because
+  // export has to name the job on a shift whose job was since removed.
   allJobs: Job[];
   shifts: Shift[];
-  editingShift: Shift | null;
   addingJob: boolean;
-  loggingShift: boolean;
   managingData: boolean;
   refresh: () => Promise<void>;
   setAddingJob: (value: boolean | ((current: boolean) => boolean)) => void;
-  setEditingShift: (shift: Shift | null) => void;
-  setLoggingShift: (value: boolean) => void;
   setManagingData: (value: boolean | ((current: boolean) => boolean)) => void;
 }) {
-  const editingJob = editingShift
-    ? allJobs.find((job) => job.id === editingShift.job_id)
-    : undefined;
-  const formJobs = editingJob && !jobs.some((job) => job.id === editingJob.id)
-    ? [...jobs, editingJob]
-    : jobs;
-
-  // Editing opens the form whether or not the Log a shift button was used, so
-  // tapping a row still lands straight in the fields for that shift.
-  const formOpen = loggingShift || editingShift !== null;
+  // Which screen the flow opens on. Asking "which job?" of someone who has one
+  // job is a tap whose answer is already known, so that step is skipped and the
+  // job rides along in the params instead.
+  function startLoggingShift() {
+    if (jobs.length === 1) {
+      router.push({ pathname: '/log-shift/date', params: { jobId: jobs[0].id } });
+      return;
+    }
+    router.push('/log-shift/job');
+  }
 
   function handleRemoveJob(job: Job) {
     const shiftCount = shifts.filter((shift) => shift.job_id === job.id).length;
@@ -204,7 +195,6 @@ function LogControls({
           onPress: async () => {
             try {
               await archiveJob(job.id);
-              if (editingShift?.job_id === job.id) setEditingShift(null);
               await refresh();
             } catch (cause) {
               console.error('Could not remove the job.', cause);
@@ -218,8 +208,8 @@ function LogControls({
 
   return (
     <>
-      {/* A new key remounts the prop-seeded form when edit targets change,
-          so it cannot retain the previous shift's fields or an archived job. */}
+      {/* With no job there is nothing to log against, so the only thing this
+          screen can usefully offer is making one. */}
       {jobs.length === 0 ? (
         <CreateJobForm
           onJobCreated={() => {
@@ -227,30 +217,11 @@ function LogControls({
             void refresh();
           }}
         />
-      ) : formOpen ? (
-        <LogShiftForm
-          key={`${editingShift?.id ?? 'new'}:${formJobs.map((job) => job.id).join(':')}`}
-          jobs={formJobs}
-          editingShift={editingShift}
-          existingShifts={shifts}
-          onEditExisting={setEditingShift}
-          onShiftSaved={() => {
-            setEditingShift(null);
-            setLoggingShift(false);
-            void refresh();
-          }}
-          onCancelEdit={() => {
-            setEditingShift(null);
-            setLoggingShift(false);
-          }}
-        />
       ) : (
-        // Tapping a shift row sets editingShift, which opens the form above on
-        // its own. This button only covers the new-entry case.
         <Pressable
           accessibilityRole="button"
           style={styles.logShiftButton}
-          onPress={() => setLoggingShift(true)}
+          onPress={startLoggingShift}
         >
           <Text style={styles.logShiftButtonText}>Log a shift</Text>
         </Pressable>

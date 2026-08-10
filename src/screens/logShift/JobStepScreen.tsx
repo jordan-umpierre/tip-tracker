@@ -1,0 +1,69 @@
+import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Job, listActiveJobs } from '../../data/jobs';
+import { formatCents } from '../../lib/format';
+
+// Step zero, and only when it is a real question. The Log tab sends the user
+// straight past this to the date step when there is exactly one active job,
+// because asking "which job?" of someone who has one is a tap that can only
+// have one answer.
+export default function JobStepScreen() {
+  const [jobs, setJobs] = useState<Job[]>([]);
+
+  useEffect(() => {
+    listActiveJobs()
+      .then(setJobs)
+      .catch((cause) => console.error('Could not load jobs for the log flow.', cause));
+  }, []);
+
+  return (
+    <SafeAreaView style={styles.screen} edges={['bottom']}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <Text selectable style={styles.title}>Which job?</Text>
+        <Text style={styles.subtitle}>The rate below starts this shift off; you can change it on the next screen.</Text>
+
+        {jobs.map((job) => (
+          <Pressable
+            key={job.id}
+            accessibilityRole="button"
+            accessibilityLabel={`${job.name}, ${formatCents(job.hourly_rate_cents)} per hour`}
+            style={styles.jobRow}
+            onPress={() =>
+              router.push({ pathname: '/log-shift/date', params: { jobId: job.id } })
+            }
+          >
+            <View style={styles.jobText}>
+              <Text style={styles.jobName}>{job.name}</Text>
+              <Text style={styles.jobRate}>{formatCents(job.hourly_rate_cents)}/hr</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: '#fff' },
+  content: { gap: 8, padding: 20 },
+  title: { color: '#111827', fontSize: 26, fontWeight: '700' },
+  subtitle: { color: '#6b7280', fontSize: 15, marginBottom: 8 },
+  jobRow: {
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+  },
+  jobText: { flex: 1, gap: 2 },
+  jobName: { color: '#111827', fontSize: 17, fontWeight: '600' },
+  jobRate: { color: '#6b7280', fontSize: 14, fontVariant: ['tabular-nums'] },
+  chevron: { color: '#9ca3af', fontSize: 26 },
+});
