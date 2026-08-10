@@ -1,29 +1,21 @@
-import { NativeTabs } from 'expo-router/unstable-native-tabs';
+import { Stack } from 'expo-router';
 import { AuthProvider } from '../src/auth/AuthProvider';
 
-// This is the only file coupled to the unstable native-tabs API. The route
-// files and screens underneath it use ordinary Expo Router and React Native,
-// so D11's fallback to JavaScript tabs would be a one-file change.
+// The tabs moved one level down into (tabs)/ so this stack can push screens
+// that cover the tab bar. Expo Router's own tab guidance is to nest the tab
+// navigator inside a root stack for exactly this reason: anything declared
+// here renders over the tabs rather than inside one of them.
+//
+// AuthProvider wraps the stack rather than the tabs, so a pushed flow is
+// inside the same auth context the tabs are.
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <NativeTabs tintColor="#2563eb" disableTransparentOnScrollEdge>
-        {/* Log is first because it is the index route, and the index route is
-            what the app opens on. Keeping the bar in the same order means the
-            landing tab is also the leftmost one, rather than the app starting
-            on a tab that is not where the eye lands. */}
-        <NativeTabs.Trigger name="index">
-          <NativeTabs.Trigger.Label>Log</NativeTabs.Trigger.Label>
-          <NativeTabs.Trigger.Icon sf="square.and.pencil" md="edit_note" />
-        </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="trends">
-          <NativeTabs.Trigger.Label>Trends</NativeTabs.Trigger.Label>
-          <NativeTabs.Trigger.Icon
-            sf={{ default: 'chart.bar', selected: 'chart.bar.fill' }}
-            md="analytics"
-          />
-        </NativeTabs.Trigger>
-      </NativeTabs>
+      <Stack>
+        {/* The tabs draw their own bar and each screen its own title, so the
+            stack header would be a second, empty one on top of that. */}
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      </Stack>
     </AuthProvider>
   );
 }

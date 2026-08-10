@@ -3,4 +3,4 @@
 //
 // Log is the index route because that is what decides the landing tab -- with
 // NativeTabs, trigger order sets the order of the bar and nothing else.
-export { default } from '../src/screens/LogScreen';
+export { default } from '../../src/screens/LogScreen';
