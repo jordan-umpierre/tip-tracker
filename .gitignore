@@ -10,6 +10,12 @@ CLAUDE.md
 #   sqlite3 tip-tracker.db < schema.sql
 *.db
 
+# Invented shift histories used to exercise the CSV importer by hand. Nothing
+# in the repo reads them and nothing generates them, so they are local scratch
+# in the same sense as the database above -- if a reviewer ever needs sample
+# import data, it wants a generator script and a note, not a pile of CSVs.
+fake-data/
+
 # NOTE: running create-expo-app overwrites both this file and README.md with
 # its own versions. Afterward: re-add the CLAUDE.md line above, or CLAUDE.md
 # starts getting tracked without anyone noticing, and restore README.md from
