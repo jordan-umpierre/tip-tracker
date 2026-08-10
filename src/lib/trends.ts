@@ -64,8 +64,6 @@ export type TrendSeries = {
 export type Trends = {
   headline: HeadlineTrend;
   weekdays: WeekdayTrend[];
-  months: CalendarTrend[];
-  years: CalendarTrend[];
 };
 
 function emptyTotals(): TrendTotals {
@@ -80,17 +78,6 @@ function addShift(totals: TrendTotals, shift: Shift, grossCents: number): void {
   totals.durationSeconds += shift.duration_seconds;
   totals.tipsCents += shift.tips_cents;
   totals.grossCents += grossCents;
-}
-
-function totalsForPeriod(periods: Map<string, TrendTotals>, period: string): TrendTotals {
-  const existing = periods.get(period);
-  if (existing) {
-    return existing;
-  }
-
-  const totals = emptyTotals();
-  periods.set(period, totals);
-  return totals;
 }
 
 function centsPerHour(cents: number, durationSeconds: number): number | null {
@@ -262,8 +249,6 @@ export function calculateTrends(
 ): Trends {
   const allTotals = emptyTotals();
   const weekdayTotals = WEEKDAYS.map(() => emptyTotals());
-  const monthTotals = new Map<string, TrendTotals>();
-  const yearTotals = new Map<string, TrendTotals>();
   const workedWeeks = new Set<string>();
 
   for (const shift of shifts) {
@@ -280,13 +265,8 @@ export function calculateTrends(
       // older corrupt rows visible instead of silently filing them elsewhere.
       throw new Error(`Invalid shift date: ${shift.shift_date}`);
     }
-    const monthPeriod = shift.shift_date.slice(0, 7);
-    const yearPeriod = shift.shift_date.slice(0, 4);
-
     addShift(allTotals, shift, grossCents);
     addShift(weekdayTotals[date.weekdayIndex], shift, grossCents);
-    addShift(totalsForPeriod(monthTotals, monthPeriod), shift, grossCents);
-    addShift(totalsForPeriod(yearTotals, yearPeriod), shift, grossCents);
     workedWeeks.add(weekStartString(date));
   }
 
@@ -311,11 +291,5 @@ export function calculateTrends(
       shiftCount: weekdayTotals[index].shiftCount,
       durationSeconds: weekdayTotals[index].durationSeconds,
     })),
-    months: [...monthTotals.entries()]
-      .sort(([left], [right]) => right.localeCompare(left))
-      .map(([period, totals]) => ({ period, ...totals })),
-    years: [...yearTotals.entries()]
-      .sort(([left], [right]) => right.localeCompare(left))
-      .map(([period, totals]) => ({ period, ...totals })),
   };
 }

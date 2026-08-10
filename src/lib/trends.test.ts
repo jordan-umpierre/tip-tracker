@@ -42,8 +42,6 @@ assert.deepEqual(empty.headline, {
 });
 assert.equal(empty.weekdays.length, 7);
 assert.ok(empty.weekdays.every((day) => day.grossPerHourCents === null));
-assert.deepEqual(empty.months, []);
-assert.deepEqual(empty.years, []);
 
 // Job A has one one-hour and one three-hour Monday. Its time-weighted gross
 // rate is $13.00/hr. Averaging the two shift rates instead would incorrectly
@@ -76,31 +74,6 @@ assert.deepEqual(jobATrends.weekdays[2], {
   shiftCount: 0,
   durationSeconds: 0,
 });
-assert.deepEqual(jobATrends.months, [
-  {
-    period: '2026-08',
-    shiftCount: 1,
-    durationSeconds: 180 * 60,
-    tipsCents: 600,
-    grossCents: 3600,
-  },
-  {
-    period: '2026-07',
-    shiftCount: 1,
-    durationSeconds: 60 * 60,
-    tipsCents: 600,
-    grossCents: 1600,
-  },
-]);
-assert.deepEqual(jobATrends.years, [
-  {
-    period: '2026',
-    shiftCount: 2,
-    durationSeconds: 240 * 60,
-    tipsCents: 1200,
-    grossCents: 5200,
-  },
-]);
 
 // With no job filter, the high-tip Job B shift participates everywhere. This
 // pair proves the scope is applied to the whole result, not only the headline.
@@ -137,7 +110,6 @@ const roundingTrends = calculateTrends([
 assert.equal(roundingTrends.headline.grossPerHourCents, 1502);
 assert.equal(roundingTrends.headline.grossPerWorkedWeekCents, 751);
 assert.equal(roundingTrends.weekdays[1].grossPerHourCents, 1502);
-assert.equal(roundingTrends.months[0].grossCents, 1502);
 
 // Weekly averages round back to the app's stored units: whole cents and whole
 // seconds. Multiple shifts in one week count as one worked week.
@@ -150,21 +122,15 @@ assert.equal(averageRoundingTrends.headline.workedWeekCount, 2);
 assert.equal(averageRoundingTrends.headline.grossPerWorkedWeekCents, 151);
 assert.equal(averageRoundingTrends.headline.durationPerWorkedWeekSeconds, 5401);
 
-// Month and year keys cross cleanly and stay newest first.
+// A worked week is keyed by the week it starts in, not by the calendar year the
+// shift falls in. December 31 and January 1 land in the same week here, so
+// crossing the year must not invent a third one.
 const boundaryTrends = calculateTrends([
   shift('december', 'job-a', '2026-12-31', 60 * 60, 100, 1000),
   shift('january', 'job-a', '2027-01-01', 120 * 60, 200, 1000),
   shift('next-week', 'job-a', '2027-01-03', 60 * 60, 100, 1000),
 ]);
 assert.equal(boundaryTrends.headline.workedWeekCount, 2);
-assert.deepEqual(
-  boundaryTrends.months.map((month) => month.period),
-  ['2027-01', '2026-12']
-);
-assert.deepEqual(
-  boundaryTrends.years.map((year) => year.period),
-  ['2027', '2026']
-);
 
 // Invalid calendar values must fail visibly rather than being filed under a
 // normalized but incorrect month or weekday.
