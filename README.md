@@ -163,9 +163,7 @@ Next:
 - Build a `preview` profile for each platform, then run the native acceptance
   pass: auth, push/pull, interruption, offline relaunch, cross-device
   convergence, and every screen added since. See
-  [docs/roadmap.md](docs/roadmap.md) for the exact evidence boundary, including
-  the rate limiter that no longer holds across instances now that the API runs
-  on Lambda.
+  [docs/roadmap.md](docs/roadmap.md) for the exact evidence boundary.
 
 ## Stack
 

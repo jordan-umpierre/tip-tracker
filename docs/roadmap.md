@@ -78,14 +78,13 @@ on the dashboard or a failure caught during acceptance. All three are listed in
 include `{{ .Token }}`, the minimum password length must be at most 8, and the
 email OTP length must be exactly 6.
 
-Two limits are known and not yet fixed. The rate limiter counts in one
-process's memory, and Lambda runs concurrent environments that share none, so
-it now bounds each instance rather than each caller; that is the one real
-regression D28 introduced and it must be closed before anyone who is not the
-owner installs a build. The AWS account is also capped at 10 concurrent
-executions until AWS raises it. `TRUST_PROXY_HOPS` is set to 1, which is a
-reading of how the adapter forwards the caller address rather than a measured
-fact — the request log records no client address to check it against.
+The rate limiter now uses a Postgres-backed fixed-window counter, so concurrent
+Lambda environments share the 600-request budget per client address. Migration
+`003_rate_limit.sql` must be applied to the live database before deploying that
+server build. The AWS account is also capped at 10 concurrent executions until
+AWS raises it. `TRUST_PROXY_HOPS` is set to 1, which is a reading of how the
+adapter forwards the caller address rather than a measured fact — the request
+log records no client address to check it against.
 
 The native acceptance pass that follows has more to cover than it did before:
 auth, push/pull, interruption, offline relaunch, and cross-device convergence,

@@ -13,11 +13,10 @@ logged. A `/health` or `/ready` probe is logged only when it fails, so a
 polling platform does not bury real traffic.
 
 Every request except `/health` and `/ready` is rate limited by client address:
-600 per minute, counted in this process's memory, answered with `429` and a
-`Retry-After` header. That budget is sized for D26's serialized one-mutation
-push, where a first upload of a long shift history is hundreds of legitimate
-sequential requests. The counter is per process, so running more than one
-instance multiplies the real budget by the instance count.
+600 per minute, answered with `429` and a `Retry-After` header. The counter is
+stored in Postgres, so concurrent Lambda environments share the same budget.
+That budget is sized for D26's serialized one-mutation push, where a first
+upload of a long shift history is hundreds of legitimate sequential requests.
 
 ## Local verification
 
@@ -114,10 +113,10 @@ Logs:
 aws logs tail /aws/lambda/tip-tracker-api --since 10m --region us-west-2
 ```
 
-Two limits worth knowing before anyone else installs a build. The rate limiter
-counts in one process's memory, and Lambda runs concurrent environments that
-share none, so it currently bounds each instance rather than each caller. A new
-AWS account is also capped at 10 concurrent executions until AWS raises it.
+A deployment gate remains: apply the current server migrations before the
+runtime starts, including `003_rate_limit.sql`, which creates the shared rate
+limit counter. A new AWS account is also capped at 10 concurrent executions
+until AWS raises it.
 
 Migration-owner credentials and the database password are server secrets. They
 must never use Expo's `EXPO_PUBLIC_` prefix or enter the mobile application.

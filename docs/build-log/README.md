@@ -132,3 +132,6 @@ name — the number adds sequence without costing you the description.
 32. [32-csv-column-detection.md](32-csv-column-detection.md) — D30, why six real
     shift exports were refused at their header line, and the column detection,
     summed columns, and rounding allowance that let 2,813 rows in.
+33. [33-shared-rate-limit.md](33-shared-rate-limit.md) — D31, moving the API's
+    fixed-window counter from Lambda process memory into the shared Postgres
+    database and verifying the migration and reset behavior.

@@ -1970,3 +1970,29 @@ UI/UX bar from the product definition is achievable here.
 > **Revisit when:** a real file is guessed wrong, which is when the picker gets
 > built; or a file needs arithmetic that summing cannot express, which is when
 > conversion belongs outside the app rather than in a formula syntax.
+
+### D31 — Store API rate-limit windows in Postgres (2026-08-10)
+
+> **Decision:** Keep the fixed 600-request-per-minute client-address limiter,
+> but store its counter in `app.rate_limit_windows` with an atomic Postgres
+> upsert. The Express middleware stays unchanged at the route boundary; the
+> deployed runtime injects the shared store, while local tests use an in-memory
+> store.
+>
+> **Alternatives:** Keep the process `Map`; add Redis; configure a second
+> rate-limiting service; use only API Gateway throttling.
+>
+> **Why:** Lambda can run multiple environments, so process memory multiplied
+> the budget by the number of warm instances. Postgres is already the API's
+> required shared dependency, and one row plus one atomic upsert closes the
+> actual gap without another service or a new request path. The counter is
+> housekeeping, not financial history, so expired rows can be removed during
+> the same statement.
+>
+> **Known cost:** Every limited request now uses one database query, and a
+> database outage fails closed through the existing server error boundary. The
+> fixed window can still allow a burst across its boundary; that is the same
+> deliberate tradeoff as before.
+>
+> **Revisit when:** request volume makes the counter query measurable, or the
+> API moves to a host where a shared edge limiter is available and verified.
