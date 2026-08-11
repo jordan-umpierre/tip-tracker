@@ -1,15 +1,13 @@
 import { Stack } from 'expo-router';
 import { AuthProvider } from '../src/auth/AuthProvider';
 
-// The root stack keeps Home, income review, settings, and the logging flow in
-// one predictable navigation model. AuthProvider wraps every route so local
-// mode and optional cloud account state stay consistent across screens.
+// The tabs are the two recurring destinations. Everything else sits above them
+// in this stack so settings and the logging flow get normal back navigation.
 export default function RootLayout() {
   return (
     <AuthProvider>
       <Stack>
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="trends" options={{ title: 'View income' }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="history" options={{ title: 'Shift history' }} />
 
         {/* Each logging step gets the native stack header, back button, and
@@ -18,6 +16,11 @@ export default function RootLayout() {
         <Stack.Screen name="log-shift/date" options={{ title: 'Log a shift' }} />
         <Stack.Screen name="log-shift/details" options={{ title: 'Shift details' }} />
         <Stack.Screen name="settings" options={{ title: 'Settings' }} />
+        <Stack.Screen name="settings/jobs" options={{ title: 'Jobs' }} />
+        <Stack.Screen name="settings/import-export" options={{ title: 'Import and export' }} />
+        <Stack.Screen name="settings/withholding" options={{ title: 'Federal withholding' }} />
+        <Stack.Screen name="settings/backup" options={{ title: 'Device backup' }} />
+        <Stack.Screen name="settings/account" options={{ title: 'Cloud account' }} />
         {/* No back button: the shift is already written, so stepping back into
             the form would offer to save a second copy of it. */}
         <Stack.Screen

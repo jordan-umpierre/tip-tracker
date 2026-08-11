@@ -74,7 +74,7 @@ export default function LogScreen() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Open Settings"
-                style={styles.settingsButton}
+                style={({ pressed }) => [styles.settingsButton, pressed && styles.settingsButtonPressed]}
                 onPress={() => router.push('/settings')}
               >
                 <Text style={styles.settingsButtonText}>Settings</Text>
@@ -135,8 +135,15 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   historyTitle: { color: '#111827', fontSize: 18, fontWeight: '700' },
-  settingsButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 },
-  settingsButtonText: { color: '#2563eb', fontWeight: '600' },
+  settingsButton: {
+    minHeight: 38,
+    justifyContent: 'center',
+    borderRadius: 19,
+    backgroundColor: '#eaf1ff',
+    paddingHorizontal: 14,
+  },
+  settingsButtonPressed: { backgroundColor: '#dbe7ff' },
+  settingsButtonText: { color: '#2563eb', fontSize: 14, fontWeight: '700' },
   logShiftButton: {
     minHeight: 52,
     justifyContent: 'center',

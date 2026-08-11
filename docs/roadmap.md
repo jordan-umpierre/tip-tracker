@@ -27,9 +27,10 @@ Tip Tracker is a local-first income tracker:
 - use optional, clearly labeled overtime and federal withholding estimates
 - connect an account for cloud backup and cross-device sync
 
-The primary flow is `Open → choose Log income or View income → finish the task`.
-Job management, account access, tax settings, import/export, and backup live in
-Settings so they do not compete with the recurring logging task.
+The primary flow is `Open → Log income → finish the task`, with View income as
+the second persistent tab. Job management, account access, tax settings,
+import/export, and backup live behind separate Settings screens so they do not
+compete with the recurring logging task.
 
 ## Deferred
 
