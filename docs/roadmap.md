@@ -39,7 +39,7 @@ jobs, import/export, backup, and optional estimate tools.
 
 ## Next work, in order
 
-1. Create and submit a production build from commit `c8a5bcf` or later.
+1. Create and submit a production build from commit `d210480` or later.
 2. Wait for that build to finish TestFlight processing, then complete
    [`acceptance.md`](acceptance.md) on the iOS build.
 3. Fix only failures found in that pass and repeat the focused checks.
@@ -60,8 +60,8 @@ jobs, import/export, backup, and optional estimate tools.
 - iOS production build 6 completed from commit `149e4ae` on 2026-08-11.
 - Build 6 submission is in progress for App Store Connect under ASC app
   `6800162471`.
-- Build 6 does not contain commits `1d1dcf3` or `c8a5bcf`; do not use it as
-  acceptance evidence for the standalone history workflow or its back button.
+- Build 6 does not contain the standalone history changes through `d210480`;
+  do not use it as acceptance evidence for that workflow.
 
 Exports and automated tests prove code paths and bundle generation. They do not
 prove a physical device flow, accessibility, signing, store review, or

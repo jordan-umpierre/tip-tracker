@@ -33,3 +33,13 @@ Verification: TypeScript, iOS bundle export, the repository hook, Fallow
 dead-code and duplication scans, and the changed-file Fallow audit passed. No
 local iOS Simulator was available through Xcode tools, so the visual result
 remains an explicit acceptance check on the replacement build.
+
+## `d210480` — refactor: remove duplicate history link (2026-08-11)
+
+View income no longer repeats the View shift history button. Browse history
+stays on Log income, which is now the single entry point to the standalone
+history workflow. The removed button's three unused style rules were deleted
+with it; the empty-state navigation back to Log income is unchanged.
+
+Verification: TypeScript, iOS bundle export, the repository hook, Fallow
+dead-code and duplication scans, and the changed-file Fallow audit passed.
