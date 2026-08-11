@@ -21,3 +21,15 @@ the list cleanup.
 
 Build 6 was already submitted before this commit. A later production build is
 required before the new workflow can be accepted on TestFlight.
+
+## `c8a5bcf` — fix: hide internal back labels (2026-08-11)
+
+The root stack now uses Expo Router's minimal native back-button display mode.
+This keeps the platform chevron and back gesture while preventing the hidden
+`(tabs)` route-group name from appearing as user-facing text on Shift history,
+Settings, or a logging step.
+
+Verification: TypeScript, iOS bundle export, the repository hook, Fallow
+dead-code and duplication scans, and the changed-file Fallow audit passed. No
+local iOS Simulator was available through Xcode tools, so the visual result
+remains an explicit acceptance check on the replacement build.
