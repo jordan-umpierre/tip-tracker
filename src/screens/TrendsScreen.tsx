@@ -11,12 +11,16 @@ import { formatCents, formatHours } from '../lib/format';
 import { calculateEstimatedGrossByShift, overtimeScope } from '../lib/overtime';
 import {
   calculateTrends,
+  calculateTrendPointsByJob,
   calculateTrendSeries,
+  CalendarTrend,
   HeadlineTrend,
   shiftsInWindow,
   TrendChartRange,
   WeekdayTrend,
 } from '../lib/trends';
+
+const JOB_LINE_COLORS = ['#2563eb', '#d97706', '#059669', '#7c3aed', '#db2777', '#0f766e'];
 
 // fallow-ignore-next-line complexity -- Route-level coordinator: calculation branches are tested below the UI and its flows are device-checked; the repo has no component coverage reporter for CRAP scoring.
 export default function TrendsScreen() {
@@ -92,10 +96,14 @@ export default function TrendsScreen() {
   let trendSeries: ReturnType<typeof calculateTrendSeries>;
   let rangeHeadline: HeadlineTrend;
   let grossByShift: Map<string, number>;
+  let chartPointsByJob: Map<string, CalendarTrend[]>;
   try {
     grossByShift = calculateEstimatedGrossByShift(shifts, jobs);
     weekdays = calculateTrends(shifts, selectedJobId, grossByShift).weekdays;
     trendSeries = calculateTrendSeries(shifts, chartRange, selectedJobId, grossByShift);
+    chartPointsByJob = selectedJobId === null
+      ? calculateTrendPointsByJob(shifts, trendSeries, grossByShift)
+      : new Map([[selectedJobId, trendSeries.points]]);
     // The totals table describes the window the chart is showing, so it runs
     // the same calculation over just the shifts the chart drew. The weekday
     // bars below deliberately keep using every shift -- see D10.
@@ -120,6 +128,17 @@ export default function TrendsScreen() {
     ? null
     : jobs.find((job) => job.id === selectedJobId);
   const estimateScope = overtimeScope(shifts, jobs, selectedJobId);
+  const chartLines = jobs.flatMap((job, index) => {
+    const points = chartPointsByJob.get(job.id);
+    return points
+      ? [{
+          key: job.id,
+          label: job.name,
+          color: JOB_LINE_COLORS[index % JOB_LINE_COLORS.length],
+          points,
+        }]
+      : [];
+  });
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -133,6 +152,7 @@ export default function TrendsScreen() {
           range={chartRange}
           scopeLabel={selectedJob ? selectedJob.name : 'All jobs'}
           series={trendSeries}
+          lines={chartLines}
           estimated={estimateScope.estimated}
           hasUntimedEstimate={estimateScope.hasUntimedEstimate}
           onRangeChange={setChartRange}

@@ -226,6 +226,46 @@ export function calculateTrendSeries(
   };
 }
 
+// Builds one gross-income line per job against the aggregate chart's exact
+// buckets. Using the aggregate series as the template keeps every line on the
+// same dates when different jobs have different first or latest shifts.
+// fallow-ignore-next-line complexity -- Window, bucket, and per-job sum branches are covered by direct-run assertions in trends.test.ts.
+export function calculateTrendPointsByJob(
+  shifts: Shift[],
+  series: TrendSeries,
+  grossByShift: ReadonlyMap<string, number> = NO_GROSS_OVERRIDES
+): Map<string, CalendarTrend[]> {
+  const pointsByJob = new Map<string, CalendarTrend[]>();
+  if (!series.startDate || !series.anchorDate) return pointsByJob;
+
+  const pointIndexes = new Map(
+    series.points.map((point, index) => [point.period, index])
+  );
+
+  for (const { shift, date } of datedShiftsForJob(shifts, null)) {
+    if (shift.shift_date < series.startDate || shift.shift_date > series.anchorDate) {
+      continue;
+    }
+
+    const pointIndex = pointIndexes.get(pointKeyForShift(series.bucket, shift, date));
+    if (pointIndex === undefined) continue;
+
+    let jobPoints = pointsByJob.get(shift.job_id);
+    if (!jobPoints) {
+      jobPoints = series.points.map((point) => ({ period: point.period, ...emptyTotals() }));
+      pointsByJob.set(shift.job_id, jobPoints);
+    }
+
+    addShift(
+      jobPoints[pointIndex],
+      shift,
+      grossByShift.get(shift.id) ?? calculateShiftGrossCents(shift)
+    );
+  }
+
+  return pointsByJob;
+}
+
 // The shifts a chart series actually drew, so a summary beside the chart can be
 // calculated over exactly the same set. Both bounds are date-only strings in
 // the same format as shift_date, so comparing them as strings is the whole

@@ -25,19 +25,6 @@ const PLOT_HEIGHT = GRAPH_HEIGHT - GRAPH_TOP - GRAPH_BOTTOM;
 // because the bottom edge is always zero and drawing it says nothing.
 const AXIS_FRACTIONS = [0, 0.25, 0.5, 0.75];
 
-// The three lines the chart draws, in paint order. Total is last so it lands on
-// top of the two parts that make it up, and so `.at(-1)` is the line the scrub
-// marker rides -- one marker, on the figure the big number above already shows.
-//
-// They deliberately share one vertical scale. Drawing tips against their own
-// maximum would give a $40 tip week the same shape as a $400 income week, which
-// is the opposite of what someone comparing them wants to see.
-const incomeLines = [
-  { key: 'wage', label: 'Wage', color: '#d97706', value: (p: CalendarTrend) => p.grossCents - p.tipsCents },
-  { key: 'tips', label: 'Tips', color: '#059669', value: (p: CalendarTrend) => p.tipsCents },
-  { key: 'total', label: 'Total', color: '#2563eb', value: (p: CalendarTrend) => p.grossCents },
-] as const;
-
 const dayFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'short',
   day: 'numeric',
@@ -98,9 +85,17 @@ type Props = {
   range: TrendChartRange;
   scopeLabel: string;
   series: TrendSeries;
+  lines: IncomeTrendLine[];
   estimated: boolean;
   hasUntimedEstimate: boolean;
   onRangeChange: (range: TrendChartRange) => void;
+};
+
+type IncomeTrendLine = {
+  key: string;
+  label: string;
+  color: string;
+  points: CalendarTrend[];
 };
 
 type ChartTotals = Pick<CalendarTrend, 'durationSeconds' | 'tipsCents' | 'grossCents'>;
@@ -112,6 +107,7 @@ export default function IncomeTrendChart({
   range,
   scopeLabel,
   series,
+  lines,
   estimated,
   hasUntimedEstimate,
   onRangeChange,
@@ -124,23 +120,18 @@ export default function IncomeTrendChart({
   const pointWindowKey = `${series.bucket}:${series.points[0]?.period}:${series.points.at(-1)?.period}:${series.points.length}`;
   // Null means there is nothing to scale against. That is also the signal not to
   // print dollar figures up the side of an empty chart.
-  const maxGross = useMemo(
+  const maxGross = useMemo(() => {
+    const values = lines.flatMap((line) => line.points.map((point) => point.grossCents));
+    return values.length === 0 ? null : Math.max(1, ...values);
+  }, [lines]);
+  const drawnLines = useMemo(
     () =>
-      series.points.length === 0
-        ? null
-        : Math.max(1, ...series.points.map((point) => point.grossCents)),
-    [series.points]
-  );
-  const lines = useMemo(
-    () =>
-      incomeLines.map((line) => ({
+      lines.map((line) => ({
         ...line,
-        positions: pointPositions(series.points, chartWidth, maxGross ?? 1, line.value),
+        positions: pointPositions(line.points, chartWidth, maxGross ?? 1),
       })),
-    [chartWidth, maxGross, series.points]
+    [chartWidth, lines, maxGross]
   );
-  // The total line, by the paint-order convention above.
-  const positions = lines[lines.length - 1].positions;
 
   useEffect(() => {
     setSelectedIndex(null);
@@ -217,8 +208,14 @@ export default function IncomeTrendChart({
   const context = selectedPoint
     ? pointLabel(selectedPoint.period, series.bucket)
     : rangeLabel(range, series);
-  const accessibilityValue = `${context}. ${formatCents(displayed.grossCents)} ${estimated ? 'estimated gross income' : 'gross income'}, ${formatCents(displayed.grossCents - displayed.tipsCents)} ${estimated ? 'estimated wages' : 'wages'}, ${formatCents(displayed.tipsCents)} tips, ${formatHours(displayed.durationSeconds)}.`;
-  const selectedPosition = selectedIndex === null ? null : positions[selectedIndex] ?? null;
+  const lineValues = drawnLines
+    .map((line) => {
+      const value = selectedIndex === null ? totalPoints(line.points) : line.points[selectedIndex];
+      return value ? `${line.label} ${formatCents(value.grossCents)}` : null;
+    })
+    .filter(Boolean)
+    .join(', ');
+  const accessibilityValue = `${context}. ${formatCents(displayed.grossCents)} ${estimated ? 'estimated gross income' : 'gross income'}, ${formatCents(displayed.grossCents - displayed.tipsCents)} ${estimated ? 'estimated wages' : 'wages'}, ${formatCents(displayed.tipsCents)} tips, ${formatHours(displayed.durationSeconds)}.${drawnLines.length > 1 ? ` By job: ${lineValues}.` : ''}`;
 
   return (
     <View style={styles.container}>
@@ -262,9 +259,9 @@ export default function IncomeTrendChart({
         {chartWidth > 0 ? (
           <IncomeLines
             width={chartWidth}
-            lines={lines}
+            lines={drawnLines}
             maxGross={maxGross}
-            selected={selectedPosition}
+            selectedIndex={selectedIndex}
           />
         ) : null}
         {series.points.length === 0 ? (
@@ -273,7 +270,9 @@ export default function IncomeTrendChart({
       </View>
 
       <ChartAxisLabels series={series} />
-      <ChartLegend />
+      {drawnLines.length > 1 ? (
+        <ChartLegend lines={drawnLines} selectedIndex={selectedIndex} />
+      ) : null}
       <Text style={styles.hint}>Swipe across the line for exact values.</Text>
 
       <RangePicker
@@ -287,21 +286,23 @@ export default function IncomeTrendChart({
   );
 }
 
-type DrawnLine = (typeof incomeLines)[number] & { positions: ChartPosition[] };
+type DrawnLine = IncomeTrendLine & { positions: ChartPosition[] };
 
 // fallow-ignore-next-line complexity -- Drawing only; every branch here is an empty-data guard, and the repo has no component coverage reporter.
 function IncomeLines({
   width,
   lines,
   maxGross,
-  selected,
+  selectedIndex,
 }: {
   width: number;
   lines: DrawnLine[];
   maxGross: number | null;
-  selected: ChartPosition | null;
+  selectedIndex: number | null;
 }) {
-  const latest = lines[lines.length - 1].positions.at(-1);
+  const selectedX = selectedIndex === null
+    ? null
+    : lines[0]?.positions[selectedIndex]?.x ?? null;
 
   return (
     <Svg pointerEvents="none" width={width} height={GRAPH_HEIGHT}>
@@ -331,33 +332,42 @@ function IncomeLines({
             stroke={line.color}
             strokeLinecap="round"
             strokeLinejoin="round"
-            // Total is the headline figure, so it stays the heaviest stroke and
-            // the two parts under it read as supporting detail.
-            strokeWidth={line.key === 'total' ? '3' : '2'}
+            strokeWidth="3"
           />
         ) : null;
       })}
-      {latest ? <Circle cx={latest.x} cy={latest.y} fill="#2563eb" r="3" /> : null}
-      {selected ? (
+      {lines.map((line) => {
+        const latest = line.positions.at(-1);
+        return latest ? (
+          <Circle key={`${line.key}-latest`} cx={latest.x} cy={latest.y} fill={line.color} r="3" />
+        ) : null;
+      })}
+      {selectedX === null ? null : (
         <>
           <Line
-            x1={selected.x}
-            x2={selected.x}
+            x1={selectedX}
+            x2={selectedX}
             y1={GRAPH_TOP}
             y2={GRAPH_HEIGHT - GRAPH_BOTTOM}
             stroke="#9ca3af"
             strokeDasharray="3 4"
           />
-          <Circle
-            cx={selected.x}
-            cy={selected.y}
-            fill="#fff"
-            r="7"
-            stroke="#2563eb"
-            strokeWidth="3"
-          />
+          {lines.map((line) => {
+            const selected = line.positions[selectedIndex ?? -1];
+            return selected ? (
+              <Circle
+                key={`${line.key}-selected`}
+                cx={selected.x}
+                cy={selected.y}
+                fill="#fff"
+                r="6"
+                stroke={line.color}
+                strokeWidth="3"
+              />
+            ) : null;
+          })}
         </>
-      ) : null}
+      )}
     </Svg>
   );
 }
@@ -384,18 +394,28 @@ function ChartAxisLabels({ series }: { series: TrendSeries }) {
   );
 }
 
-// Names the three colours. It reads to a screen reader as three short words,
-// which is worth leaving audible: the figures under the big number are in the
-// same wage/tips order, so hearing the legend explains that ordering too.
-function ChartLegend() {
+function ChartLegend({
+  lines,
+  selectedIndex,
+}: {
+  lines: DrawnLine[];
+  selectedIndex: number | null;
+}) {
   return (
     <View style={styles.legend}>
-      {incomeLines.map((line) => (
-        <View key={line.key} style={styles.legendItem}>
-          <View style={[styles.legendSwatch, { backgroundColor: line.color }]} />
-          <Text style={styles.legendText}>{line.label}</Text>
-        </View>
-      ))}
+      {lines.map((line) => {
+        const value = selectedIndex === null
+          ? totalPoints(line.points)
+          : line.points[selectedIndex];
+        return (
+          <View key={line.key} style={styles.legendItem}>
+            <View style={[styles.legendSwatch, { backgroundColor: line.color }]} />
+            <Text selectable style={styles.legendText}>
+              {line.label} {formatCents(value?.grossCents ?? 0)}
+            </Text>
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -441,13 +461,10 @@ function totalPoints(points: CalendarTrend[]): ChartTotals {
   );
 }
 
-// maxGross is passed in rather than derived here so all three lines are plotted
-// against the same ceiling -- see the incomeLines comment.
 function pointPositions(
   points: CalendarTrend[],
   width: number,
-  maxGross: number,
-  value: (point: CalendarTrend) => number
+  maxGross: number
 ): ChartPosition[] {
   const availableWidth = Math.max(0, width - 2 * GRAPH_SIDE_PADDING);
 
@@ -456,7 +473,7 @@ function pointPositions(
       points.length === 1
         ? width / 2
         : GRAPH_SIDE_PADDING + (index / (points.length - 1)) * availableWidth,
-    y: GRAPH_TOP + (1 - value(point) / maxGross) * PLOT_HEIGHT,
+    y: GRAPH_TOP + (1 - point.grossCents / maxGross) * PLOT_HEIGHT,
   }));
 }
 
@@ -554,7 +571,13 @@ const styles = StyleSheet.create({
   axisLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
   axisText: { color: '#9ca3af', fontSize: 11, fontVariant: ['tabular-nums'] },
   singleAxisText: { flex: 1, textAlign: 'center' },
-  legend: { flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 8 },
+  legend: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 16,
+    marginTop: 8,
+  },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   // A short bar rather than a dot, so it reads as the same mark that is drawn
   // on the chart.

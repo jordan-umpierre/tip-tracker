@@ -5,7 +5,12 @@
 // in src/lib/.
 import assert from 'node:assert/strict';
 import type { Shift } from '../data/shifts.ts';
-import { calculateTrends, calculateTrendSeries, shiftsInWindow } from './trends.ts';
+import {
+  calculateTrends,
+  calculateTrendPointsByJob,
+  calculateTrendSeries,
+  shiftsInWindow,
+} from './trends.ts';
 
 function shift(
   id: string,
@@ -171,6 +176,29 @@ assert.deepEqual(weekSeries.points[1], {
   tipsCents: 0,
   grossCents: 0,
 });
+
+// All-jobs lines use the aggregate window, not each job's private anchor. Job
+// A therefore ends on the same March 3 bucket as Job B even though it had no
+// shift that day, and the per-job lines still add back to the aggregate line.
+const allJobsWeek = calculateTrendSeries(chartShifts, 'week');
+const weekPointsByJob = calculateTrendPointsByJob(chartShifts, allJobsWeek);
+assert.deepEqual(
+  weekPointsByJob.get('job-a')?.map((point) => point.grossCents),
+  [0, 0, 0, 1200, 0, 1300, 0]
+);
+assert.deepEqual(
+  weekPointsByJob.get('job-b')?.map((point) => point.grossCents),
+  [0, 0, 0, 0, 0, 0, 10000]
+);
+assert.deepEqual(
+  allJobsWeek.points.map((point, index) =>
+    [...weekPointsByJob.values()].reduce(
+      (total, jobPoints) => total + jobPoints[index].grossCents,
+      0
+    )
+  ),
+  allJobsWeek.points.map((point) => point.grossCents)
+);
 
 const monthSeries = calculateTrendSeries(chartShifts, 'month', 'job-a');
 assert.equal(monthSeries.points.length, 30);
