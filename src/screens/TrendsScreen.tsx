@@ -128,14 +128,6 @@ export default function TrendsScreen() {
         contentContainerStyle={styles.content}
       >
         <Text selectable style={styles.title}>Trends</Text>
-        <Pressable
-          accessibilityRole="button"
-          style={styles.historyLink}
-          onPress={() => router.push('/history')}
-        >
-          <Text style={styles.historyLinkText}>View shift history</Text>
-          <Text style={styles.historyLinkChevron}>›</Text>
-        </Pressable>
 
         <IncomeTrendChart
           range={chartRange}
@@ -355,16 +347,6 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   title: { color: '#111827', fontSize: 32, fontWeight: '700' },
-  historyLink: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  historyLinkText: { color: '#2563eb', fontSize: 16, fontWeight: '600' },
-  historyLinkChevron: { color: '#9ca3af', fontSize: 26 },
   filterLabel: { color: '#374151', fontSize: 14, fontWeight: '600', marginBottom: -12 },
   filters: { gap: 8 },
   filterChip: {
