@@ -36,7 +36,7 @@ Not automated on purpose: deciding whether a commit is "real work" or
 bookkeeping needs a judgment a script can't make, and a check that guessed
 would either nag constantly or pass while missing things.
 
-Last updated: 2026-08-10
+Last updated: 2026-08-11
 
 ---
 
@@ -140,3 +140,6 @@ name — the number adds sequence without costing you the description.
 35. [35-primary-flow-simplification.md](35-primary-flow-simplification.md) —
     moving the primary action into the Log header, separating optional tools
     into Settings, and narrowing the current-facing V1 documentation.
+36. [36-local-only-ios-scope.md](36-local-only-ios-scope.md) — D33, removing
+    the account and sync client, sidelining AWS deployment, and making the
+    first release an iOS local-only SQLite app.
