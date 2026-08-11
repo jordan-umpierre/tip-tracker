@@ -19,3 +19,17 @@ check, iOS bundle export, and the changed-file Fallow audit passed. Repository-w
 Fallow health still reports the 25 inherited complexity findings present before
 this change. Physical-device appearance and touch behavior remain part of the
 replacement-build acceptance pass.
+
+## `b4b8ac2` — fix: dismiss chart selection outside graph (2026-08-11)
+
+The dotted inspection marker and point-specific figures now clear when a touch
+begins anywhere outside the plot, restoring the selected range totals. Touches
+inside the plot stop before reaching the screen-level dismissal signal, so a tap
+or horizontal scrub still selects and retains its nearest point. A vertical
+gesture that the chart surrenders to scrolling keeps the existing termination
+cleanup.
+
+Verification: TypeScript, the repository hook, Expo dependency check, iOS bundle
+export, and the changed-file Fallow audit passed. No local simulator or connected
+Android device was available, so the physical tap-out interaction remains part
+of the replacement-build acceptance pass.

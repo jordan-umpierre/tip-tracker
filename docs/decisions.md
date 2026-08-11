@@ -465,8 +465,10 @@ UI/UX bar from the product definition is achievable here.
 > A selected job draws one line; All jobs draws one line per job against the
 > same dates and scale. Keep exact combined gross, wage, tip, duration, date,
 > and scope in text. The All jobs legend also shows each job's exact gross and
-> horizontal touch inspection changes every value to the nearest point. Render
-> the paths with `react-native-svg`, not a general chart framework.
+> horizontal touch inspection changes every value to the nearest point. A touch
+> anywhere outside the plot clears that inspection and restores the selected
+> range totals. Render the paths with `react-native-svg`, not a general chart
+> framework.
 >
 > Keep the fixed seven-weekday comparison as vertical React Native `View`s and
 > keep month/year summaries as numeric rows. Use the existing blue accent for
