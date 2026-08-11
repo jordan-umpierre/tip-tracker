@@ -32,6 +32,7 @@ export default function TrendsScreen() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [chartRange, setChartRange] = useState<TrendChartRange>('quarter');
+  const [chartSelectionDismissKey, setChartSelectionDismissKey] = useState(0);
 
   const refresh = useCallback(async () => {
     try {
@@ -147,6 +148,7 @@ export default function TrendsScreen() {
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.content}
+        onTouchStart={() => setChartSelectionDismissKey((key) => key + 1)}
       >
         <Text selectable style={styles.title}>Trends</Text>
 
@@ -155,6 +157,7 @@ export default function TrendsScreen() {
           scopeLabel={selectedJob ? selectedJob.name : 'All jobs'}
           series={trendSeries}
           lines={chartLines}
+          selectionDismissKey={chartSelectionDismissKey}
           estimated={estimateScope.estimated}
           hasUntimedEstimate={estimateScope.hasUntimedEstimate}
           onRangeChange={setChartRange}

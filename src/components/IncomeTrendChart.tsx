@@ -86,6 +86,7 @@ type Props = {
   scopeLabel: string;
   series: TrendSeries;
   lines: IncomeTrendLine[];
+  selectionDismissKey: number;
   estimated: boolean;
   hasUntimedEstimate: boolean;
   onRangeChange: (range: TrendChartRange) => void;
@@ -108,6 +109,7 @@ export default function IncomeTrendChart({
   scopeLabel,
   series,
   lines,
+  selectionDismissKey,
   estimated,
   hasUntimedEstimate,
   onRangeChange,
@@ -135,7 +137,7 @@ export default function IncomeTrendChart({
 
   useEffect(() => {
     setSelectedIndex(null);
-  }, [range, scopeLabel, series.anchorDate, pointWindowKey]);
+  }, [range, scopeLabel, series.anchorDate, pointWindowKey, selectionDismissKey]);
 
   const selectPointAt = useCallback(
     (x: number) => {
@@ -254,6 +256,7 @@ export default function IncomeTrendChart({
         style={styles.chart}
         onAccessibilityAction={handleAccessibilityAction}
         onLayout={handleLayout}
+        onTouchStart={(event) => event.stopPropagation()}
         {...panResponder.panHandlers}
       >
         {chartWidth > 0 ? (
