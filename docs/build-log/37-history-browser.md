@@ -14,6 +14,5 @@ month shifts, and subtotals. D15 records the tradeoffs and the known ceiling.
 
 Verification: repository hook, TypeScript, all pure-library checks, iOS bundle
 export, Fallow dead-code and duplication scans, and the changed-file Fallow
-audit passed. The queued App Store Connect build 5 predates this commit; a new
-production build is required before this browser reaches TestFlight or App
-Review.
+audit passed. EAS production build 6 completed from `149e4ae` and its
+submission is in progress under ASC app `6800162471`.

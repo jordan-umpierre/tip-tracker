@@ -37,16 +37,13 @@ jobs, import/export, backup, and optional estimate tools.
 
 ## Next work, in order
 
-1. Build and submit a new production iOS candidate from the history-browser
-   commit; build 5 predates that UI change and is not the final release
-   candidate.
-2. Wait for the new build to finish TestFlight processing, then complete
+1. Wait for build 6 to finish TestFlight processing, then complete
    [`acceptance.md`](acceptance.md) on the iOS build.
-3. Fix only failures found in that pass and repeat the focused checks.
-4. Host [`privacy-policy.md`](privacy-policy.md) at a public HTTPS URL.
-5. Complete App Store Connect name, description, support URL, privacy URL,
+2. Fix only failures found in that pass and repeat the focused checks.
+3. Host [`privacy-policy.md`](privacy-policy.md) at a public HTTPS URL.
+4. Complete App Store Connect name, description, support URL, privacy URL,
    screenshots, age rating, and App Privacy answers.
-6. Submit the processed build for App Store review.
+5. Submit the processed build for App Store review.
 
 ## Evidence already captured
 
@@ -57,8 +54,8 @@ jobs, import/export, backup, and optional estimate tools.
 - iOS and Android bundle exports previously passed.
 - First iOS preview build: local shift survived force-quit and relaunch on
   2026-08-07.
-- iOS production build 5 completed from commit `53d4b56` on 2026-08-11.
-- Build 5 submission is queued for App Store Connect processing under ASC app
+- iOS production build 6 completed from commit `149e4ae` on 2026-08-11.
+- Build 6 submission is in progress for App Store Connect under ASC app
   `6800162471`.
 
 Exports and automated tests prove code paths and bundle generation. They do not
