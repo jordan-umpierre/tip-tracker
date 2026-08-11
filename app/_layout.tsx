@@ -1,25 +1,19 @@
 import { Stack } from 'expo-router';
 import { AuthProvider } from '../src/auth/AuthProvider';
 
-// The tabs moved one level down into (tabs)/ so this stack can push screens
-// that cover the tab bar. Expo Router's own tab guidance is to nest the tab
-// navigator inside a root stack for exactly this reason: anything declared
-// here renders over the tabs rather than inside one of them.
-//
-// AuthProvider wraps the stack rather than the tabs, so a pushed flow is
-// inside the same auth context the tabs are.
+// The root stack keeps Home, income review, settings, and the logging flow in
+// one predictable navigation model. AuthProvider wraps every route so local
+// mode and optional cloud account state stay consistent across screens.
 export default function RootLayout() {
   return (
     <AuthProvider>
       <Stack>
-        {/* The tabs draw their own bar and each screen its own title, so the
-            stack header would be a second, empty one on top of that. */}
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="trends" options={{ title: 'View income' }} />
+        <Stack.Screen name="history" options={{ title: 'Shift history' }} />
 
-        {/* The log-a-shift flow. Declared here rather than left to discovery so
-            the whole sequence is readable in one place, and so each step gets
-            the header title and back button the stack provides -- which is the
-            reason this is routes and not a modal with a step counter in it. */}
+        {/* Each logging step gets the native stack header, back button, and
+            swipe gesture instead of rebuilding those behaviors in the form. */}
         <Stack.Screen name="log-shift/job" options={{ title: 'Log a shift' }} />
         <Stack.Screen name="log-shift/date" options={{ title: 'Log a shift' }} />
         <Stack.Screen name="log-shift/details" options={{ title: 'Shift details' }} />
