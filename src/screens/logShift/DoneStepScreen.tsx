@@ -57,7 +57,7 @@ export default function DoneStepScreen() {
           accessibilityRole="button"
           style={styles.primaryButton}
           // Pops the whole flow rather than stepping back through it, so the
-          // user lands on the Log tab with the new row already in the list.
+          // user lands on Home with the new row already saved in SQLite.
           onPress={() => router.dismissAll()}
         >
           <Text style={styles.primaryButtonText}>Done</Text>
@@ -77,7 +77,7 @@ function Figure({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#fff' },
+  screen: { flex: 1, backgroundColor: '#f7f8fa' },
   body: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 },
   tick: {
     width: 72,
@@ -89,7 +89,13 @@ const styles = StyleSheet.create({
   },
   tickMark: { color: '#fff', fontSize: 38, fontWeight: '700' },
   title: { color: '#111827', fontSize: 26, fontWeight: '700' },
-  figures: { alignSelf: 'stretch', marginTop: 8 },
+  figures: {
+    alignSelf: 'stretch',
+    marginTop: 8,
+    borderRadius: 16,
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+  },
   figureRow: {
     minHeight: 44,
     flexDirection: 'row',
@@ -111,7 +117,7 @@ const styles = StyleSheet.create({
     minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
+    borderRadius: 16,
     backgroundColor: '#2563eb',
   },
   primaryButtonText: { color: '#fff', fontSize: 17, fontWeight: '700' },

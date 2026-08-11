@@ -346,6 +346,7 @@ export default function DetailsStepScreen() {
             onChangeText={setHourlyRate}
             placeholder="e.g. 12.00"
             keyboardType="decimal-pad"
+            clearButtonMode="while-editing"
           />
 
           <Text style={styles.label}>Tips</Text>
@@ -355,19 +356,28 @@ export default function DetailsStepScreen() {
             onChangeText={setTips}
             placeholder="Enter tips"
             keyboardType="decimal-pad"
+            clearButtonMode="while-editing"
           />
 
           {advanced ? (
             <>
               <Text style={styles.label}>Start time</Text>
-              <Pressable style={styles.input} onPress={() => openTimePicker('start')}>
+              <Pressable
+                accessibilityRole="button"
+                style={styles.input}
+                onPress={() => openTimePicker('start')}
+              >
                 <Text style={[styles.inputText, !startTime && styles.placeholder]}>
                   {startTime ? timeInputValue(startTime) : 'Choose start time'}
                 </Text>
               </Pressable>
 
               <Text style={styles.label}>End time</Text>
-              <Pressable style={styles.input} onPress={() => openTimePicker('end')}>
+              <Pressable
+                accessibilityRole="button"
+                style={styles.input}
+                onPress={() => openTimePicker('end')}
+              >
                 <Text style={[styles.inputText, !endTime && styles.placeholder]}>
                   {endTime ? timeInputValue(endTime) : 'Choose end time'}
                 </Text>
@@ -423,6 +433,7 @@ export default function DetailsStepScreen() {
             }}
             placeholder={advanced ? 'Optional when times are set' : 'e.g. 7.5'}
             keyboardType="decimal-pad"
+            clearButtonMode="while-editing"
           />
 
           <Text style={styles.label}>Note</Text>
@@ -432,6 +443,7 @@ export default function DetailsStepScreen() {
             onChangeText={setNote}
             placeholder="Enter note (optional)"
             multiline
+            returnKeyType="done"
           />
         </ScrollView>
 
@@ -453,10 +465,10 @@ export default function DetailsStepScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#fff' },
+  screen: { flex: 1, backgroundColor: '#f7f8fa' },
   fill: { flex: 1 },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
-  content: { gap: 8, padding: 20, paddingBottom: 32 },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f7f8fa' },
+  content: { gap: 8, padding: 20, paddingTop: 24, paddingBottom: 32 },
   headingRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -465,16 +477,17 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   headingText: { flex: 1, gap: 2 },
-  title: { color: '#111827', fontSize: 24, fontWeight: '700' },
+  title: { color: '#111827', fontSize: 24, fontWeight: '700', lineHeight: 30 },
   subtitle: { color: '#6b7280', fontSize: 15 },
   toggleText: { color: '#2563eb', fontSize: 15, fontWeight: '600' },
   label: { color: '#374151', fontWeight: '600', marginTop: 8 },
   input: {
-    minHeight: 48,
+    minHeight: 52,
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 10,
+    borderColor: '#dfe3ea',
+    borderRadius: 14,
+    backgroundColor: '#fff',
     paddingHorizontal: 12,
     fontSize: 16,
   },
@@ -491,13 +504,14 @@ const styles = StyleSheet.create({
   footer: {
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb',
+    backgroundColor: '#f7f8fa',
     padding: 20,
   },
   primaryButton: {
     minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
+    borderRadius: 16,
     backgroundColor: '#2563eb',
   },
   primaryButtonDisabled: { backgroundColor: '#93b4f5' },

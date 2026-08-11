@@ -38,8 +38,8 @@ export default function DateStepScreen() {
   return (
     <SafeAreaView style={styles.screen} edges={['bottom']}>
       <View style={styles.heading}>
-        <Text selectable style={styles.title}>Select a date</Text>
-        <Text style={styles.subtitle}>Which day was this shift?</Text>
+        <Text selectable style={styles.title}>When did you work?</Text>
+        <Text style={styles.subtitle}>Choose the day for this shift.</Text>
       </View>
 
       {/* No horizontal padding on the calendar's container: it pages by the
@@ -59,7 +59,7 @@ export default function DateStepScreen() {
             router.push({ pathname: '/log-shift/details', params: { jobId, date: selectedDate } })
           }
         >
-          <Text style={styles.primaryButtonText}>Next</Text>
+          <Text style={styles.primaryButtonText}>Continue</Text>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -67,18 +67,18 @@ export default function DateStepScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#fff' },
-  heading: { gap: 4, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 4 },
-  title: { color: '#111827', fontSize: 26, fontWeight: '700' },
-  subtitle: { color: '#6b7280', fontSize: 15 },
+  screen: { flex: 1, backgroundColor: '#f7f8fa' },
+  heading: { gap: 4, paddingHorizontal: 20, paddingTop: 24, paddingBottom: 4 },
+  title: { color: '#111827', fontSize: 30, fontWeight: '700', lineHeight: 36 },
+  subtitle: { color: '#6b7280', fontSize: 15, lineHeight: 20 },
   // Pushed to the bottom of whatever space the calendar leaves, so the button
   // sits under a thumb rather than directly beneath the grid on a tall screen.
-  footer: { marginTop: 'auto', padding: 20 },
+  footer: { marginTop: 'auto', padding: 20, paddingTop: 12 },
   primaryButton: {
     minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
+    borderRadius: 16,
     backgroundColor: '#2563eb',
   },
   primaryButtonText: { color: '#fff', fontSize: 17, fontWeight: '700' },
