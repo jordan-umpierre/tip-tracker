@@ -4,7 +4,7 @@ import { Stack } from 'expo-router';
 // in this stack so settings and the logging flow get normal back navigation.
 export default function RootLayout() {
   return (
-    <Stack>
+    <Stack screenOptions={{ headerBackButtonDisplayMode: 'minimal' }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="history" options={{ title: 'Shift history' }} />
 
