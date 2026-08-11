@@ -25,23 +25,23 @@ Tip Tracker is a local-first income tracker:
 - import/export CSV data
 - create and restore a lossless JSON device backup
 - use optional, clearly labeled overtime and federal withholding estimates
+- connect an account for cloud backup and cross-device sync
 
-The primary flow is `Open → Log a shift → enter the shift → save`. Job
-management, account access, tax settings, import/export, and backup live in
+The primary flow is `Open → choose Log income or View income → finish the task`.
+Job management, account access, tax settings, import/export, and backup live in
 Settings so they do not compete with the recurring logging task.
 
 ## Deferred
 
 Do not market these as V1 features:
 
-- premium billing or entitlement enforcement
-- production cloud backup and cross-device sync
+- one-time purchases or entitlement enforcement
 - 1099 mileage, expenses, or quarterly-tax calculations
 - state/local tax calculations or tax advice
 - payroll, bank, employer, social, or tax-filing integrations
 
-The account and sync implementation remains in the repository as a later
-layer. It is not a reason to delay or complicate the local logging core.
+The account and sync implementation is in the first-release scope, but local
+logging must remain useful when the account or network is unavailable.
 
 ## Next work, in order
 
@@ -49,15 +49,14 @@ layer. It is not a reason to delay or complicate the local logging core.
    Android build. Record failures inline. This includes local logging,
    editing, deletion, overtime labels, backup/restore, accessibility, and
    offline behavior.
-2. Decide whether cloud account/sync is included in the first public release.
-   If yes, complete its provider, SMTP, cross-device, conflict, privacy, and
-   deletion evidence. If no, keep it out of V1 marketing and store screenshots.
+2. Complete cloud account/sync evidence: provider, SMTP, cross-device,
+   conflict, privacy, and deletion behavior.
 3. Before deploying the API build that uses it, apply
    [`003_rate_limit.sql`](../server/migrations/003_rate_limit.sql) to the live
    Postgres database.
 4. Fill and verify production authentication/API configuration together. The
-   current production EAS environment is intentionally empty; that is safe for
-   local-only mode but would silently remove account features from a build.
+   current production EAS environment is intentionally empty, so a production
+   build would silently remove the cloud features now in release scope.
 5. Publish the privacy policy at a hosted URL, confirm the app name, prepare
    store metadata/screenshots, and verify the final binary on both platforms.
 
@@ -84,7 +83,7 @@ store review, or production deployment.
 SQLite is the local source of truth. Money is integer cents, duration is
 integer seconds, dates are date-only ISO strings, and a shift stores the rate
 that applied when it was worked. Calculations are pure TypeScript modules
-covered by direct tests. The optional server is Node/Express/Postgres behind
+covered by direct tests. The server is Node/Express/Postgres behind
 authenticated sync and is not needed to log a shift.
 
 ## History

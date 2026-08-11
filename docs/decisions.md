@@ -1996,3 +1996,31 @@ UI/UX bar from the product definition is achievable here.
 >
 > **Revisit when:** request volume makes the counter query measurable, or the
 > API moves to a host where a shared edge limiter is available and verified.
+
+### D32 — Make Home the two-choice entry point (2026-08-10)
+
+> **Decision:** Remove the native Log/Trends tab choice. Home is one screen
+> with two obvious actions: **Log income** and **View income**, plus a quiet
+> Settings action. The existing one-question-per-screen logging wizard stays.
+> Income review opens Trends, which links to shift history for edit and delete.
+
+> **Alternatives:** Keep the Log/Trends tabs; return to the old all-in-one Log
+> screen; replace the wizard with a dense form; put Settings in a third tab.
+
+> **Why:** The recurring decision is not "which section of the app?" It is
+> "am I recording income or reviewing it?" A single entry point makes that
+> choice explicit and removes the tab bar, hidden history actions, and the
+> spacing competition that made the app feel cumbersome. The wizard remains
+> because separating date, details, and confirmation keeps each screen legible.
+
+> Cloud accounts and sync are included in the free launch scope, while SQLite
+> remains the offline source of truth. One-time purchases are intentionally
+> deferred until the paid feature and entitlement contract exist; payment code
+> without a defined purchase is speculative work.
+
+> **Known cost:** History is one navigation step farther from Home, and first
+> launch includes a small job setup section before logging can begin.
+
+> **Revisit when:** Home has more than two recurring decisions, or user testing
+> shows that people expect history to be the first screen rather than a review
+> destination.

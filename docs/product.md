@@ -19,12 +19,14 @@ Free local-first V1 includes:
 - gross income trends and hourly earnings
 - CSV import/export
 - lossless JSON backup and empty-device restore
+- optional cloud account, backup, and cross-device sync
 
-The primary flow is deliberately short:
+The primary flow is deliberately clear:
 
-`Open → Log a shift → enter 2–4 values → save → review the recorded result`
+`Open → choose Log income or View income → finish the task`
 
-Simple users do not need an account, tax settings, or a network connection.
+Logging stays usable without an account or network connection. An account is
+available when a user wants cloud backup or another device.
 
 ## Optional tools
 
@@ -34,7 +36,7 @@ Settings contains advanced local tools:
 - a bounded federal withholding estimate for one regular W-2 paycheck
 - CSV import/export
 - full device backup and restore
-- an optional cloud-account panel
+- cloud account and sync controls
 
 The withholding calculator is not take-home pay, total payroll tax, annual tax
 liability, a refund, or an amount owed. Its disclosure stays beside the result.
@@ -43,15 +45,13 @@ liability, a refund, or an amount owed. Its disclosure stays beside the result.
 
 The following require separate product and release decisions:
 
-- premium billing and entitlement validation
-- production cloud backup and cross-device sync
+- one-time purchases and entitlement validation
 - 1099 mileage and expense tracking
 - state/local tax calculations
 - payroll, bank, employer, social, or tax-filing integrations
 
-The account and sync implementation remains available as a later layer, but it
-is not a V1 marketing promise until its provider, SMTP, migration, device, and
-privacy gates are complete.
+The launch is free. One-time purchases remain a post-launch monetization
+slice until the paid feature and entitlement boundary are defined.
 
 ## Trust rules
 
@@ -69,7 +69,7 @@ privacy gates are complete.
 UI → SQLite source of truth
   ├── pure gross, trend, overtime, and withholding calculations
   ├── CSV and JSON boundaries
-  └── optional account/sync layer
+  └── authenticated account/sync layer
 ```
 
 The app does not need a global state store, a cache layer, or a service mesh.
