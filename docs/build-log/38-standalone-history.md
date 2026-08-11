@@ -1,0 +1,23 @@
+# Build log — standalone shift history
+
+## `1d1dcf3` — feat: separate shift history workflow (2026-08-11)
+
+Log income now presents Browse history as a secondary button instead of
+rendering the browser and shift rows inline. The existing `/history` route now
+owns a dedicated `HistoryScreen`, so opening history pushes a native stack
+screen and returning uses the platform back action.
+
+`ShiftList` now owns only the history browser and its rows. The obsolete
+header, footer, keyboard, layout-nudge, and scroll-to-inline-form machinery was
+deleted. Year and month choices remain newest-first, while shifts inside the
+selected month are sorted from the earliest date to the latest. The pure
+grouping check includes the requested August 1 through August 31 regression.
+
+Verification: TypeScript, the shift-group check, the repository hook, iOS
+bundle export, Fallow dead-code and duplication scans, and the changed-file
+Fallow audit passed. Repository-wide Fallow health still reports inherited
+complexity thresholds, reduced from 26 findings before this change to 25 after
+the list cleanup.
+
+Build 6 was already submitted before this commit. A later production build is
+required before the new workflow can be accepted on TestFlight.

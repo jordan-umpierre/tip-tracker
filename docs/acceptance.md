@@ -13,6 +13,9 @@ the signed iOS preview or production candidate build, not Expo Go.
       show the values entered.
 - [ ] Edit a shift, delete a shift with confirmation, relaunch, and confirm
       both changes persist.
+- [ ] From Log income, open Browse history and use the native back action to
+      return. Select a month with shifts on different dates and confirm its
+      rows run from the earliest date at the top to the latest at the bottom.
 - [ ] Log with start and end times. The stored duration and displayed warning
       are correct, including an overnight shift.
 - [ ] Enable overtime for one job. The result is labeled as an estimate and

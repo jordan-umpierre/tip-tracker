@@ -10,9 +10,11 @@ Last updated: 2026-08-11
 
 ## Verdict
 
-**The iOS production build is submitted to App Store Connect** ([D33](decisions.md)). The account,
-sync, Postgres, and AWS work is sidelined. The remaining work is TestFlight
-processing, iOS acceptance, store metadata, privacy hosting, and App Review.
+**The iOS production build is submitted to App Store Connect** ([D33](decisions.md)), but build 6
+predates the standalone history workflow now on `main`. A replacement build is
+required before iOS acceptance. The account, sync, Postgres, and AWS work is
+sidelined. The remaining work is the replacement build, TestFlight processing,
+iOS acceptance, store metadata, privacy hosting, and App Review.
 
 ## What is shipping
 
@@ -37,13 +39,14 @@ jobs, import/export, backup, and optional estimate tools.
 
 ## Next work, in order
 
-1. Wait for build 6 to finish TestFlight processing, then complete
+1. Create and submit a production build from commit `1d1dcf3` or later.
+2. Wait for that build to finish TestFlight processing, then complete
    [`acceptance.md`](acceptance.md) on the iOS build.
-2. Fix only failures found in that pass and repeat the focused checks.
-3. Host [`privacy-policy.md`](privacy-policy.md) at a public HTTPS URL.
-4. Complete App Store Connect name, description, support URL, privacy URL,
+3. Fix only failures found in that pass and repeat the focused checks.
+4. Host [`privacy-policy.md`](privacy-policy.md) at a public HTTPS URL.
+5. Complete App Store Connect name, description, support URL, privacy URL,
    screenshots, age rating, and App Privacy answers.
-5. Submit the processed build for App Store review.
+6. Submit the processed build for App Store review.
 
 ## Evidence already captured
 
@@ -57,6 +60,8 @@ jobs, import/export, backup, and optional estimate tools.
 - iOS production build 6 completed from commit `149e4ae` on 2026-08-11.
 - Build 6 submission is in progress for App Store Connect under ASC app
   `6800162471`.
+- Build 6 does not contain commit `1d1dcf3`; do not use it as acceptance
+  evidence for the standalone history workflow.
 
 Exports and automated tests prove code paths and bundle generation. They do not
 prove a physical device flow, accessibility, signing, store review, or

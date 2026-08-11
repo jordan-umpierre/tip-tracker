@@ -859,11 +859,13 @@ UI/UX bar from the product definition is achievable here.
 
 ### D15 — Browse shift history with year chips and month cards (2026-08-03; revised 2026-08-11)
 
-> **Decision:** The Log shows a compact year chip row and a grid of month cards.
-> The newest year and month are selected by default. Selecting a year swaps the
-> month cards; selecting a month shows only that month's shifts below them. The
-> shift rows still render through one virtualized `FlatList`, and the existing
-> swipe-to-edit/delete behavior is unchanged.
+> **Decision:** Log income contains a Browse history button that opens the
+> standalone Shift history stack screen. That screen shows a compact year chip
+> row and a grid of month cards. The newest year and month are selected by
+> default. Selecting a year swaps the month cards; selecting a month shows only
+> that month's shifts below them, ordered from the first logged date to the
+> last. The shift rows still render through one virtualized `FlatList`, and the
+> existing swipe-to-edit/delete behavior is unchanged.
 >
 > **Alternatives:**
 > - Keep the flat, fully expanded list and rely on virtualization alone
@@ -873,6 +875,7 @@ UI/UX bar from the product definition is achievable here.
 > - A month stepper showing exactly one month at a time, with no year overview
 > - Infinite scroll paging in older shifts as the user reaches the bottom
 > - Nested `FlatList`s, one per level
+> - Keep the browser inline on Log income (shipped through 2026-08-11)
 >
 > **Why:** the disclosure tree reduced the number of rows on the first screen,
 > but it made the main task feel like opening folders. The year chips and month
@@ -885,6 +888,12 @@ UI/UX bar from the product definition is achievable here.
 > scrollers inside scrollers fight over the same gesture and the inner one loses
 > virtualization. The grouping helper remains because it supplies the sorted
 > years, sorted months, shifts, and subtotals used by the browser.
+>
+> History is a review and management workflow, not part of logging a new shift.
+> A stack route keeps the Log income screen focused and gives history native
+> back navigation. Years and months stay newest-first so the current period is
+> easy to reach; shifts inside the chosen month run oldest-first because that is
+> the order a person reads a month's work from beginning to end.
 >
 > **Known cost:** a month with many shifts is still a long list, but it is now a
 > deliberately selected list with a visible month title above it. There is no

@@ -145,3 +145,5 @@ name — the number adds sequence without costing you the description.
     first release an iOS local-only SQLite app.
 37. [37-history-browser.md](37-history-browser.md) — D15, replacing the
     year/month disclosure tree with year chips and month cards.
+38. [38-standalone-history.md](38-standalone-history.md) — moving history off
+    Log income and ordering each selected month from earliest to latest.
