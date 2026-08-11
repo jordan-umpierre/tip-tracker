@@ -5,13 +5,14 @@ import {
   FlatList,
   PanResponder,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { MONTH_NAMES, parseCalendarDate, WEEKDAY_NAMES } from '../lib/dates';
 import { formatCents, formatHours } from '../lib/format';
-import { flattenShifts, groupShifts, ShiftGroupRow, ShiftListRow } from '../lib/shiftGroups';
+import { groupShifts } from '../lib/shiftGroups';
 import { calculateShiftGrossCents } from '../lib/totals';
 import { Job } from '../data/jobs';
 import { deleteShift, Shift } from '../data/shifts';
@@ -53,6 +54,7 @@ type Props = {
   footer?: ReactElement;
 };
 
+// fallow-ignore-next-line complexity -- List layout, period selection, and swipe actions are one device-tested interaction surface; the repo has no component coverage reporter for estimated CRAP scoring.
 export default function ShiftList({
   shifts,
   jobs,
@@ -87,7 +89,7 @@ export default function ShiftList({
   // exist yet, so there is nothing to scroll to. Instead the intent is
   // recorded and acted on the next time the content changes size, which is
   // exactly the moment the form has laid out.
-  const listRef = useRef<FlatList<ShiftListRow>>(null);
+  const listRef = useRef<FlatList<Shift>>(null);
   const scrollToFormPending = useRef(false);
 
   function openShift(shift: Shift) {
@@ -100,22 +102,16 @@ export default function ShiftList({
     naturalContentHeight > 0 &&
     naturalContentHeight + CONTENT_NUDGE_DOWN * 2 <= viewportHeight;
 
-  // Only groups the user has actually tapped land in here; everything else is
-  // shut. See flattenShifts for why nothing seeds this.
-  const [toggled, setToggled] = useState<Record<string, boolean>>({});
   const years = useMemo(
     () => groupShifts(shifts, grossByShift, estimatedJobIds),
     [estimatedJobIds, grossByShift, shifts]
   );
-  // The tree is flattened back into one list of rows, so a three-level history
-  // still renders through a single virtualized FlatList. Nesting scrollers or
-  // mapping the whole tree into Views would give up virtualization, which is
-  // the thing keeping 845 shifts cheap.
-  const rows = useMemo(() => flattenShifts(years, toggled), [years, toggled]);
-
-  function toggleGroup(row: ShiftGroupRow) {
-    setToggled((current) => ({ ...current, [row.key]: !row.expanded }));
-  }
+  const [selectedYearKey, setSelectedYearKey] = useState<string | null>(null);
+  const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
+  const selectedYear = years.find((year) => year.key === selectedYearKey) ?? years[0];
+  const selectedMonth = selectedYear?.months.find((month) => month.key === selectedMonthKey)
+    ?? selectedYear?.months[0];
+  const visibleShifts = selectedMonth?.shifts ?? [];
 
   // Alert.alert is React Native's built-in native confirmation dialog --
   // no extra dependency for something this common. Delete is destructive
@@ -149,8 +145,8 @@ export default function ShiftList({
     <FlatList
       ref={listRef}
       style={styles.list}
-      data={rows}
-      keyExtractor={(row) => row.key}
+      data={visibleShifts}
+      keyExtractor={(shift) => shift.id}
       contentInsetAdjustmentBehavior="automatic"
       // Two ways out of the keyboard, because the number fields use
       // keyboardType="decimal-pad" and iOS gives that pad no return key --
@@ -193,7 +189,23 @@ export default function ShiftList({
           requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
         }
       }}
-      ListHeaderComponent={header}
+      ListHeaderComponent={
+        <>
+          {header}
+          {years.length > 0 ? (
+            <HistoryBrowser
+              years={years}
+              selectedYear={selectedYear}
+              selectedMonth={selectedMonth}
+              onYearPress={(yearKey) => {
+                setSelectedYearKey(yearKey);
+                setSelectedMonthKey(null);
+              }}
+              onMonthPress={setSelectedMonthKey}
+            />
+          ) : null}
+        </>
+      }
       ListFooterComponent={footer}
       ListEmptyComponent={
         <View style={styles.empty}>
@@ -201,58 +213,145 @@ export default function ShiftList({
         </View>
       }
       renderItem={({ item }) =>
-        item.kind === 'shift' ? (
-          <SwipeableShiftRow
-            jobName={jobNameById.get(item.shift.job_id) ?? 'Unknown job'}
-            shift={item.shift}
-            grossCents={grossByShift.get(item.shift.id) ?? calculateShiftGrossCents(item.shift)}
-            estimated={estimatedJobIds.has(item.shift.job_id)}
-            onDelete={() => handleDeletePress(item.shift)}
-            onPress={() => openShift(item.shift)}
-          />
-        ) : (
-          <GroupRow row={item} onPress={() => toggleGroup(item)} />
-        )
+        <SwipeableShiftRow
+          jobName={jobNameById.get(item.job_id) ?? 'Unknown job'}
+          shift={item}
+          grossCents={grossByShift.get(item.id) ?? calculateShiftGrossCents(item)}
+          estimated={estimatedJobIds.has(item.job_id)}
+          onDelete={() => handleDeletePress(item)}
+          onPress={() => openShift(item)}
+        />
       }
     />
   );
 }
 
-// fallow-ignore-next-line complexity -- Visible and accessibility estimate labels share one branch.
-function GroupRow({ row, onPress }: { row: ShiftGroupRow; onPress: () => void }) {
-  const group = GROUP_STYLES[row.kind];
+// fallow-ignore-next-line complexity -- The year and month controls deliberately expose their visible states together; the repo has no component coverage reporter for estimated CRAP scoring.
+function HistoryBrowser({
+  years,
+  selectedYear,
+  selectedMonth,
+  onYearPress,
+  onMonthPress,
+}: {
+  years: ReturnType<typeof groupShifts>;
+  selectedYear: ReturnType<typeof groupShifts>[number] | undefined;
+  selectedMonth: ReturnType<typeof groupShifts>[number]['months'][number] | undefined;
+  onYearPress: (yearKey: string) => void;
+  onMonthPress: (monthKey: string) => void;
+}) {
+  return (
+    <View style={styles.browser}>
+      <View style={styles.browserHeading}>
+        <View>
+          <Text style={styles.browserTitle}>Browse history</Text>
+          <Text style={styles.browserSubtitle}>
+            {selectedMonth ? `${monthName(selectedMonth.period)} ${selectedYear?.period ?? ''}` : ''}
+          </Text>
+        </View>
+        {selectedMonth ? (
+          <Text style={styles.browserSummary}>
+            {selectedMonth.shiftCount} {selectedMonth.shiftCount === 1 ? 'shift' : 'shifts'}
+          </Text>
+        ) : null}
+      </View>
+      <ScrollView
+        horizontal
+        contentContainerStyle={styles.yearChips}
+        showsHorizontalScrollIndicator={false}
+      >
+        {years.map((year) => (
+          <YearChip
+            key={year.key}
+            year={year}
+            selected={year.key === selectedYear?.key}
+            onPress={() => onYearPress(year.key)}
+          />
+        ))}
+      </ScrollView>
+      {selectedYear ? (
+        <View style={styles.monthGrid}>
+          {selectedYear.months.map((month) => (
+            <MonthCard
+              key={month.key}
+              year={selectedYear.period}
+              month={month}
+              selected={month.key === selectedMonth?.key}
+              onPress={() => onMonthPress(month.key)}
+            />
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
 
+function monthName(period: string): string {
+  return MONTH_NAMES[Number(period.slice(5, 7)) - 1] ?? period;
+}
+
+function YearChip({
+  year,
+  selected,
+  onPress,
+}: {
+  year: ReturnType<typeof groupShifts>[number];
+  selected: boolean;
+  onPress: () => void;
+}) {
   return (
     <Pressable
-      accessibilityHint={row.expanded ? 'Collapses this group.' : 'Expands this group.'}
       accessibilityRole="button"
-      // Screen readers announce expanded/collapsed from this, so the triangle
-      // is not the only thing carrying that state.
-      accessibilityState={{ expanded: row.expanded }}
-      style={[styles.groupRow, group.row]}
+      accessibilityState={{ selected }}
+      accessibilityLabel={`${year.period}, ${year.shiftCount} shifts`}
+      style={({ pressed }) => [
+        styles.yearChip,
+        selected && styles.yearChipSelected,
+        pressed && styles.pressed,
+      ]}
       onPress={onPress}
     >
-      <Text style={styles.groupChevron}>{row.expanded ? '▾' : '▸'}</Text>
-      <Text numberOfLines={1} style={[styles.groupLabel, group.label]}>
-        {formatGroupLabel(row)}
+      <Text style={[styles.yearChipText, selected && styles.yearChipTextSelected]}>
+        {year.period}
       </Text>
-      <Text
-        selectable
-        accessibilityLabel={`${formatCents(row.grossCents)} ${row.estimated ? 'estimated gross' : 'gross'}`}
-        style={[styles.groupGross, group.label]}
-      >
-        {row.estimated ? 'Est. ' : ''}{formatCents(row.grossCents)}
-      </Text>
-      <Text style={styles.groupCount}>{row.shiftCount}</Text>
     </Pressable>
   );
 }
 
-// Each level only names the part its parent has not already said: the year row
-// carries the year, so a month underneath it is just "August".
-function formatGroupLabel(row: ShiftGroupRow): string {
-  if (row.kind === 'year') return row.period;
-  return MONTH_NAMES[Number(row.period.slice(5, 7)) - 1] ?? row.period;
+function MonthCard({
+  year,
+  month,
+  selected,
+  onPress,
+}: {
+  year: string;
+  month: ReturnType<typeof groupShifts>[number]['months'][number];
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      accessibilityLabel={`${monthName(month.period)} ${year}, ${month.shiftCount} shifts, ${formatCents(month.grossCents)}`}
+      style={({ pressed }) => [
+        styles.monthCard,
+        selected && styles.monthCardSelected,
+        pressed && styles.pressed,
+      ]}
+      onPress={onPress}
+    >
+      <Text style={[styles.monthName, selected && styles.monthNameSelected]}>
+        {monthName(month.period)}
+      </Text>
+      <Text style={styles.monthMeta}>
+        {month.shiftCount} {month.shiftCount === 1 ? 'shift' : 'shifts'}
+      </Text>
+      <Text style={styles.monthGross}>
+        {month.estimated ? 'Est. ' : ''}{formatCents(month.grossCents)}
+      </Text>
+    </Pressable>
+  );
 }
 
 // The group rows above already say the year and the month, so a shift only
@@ -470,43 +569,96 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
-  groupRow: {
-    minHeight: 44,
+  browser: {
+    marginTop: 20,
+    marginBottom: 12,
+    paddingHorizontal: 12,
+  },
+  browserHeading: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  browserTitle: {
+    color: '#111827',
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  browserSubtitle: {
+    color: '#6b7280',
+    fontSize: 14,
+    marginTop: 2,
+  },
+  browserSummary: {
+    color: '#6b7280',
+    fontSize: 13,
+  },
+  yearChips: {
     gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-    paddingRight: 12,
+    paddingBottom: 12,
   },
-  groupChevron: {
-    width: 12,
+  yearChip: {
+    alignItems: 'center',
+    borderColor: '#d1d5db',
+    borderRadius: 18,
+    borderWidth: 1,
+    minWidth: 68,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  yearChipSelected: {
+    backgroundColor: '#111827',
+    borderColor: '#111827',
+  },
+  yearChipText: {
+    color: '#374151',
+    fontWeight: '600',
+  },
+  yearChipTextSelected: {
+    color: '#fff',
+  },
+  monthGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  monthCard: {
+    backgroundColor: '#f3f4f6',
+    borderColor: '#f3f4f6',
+    borderRadius: 12,
+    borderWidth: 1,
+    flexBasis: '31.5%',
+    flexGrow: 1,
+    minHeight: 82,
+    padding: 10,
+  },
+  monthCardSelected: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#2563eb',
+  },
+  monthName: {
+    color: '#111827',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  monthNameSelected: {
+    color: '#1d4ed8',
+  },
+  monthMeta: {
     color: '#6b7280',
     fontSize: 12,
+    marginTop: 8,
   },
-  groupLabel: {
-    flex: 1,
+  monthGross: {
     color: '#111827',
-  },
-  groupGross: {
-    color: '#111827',
-    fontVariant: ['tabular-nums'],
-  },
-  // A bare count, since the column is always shift counts and the word costs a
-  // third of the row's width to say so seven times over.
-  groupCount: {
-    width: 34,
-    color: '#6b7280',
     fontSize: 12,
     fontVariant: ['tabular-nums'],
-    textAlign: 'right',
+    marginTop: 2,
   },
-  // Depth reads as indentation plus weight: each level is lighter and further
-  // in than its parent, so the nesting is visible without drawing lines.
-  yearRow: { backgroundColor: '#e5e7eb', paddingLeft: 12 },
-  yearLabel: { fontSize: 16, fontWeight: '700' },
-  monthRow: { backgroundColor: '#f3f4f6', paddingLeft: 26 },
-  monthLabel: { fontSize: 15, fontWeight: '600' },
+  pressed: {
+    opacity: 0.7,
+  },
   rowText: {
     flex: 1,
   },
@@ -559,10 +711,3 @@ const styles = StyleSheet.create({
     backgroundColor: '#dc2626',
   },
 });
-
-// Declared after `styles` because it reads from it: a const referencing another
-// const higher in the file would blow up at import time, not at render.
-const GROUP_STYLES = {
-  year: { row: styles.yearRow, label: styles.yearLabel },
-  month: { row: styles.monthRow, label: styles.monthLabel },
-} as const;

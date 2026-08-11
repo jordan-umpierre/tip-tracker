@@ -5,7 +5,7 @@
 // src/lib/.
 import assert from 'node:assert/strict';
 import type { Shift } from '../data/shifts.ts';
-import { flattenShifts, groupShifts } from './shiftGroups.ts';
+import { groupShifts } from './shiftGroups.ts';
 
 function shift(
   id: string,
@@ -30,7 +30,6 @@ function shift(
 }
 
 assert.deepEqual(groupShifts([]), []);
-assert.deepEqual(flattenShifts([], {}), []);
 
 // Deliberately out of order and spanning a year boundary, because the screen
 // relies on this function for display order rather than on the query's.
@@ -83,36 +82,6 @@ const estimated = groupShifts(
 );
 assert.equal(estimated[0].grossCents, 2500);
 assert.equal(estimated[0].estimated, true);
-
-// Untouched, everything is shut: one row per year and nothing else, however
-// many shifts are underneath.
-assert.deepEqual(
-  flattenShifts(grouped, {}).map((row) => [row.kind, row.key]),
-  [['year', '2026'], ['year', '2025']]
-);
-
-// Opening a group reveals its children shut, one level at a time.
-assert.deepEqual(
-  flattenShifts(grouped, { '2026': true }).map((row) => row.key),
-  ['2026', '2026-01', '2025']
-);
-// Opening the month reveals every shift in it. Two taps from a cold open, and
-// there is no third level between the month and the rows.
-assert.deepEqual(
-  flattenShifts(grouped, { '2026': true, '2026-01': true }).map((row) => row.key),
-  ['2026', '2026-01', 'late-january', 'mid-january', 'early-january', '2025']
-);
-
-// An open month inside a shut year stays hidden rather than leaking its rows.
-assert.deepEqual(
-  flattenShifts(grouped, { '2026-01': true }).map((row) => row.key),
-  ['2026', '2025']
-);
-
-// Two branches can be open at once; opening one does not close another.
-const twoOpen = flattenShifts(grouped, { '2026': true, '2025': true }).map((row) => row.key);
-assert.ok(twoOpen.includes('2026-01'));
-assert.ok(twoOpen.includes('2025-12'));
 
 assert.throws(
   () => groupShifts([shift('bad-date', '2026-02-30', 3600, 0, 1000)]),
