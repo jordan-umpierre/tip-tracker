@@ -857,74 +857,43 @@ UI/UX bar from the product definition is achievable here.
 > and tests exist. Non-midnight workweek boundaries were in that list until
 > D18 stored the inputs they need.
 
-### D15 — Collapse the shift history into a year/month tree (2026-08-03; revised 2026-08-10)
+### D15 — Browse shift history with year chips and month cards (2026-08-03; revised 2026-08-11)
 
-> **Decision:** The Log nests shifts under year, then month rows, each carrying
-> its own gross and shift count. Everything starts collapsed, so the tab opens
-> to one row per year and a shift is two taps away. The tree is flattened into
-> one array of typed rows and rendered through a single `FlatList`. Expansion
-> state stores only the groups the user has tapped.
+> **Decision:** The Log shows a compact year chip row and a grid of month cards.
+> The newest year and month are selected by default. Selecting a year swaps the
+> month cards; selecting a month shows only that month's shifts below them. The
+> shift rows still render through one virtualized `FlatList`, and the existing
+> swipe-to-edit/delete behavior is unchanged.
 >
 > **Alternatives:**
 > - Keep the flat, fully expanded list and rely on virtualization alone
 > - Month sections with sticky headers but nothing collapsed
-> - Month sections, collapsed, one level deep (what shipped first, 2026-08-03)
-> - Open the newest year, month, and week by default (shipped 2026-08-03,
->   replaced the same day)
-> - A third week level between month and shift (shipped 2026-08-03 through
->   2026-08-10)
-> - A month stepper showing exactly one month at a time, with no full scroll
+> - The previous year/month disclosure tree (shipped 2026-08-03 through
+>   2026-08-11)
+> - A month stepper showing exactly one month at a time, with no year overview
 > - Infinite scroll paging in older shifts as the user reaches the bottom
 > - Nested `FlatList`s, one per level
 >
-> **Why:** virtualization solved the rendering cost of 845 rows but not the
-> navigation cost. Every row looked alike and nothing said where in five years
-> of history the scroll had landed. One level of collapsing fixed the distance
-> between months but not within them: an open month of thirty shifts is still a
-> long list, and it was still the first thing on the tab. Three levels reduce
-> five years to one row per year.
+> **Why:** the disclosure tree reduced the number of rows on the first screen,
+> but it made the main task feel like opening folders. The year chips and month
+> cards keep the same bounded navigation without chevrons, hidden rows, or a
+> long mixed-level list. Each month card also exposes its shift count and gross,
+> so comparing adjacent months does not require opening both.
 >
-> Opening the newest branch by default was tried first, on the reasoning that
-> the current week is what a user most often wants to see. It reintroduced the
-> scrolling the tree existed to remove and left the screen too tall to sit
-> centered, so the default is now fully closed and reaching this week costs
-> three taps. The stepper was rejected because it removes the ability to scan across
-> months at all, and comparing a slow month against the one before it is a
-> normal thing to want. Paging was rejected as the same infinite scroll with
-> extra machinery. Nested lists were rejected outright: scrollers inside
-> scrollers fight over the same gesture and the inner one loses virtualization,
-> which is the thing making a long history cheap.
+> The month stepper was rejected because it hides the other months. Paging was
+> rejected as infinite scroll with extra machinery. Nested lists were rejected:
+> scrollers inside scrollers fight over the same gesture and the inner one loses
+> virtualization. The grouping helper remains because it supplies the sorted
+> years, sorted months, shifts, and subtotals used by the browser.
 >
-> **Revised 2026-08-10 — drop the week level.** Reaching one shift cost four
-> taps: 2026, then August, then Week of Aug 9, then the row. The week rows were
-> paying for themselves only in the largest months, and charging every month for
-> it. A month is also the unit people already use for a pay period and for
-> comparing one stretch of work against another, so it is the right place to
-> stop.
+> **Known cost:** a month with many shifts is still a long list, but it is now a
+> deliberately selected list with a visible month title above it. There is no
+> search or job filter yet; if either arrives, the selected period should remain
+> stable when possible and reset only when it no longer contains a match.
 >
-> This removes the ugliest part of the grouping with it. A calendar week
-> straddling two months had to be split so that each month's rows still added up
-> to its own header, which meant one week appeared twice under different months
-> and needed a compound key to keep the two halves independently collapsible.
-> With months holding shifts directly, that case does not exist.
->
-> An open month can now be thirty rows where it was once four or five week
-> headers. That is the trade: scrolling within one month, in exchange for two
-> fewer taps to reach any shift, on every month.
->
-> **Known cost:** collapsed groups hide their rows from search-by-scrolling and
-> there is no expand-all, so a shift just logged is still two closed groups
-> deep. Sticky headers were lost in the move off `SectionList`; they were
-> solving orientation mid-scroll, which a collapsed-by-default tree does not
-> have enough scroll to need — an argument that weakens as months get longer,
-> and is the first thing to revisit if scrolling an open month feels lost.
-> Group subtotals also duplicate a calculation the Trends tab presents, so both
-> have to keep using the same D5 per-shift gross or they will disagree in front
-> of the user.
->
-> **Revisit when:** a shift search or a job filter lands on the Log. Either one
-> changes what "the newest group" should default to, and a filtered result set
-> probably wants every matching group open instead.
+> **Revisit when:** history needs search, job filtering, or a calendar-day view.
+> Those features would change the browser's navigation model enough to justify
+> revisiting the month-card surface rather than adding controls beside it.
 
 ### D16 — Export in the app's own CSV format, not the import contract (2026-08-03; revised 2026-08-04)
 

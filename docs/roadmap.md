@@ -37,13 +37,16 @@ jobs, import/export, backup, and optional estimate tools.
 
 ## Next work, in order
 
-1. Wait for build 5 to finish TestFlight processing, then complete
+1. Build and submit a new production iOS candidate from the history-browser
+   commit; build 5 predates that UI change and is not the final release
+   candidate.
+2. Wait for the new build to finish TestFlight processing, then complete
    [`acceptance.md`](acceptance.md) on the iOS build.
-2. Fix only failures found in that pass and repeat the focused checks.
-3. Host [`privacy-policy.md`](privacy-policy.md) at a public HTTPS URL.
-4. Complete App Store Connect name, description, support URL, privacy URL,
+3. Fix only failures found in that pass and repeat the focused checks.
+4. Host [`privacy-policy.md`](privacy-policy.md) at a public HTTPS URL.
+5. Complete App Store Connect name, description, support URL, privacy URL,
    screenshots, age rating, and App Privacy answers.
-5. Submit the processed build for App Store review.
+6. Submit the processed build for App Store review.
 
 ## Evidence already captured
 

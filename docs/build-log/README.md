@@ -143,3 +143,5 @@ name — the number adds sequence without costing you the description.
 36. [36-local-only-ios-scope.md](36-local-only-ios-scope.md) — D33, removing
     the account and sync client, sidelining AWS deployment, and making the
     first release an iOS local-only SQLite app.
+37. [37-history-browser.md](37-history-browser.md) — D15, replacing the
+    year/month disclosure tree with year chips and month cards.
