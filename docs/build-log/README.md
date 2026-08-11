@@ -137,3 +137,6 @@ name — the number adds sequence without costing you the description.
     database and verifying the migration and reset behavior.
 34. [34-final-simplification.md](34-final-simplification.md) — removing the
     duplicated log-flow date formatter after the final Fallow pass.
+35. [35-primary-flow-simplification.md](35-primary-flow-simplification.md) —
+    moving the primary action into the Log header, separating optional tools
+    into Settings, and narrowing the current-facing V1 documentation.
