@@ -1,5 +1,4 @@
-// Turns a flat shift history into the year > month tree the Log screen lists,
-// then flattens that tree back into the rows actually on screen.
+// Turns a flat shift history into the year > month tree the History screen lists.
 // Like totals.ts and trends.ts this only maps values onto other values: no
 // SQLite, React, formatting, or device clock.
 import type { Shift } from '../data/shifts';
@@ -84,8 +83,8 @@ export function groupShifts(
     month.shifts.push(shift);
   }
 
-  // Newest first at every level. The query already returns shifts in that
-  // order, but sorting here means the grouping does not silently depend on it.
+  // Show the newest periods first so the current month is selected by default.
+  // Within a selected month, read shifts from the first day toward the last.
   const sorted = [...years.values()].sort((left, right) =>
     right.key.localeCompare(left.key)
   );
@@ -93,7 +92,7 @@ export function groupShifts(
   for (const year of sorted) {
     year.months.sort((left, right) => right.key.localeCompare(left.key));
     for (const month of year.months) {
-      month.shifts.sort((left, right) => right.shift_date.localeCompare(left.shift_date));
+      month.shifts.sort((left, right) => left.shift_date.localeCompare(right.shift_date));
     }
   }
 

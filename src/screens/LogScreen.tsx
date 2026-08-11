@@ -1,31 +1,14 @@
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CreateJobForm from '../components/CreateJobForm';
-import ShiftList from '../components/ShiftList';
 import { useShiftScreenData } from '../hooks/useShiftScreenData';
-import { calculateEstimatedGrossByShift, overtimeScope } from '../lib/overtime';
 
-// This is the landing screen, so it has one job: show history and make logging
-// a new shift obvious. Job management, imports, tax estimates, account access,
-// and backup live in Settings instead of competing with the main action.
+// Logging is the primary task. History and Settings are separate destinations
+// so neither competes with the form the user opened this tab to complete.
 export default function LogScreen() {
-  const { loading, error, jobs, allJobs, shifts, refresh } = useShiftScreenData('Log screen');
-
-  const estimatedJobIds = useMemo(
-    () => new Set(allJobs.filter((job) => job.overtime_enabled === 1).map((job) => job.id)),
-    [allJobs]
-  );
-  const grossByShift = useMemo(
-    () => calculateEstimatedGrossByShift(shifts, allJobs),
-    [allJobs, shifts]
-  );
-  const estimateScope = useMemo(
-    () => overtimeScope(shifts, allJobs, null),
-    [allJobs, shifts]
-  );
+  const { loading, error, jobs, refresh } = useShiftScreenData('Log screen');
 
   if (loading) {
     return (
@@ -58,50 +41,42 @@ export default function LogScreen() {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
-      <ShiftList
-        shifts={shifts}
-        jobs={allJobs}
-        grossByShift={grossByShift}
-        estimatedJobIds={estimatedJobIds}
-        onShiftDeleted={refresh}
-        onShiftPress={(shift) =>
-          router.push({ pathname: '/log-shift/details', params: { shiftId: shift.id } })
-        }
-        header={
-          <View>
-            <View style={styles.headerRow}>
-              <Text style={styles.historyTitle}>Logged shifts</Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Open Settings"
-                style={({ pressed }) => [styles.settingsButton, pressed && styles.settingsButtonPressed]}
-                onPress={() => router.push('/settings')}
-              >
-                <Text style={styles.settingsButtonText}>Settings</Text>
-              </Pressable>
-            </View>
-            {jobs.length === 0 ? (
-              <CreateJobForm onJobCreated={refresh} />
-            ) : (
-              <Pressable
-                accessibilityRole="button"
-                style={styles.logShiftButton}
-                onPress={startLoggingShift}
-              >
-                <Text style={styles.logShiftButtonText}>Log a shift</Text>
-              </Pressable>
-            )}
-            {estimateScope.estimated && shifts.length > 0 ? (
-              <Text style={styles.estimateNote}>
-                Est. gross includes configured overtime.
-                {estimateScope.hasUntimedEstimate
-                  ? ' Shifts without times count wholly on their logged date.'
-                  : ''}
-              </Text>
-            ) : null}
-          </View>
-        }
-      />
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={styles.content}
+      >
+        <View style={styles.headerRow}>
+          <Text style={styles.title}>Log income</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open Settings"
+            style={({ pressed }) => [styles.settingsButton, pressed && styles.settingsButtonPressed]}
+            onPress={() => router.push('/settings')}
+          >
+            <Text style={styles.settingsButtonText}>Settings</Text>
+          </Pressable>
+        </View>
+
+        {jobs.length === 0 ? (
+          <CreateJobForm onJobCreated={refresh} />
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            style={styles.logShiftButton}
+            onPress={startLoggingShift}
+          >
+            <Text style={styles.logShiftButtonText}>Log a shift</Text>
+          </Pressable>
+        )}
+
+        <Pressable
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.historyButton, pressed && styles.historyButtonPressed]}
+          onPress={() => router.push('/history')}
+        >
+          <Text style={styles.historyButtonText}>Browse history</Text>
+        </Pressable>
+      </ScrollView>
       <StatusBar style="auto" />
     </SafeAreaView>
   );
@@ -117,6 +92,7 @@ const styles = StyleSheet.create({
     gap: 16,
     padding: 24,
   },
+  content: { flexGrow: 1, justifyContent: 'center', gap: 16, paddingBottom: 24 },
   errorText: { color: '#444', fontSize: 16, textAlign: 'center' },
   retryButton: {
     minHeight: 44,
@@ -134,7 +110,7 @@ const styles = StyleSheet.create({
     paddingLeft: 16,
     paddingRight: 8,
   },
-  historyTitle: { color: '#111827', fontSize: 18, fontWeight: '700' },
+  title: { color: '#111827', fontSize: 18, fontWeight: '700' },
   settingsButton: {
     minHeight: 38,
     justifyContent: 'center',
@@ -153,12 +129,15 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
   },
   logShiftButtonText: { color: '#fff', fontSize: 17, fontWeight: '700' },
-  estimateNote: {
-    color: '#6b7280',
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 8,
-    paddingHorizontal: 16,
-    paddingBottom: 8,
+  historyButton: {
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderColor: '#2563eb',
+    borderRadius: 10,
+    borderWidth: 1,
+    marginHorizontal: 16,
   },
+  historyButtonPressed: { backgroundColor: '#eff6ff' },
+  historyButtonText: { color: '#2563eb', fontSize: 16, fontWeight: '700' },
 });

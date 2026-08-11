@@ -49,12 +49,20 @@ assert.deepEqual(
   grouped[0].months.map((month) => [month.period, month.shiftCount, month.grossCents]),
   [['2026-01', 3, 3351]]
 );
-// A month holds its shifts directly, newest first, whatever order they arrived
-// in. The query already returns them sorted, which is exactly why this asserts
-// it here instead of trusting it.
+// A month holds its shifts directly, oldest first, whatever order they arrived
+// in. This is the order the selected month's list displays on the History screen.
 assert.deepEqual(
   grouped[0].months[0].shifts.map((entry) => entry.id),
-  ['late-january', 'mid-january', 'early-january']
+  ['early-january', 'mid-january', 'late-january']
+);
+
+const august2024 = groupShifts([
+  shift('august-31', '2024-08-31', 3600, 0, 1000),
+  shift('august-01', '2024-08-01', 3600, 0, 1000),
+]);
+assert.deepEqual(
+  august2024[0].months[0].shifts.map((entry) => entry.id),
+  ['august-01', 'august-31']
 );
 
 // Consecutive days either side of a month boundary land in their own months.

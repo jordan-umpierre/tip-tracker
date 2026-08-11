@@ -1,4 +1,4 @@
-import { ReactElement, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
@@ -16,13 +16,6 @@ import { groupShifts } from '../lib/shiftGroups';
 import { calculateShiftGrossCents } from '../lib/totals';
 import { Job } from '../data/jobs';
 import { deleteShift, Shift } from '../data/shifts';
-
-
-// How far below centered the short-history layout sits, in points. See the
-// `content` style for why the padding is twice this and what it costs on a
-// long history.
-const CONTENT_NUDGE_DOWN = 56;
-
 type Props = {
   shifts: Shift[];
   jobs: Job[];
@@ -30,28 +23,6 @@ type Props = {
   estimatedJobIds: ReadonlySet<string>;
   onShiftDeleted: () => void;
   onShiftPress: (shift: Shift) => void;
-
-  // Rendered above the rows, inside the same scroll view. The screen's form
-  // and buttons go here rather than sitting above this component, so the whole
-  // screen scrolls as one surface instead of squeezing the list into whatever
-  // vertical space the form leaves behind.
-  //
-  // A FlatList cannot be nested inside a ScrollView -- two scrollers fighting
-  // over the same gesture, and the inner one loses the virtualization that is
-  // the entire reason to use a FlatList. Handing the header to the list is the
-  // standard way out of that.
-  header?: ReactElement;
-
-  // Rendered below the rows, in the same scroller. This is where the Log a
-  // shift button and the data tools live, so that on a cold open -- every group
-  // collapsed, which is the default -- they sit near the bottom of the screen
-  // within reach of a thumb rather than up by the status bar.
-  //
-  // The cost of a footer rather than a bar pinned to the screen: it is below
-  // the rows, not above the tab bar, so expanding a year until the content
-  // outgrows the screen puts it a scroll away. Pinning it would always be in
-  // reach, but it would cover rows and could not hold the expanding form.
-  footer?: ReactElement;
 };
 
 // fallow-ignore-next-line complexity -- List layout, period selection, and swipe actions are one device-tested interaction surface; the repo has no component coverage reporter for estimated CRAP scoring.
@@ -62,45 +33,10 @@ export default function ShiftList({
   estimatedJobIds,
   onShiftDeleted,
   onShiftPress,
-  header,
-  footer,
 }: Props) {
   // Shifts only store job_id, not the job's name. Build the lookup once per
   // render instead of scanning the jobs array for every row.
   const jobNameById = new Map(jobs.map((job) => [job.id, job.name]));
-
-  // The short-history layout is centered and then nudged down, so the controls
-  // below the rows sit near the thumb. The nudge is padding, and padding does
-  // not stop applying when the content outgrows the screen the way
-  // justifyContent does -- expanding a year left a band of blank space above
-  // the first row, and pushed an open form down off the bottom.
-  //
-  // So it is applied only while the content actually fits. Both numbers come
-  // from the list: onLayout for the viewport, onContentSizeChange for the
-  // content.
-  const [viewportHeight, setViewportHeight] = useState(0);
-  const [naturalContentHeight, setNaturalContentHeight] = useState(0);
-
-  // Opening a shift for editing renders the form in the footer, below every
-  // row. Without scrolling there the user taps Edit and nothing appears to
-  // happen, because the thing that changed is off the bottom of the screen.
-  //
-  // The scroll cannot happen in the same breath as the tap: the form does not
-  // exist yet, so there is nothing to scroll to. Instead the intent is
-  // recorded and acted on the next time the content changes size, which is
-  // exactly the moment the form has laid out.
-  const listRef = useRef<FlatList<Shift>>(null);
-  const scrollToFormPending = useRef(false);
-
-  function openShift(shift: Shift) {
-    scrollToFormPending.current = true;
-    onShiftPress(shift);
-  }
-
-  const nudgeContentDown =
-    viewportHeight > 0 &&
-    naturalContentHeight > 0 &&
-    naturalContentHeight + CONTENT_NUDGE_DOWN * 2 <= viewportHeight;
 
   const years = useMemo(
     () => groupShifts(shifts, grossByShift, estimatedJobIds),
@@ -135,78 +71,27 @@ export default function ShiftList({
   // FlatList instead of mapping rows into Views: it only renders what is
   // currently on screen rather than every row in the array, which matters once
   // there are hundreds or thousands of shifts.
-  //
-  // The empty state is ListEmptyComponent rather than an early return. An
-  // early return here used to be fine, but now that the form arrives as
-  // `header`, returning before rendering the list would take the entire form
-  // off screen for anyone who hasn't logged a shift yet -- which is everyone,
-  // the first time they open the app.
   return (
     <FlatList
-      ref={listRef}
       style={styles.list}
       data={visibleShifts}
       keyExtractor={(shift) => shift.id}
       contentInsetAdjustmentBehavior="automatic"
-      // Two ways out of the keyboard, because the number fields use
-      // keyboardType="decimal-pad" and iOS gives that pad no return key --
-      // so there was previously no way to dismiss it except tapping the date
-      // field, which has a normal keyboard, and hitting return there.
-      //
-      // "handled" means a tap that some child already dealt with keeps the
-      // keyboard up, and any other tap closes it. That gets both behaviors
-      // right: tapping empty space dismisses, and tapping Log shift or Delete
-      // fires on the first tap instead of being swallowed by the dismissal.
-      // The default, "never", would eat that first tap.
-      keyboardShouldPersistTaps="handled"
-      // Dragging the list closes the keyboard too, which is what the rest of
-      // iOS does and costs nothing here now that the screen is one scroller.
-      keyboardDismissMode="on-drag"
-      // Centers the whole screen vertically while it is short enough to fit --
-      // groups collapsed, form closed -- so the content sits in the middle with
-      // space above and below instead of stacked against the status bar.
-      //
-      // flexGrow makes the content area at least as tall as the list; once the
-      // rows are taller than that, there is no spare height for justifyContent
-      // to distribute and this stops having any effect. So an expanded history
-      // still starts at the top and scrolls normally.
-      contentContainerStyle={[styles.content, nudgeContentDown && styles.contentNudged]}
-      onLayout={(event) => setViewportHeight(event.nativeEvent.layout.height)}
-      // The measured content already includes whatever nudge is currently
-      // applied, so it is subtracted back out before being stored. Without
-      // that, applying the nudge would make the content "not fit", which would
-      // remove the nudge, which would make it fit again -- a layout that
-      // flickers between two states forever.
-      onContentSizeChange={(_, height) => {
-        setNaturalContentHeight(height - (nudgeContentDown ? CONTENT_NUDGE_DOWN * 2 : 0));
-        if (scrollToFormPending.current) {
-          scrollToFormPending.current = false;
-          // One frame later, not now. Inside onContentSizeChange the new size
-          // has been measured but not yet committed to the underlying scroll
-          // view, so scrollToEnd computes against the old extent and does
-          // nothing. A plain ScrollView tolerates the synchronous call, which
-          // is why the pattern looks like it should work here.
-          requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
-        }
-      }}
+      contentContainerStyle={styles.content}
       ListHeaderComponent={
-        <>
-          {header}
-          {years.length > 0 ? (
-            <HistoryBrowser
-              years={years}
-              selectedYear={selectedYear}
-              selectedMonth={selectedMonth}
-              onYearPress={(yearKey) => {
-                setSelectedYearKey(yearKey);
-                setSelectedMonthKey(null);
-              }}
-              onMonthPress={setSelectedMonthKey}
-            />
-          ) : null}
-        </>
+        years.length > 0 ? (
+          <HistoryBrowser
+            years={years}
+            selectedYear={selectedYear}
+            selectedMonth={selectedMonth}
+            onYearPress={(yearKey) => {
+              setSelectedYearKey(yearKey);
+              setSelectedMonthKey(null);
+            }}
+            onMonthPress={setSelectedMonthKey}
+          />
+        ) : null
       }
-      ListFooterComponent={footer}
       ListEmptyComponent={
         <View style={styles.empty}>
           <Text style={styles.emptyText}>No shifts logged yet.</Text>
@@ -219,7 +104,7 @@ export default function ShiftList({
           grossCents={grossByShift.get(item.id) ?? calculateShiftGrossCents(item)}
           estimated={estimatedJobIds.has(item.job_id)}
           onDelete={() => handleDeletePress(item)}
-          onPress={() => openShift(item)}
+          onPress={() => onShiftPress(item)}
         />
       }
     />
@@ -532,25 +417,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    // Centers the whole screen while it is short enough to fit. Once the rows
-    // are taller than the viewport there is no spare height to distribute and
-    // this stops having any effect on its own, so a long history starts at the
-    // top and scrolls normally.
-    flexGrow: 1,
-    justifyContent: 'center',
-    // The controls are the last thing in the scroller now, so without this the
-    // bottom one sits flush against the tab bar when scrolled to the end.
-    // Nothing needed it while the rows were last.
     paddingBottom: 24,
-  },
-  // Applied only while the content fits -- see nudgeContentDown above.
-  //
-  // Padding on a centered container moves content down by half of what is
-  // added: the top inset pushes it down, and the centering hands half of that
-  // back by shrinking the space below. So the visible shift is
-  // CONTENT_NUDGE_DOWN and the padding is twice it.
-  contentNudged: {
-    paddingTop: CONTENT_NUDGE_DOWN * 2,
   },
   empty: {
     padding: 16,
