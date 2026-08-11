@@ -2013,10 +2013,10 @@ UI/UX bar from the product definition is achievable here.
 > spacing competition that made the app feel cumbersome. The wizard remains
 > because separating date, details, and confirmation keeps each screen legible.
 
-> Cloud accounts and sync are included in the free launch scope, while SQLite
-> remains the offline source of truth. One-time purchases are intentionally
-> deferred until the paid feature and entitlement contract exist; payment code
-> without a defined purchase is speculative work.
+> The launch is local-only, while SQLite remains the source of truth. Cloud
+> accounts and sync are deferred. One-time purchases are intentionally deferred
+> until the paid feature and entitlement contract exist; payment code without a
+> defined purchase is speculative work.
 
 > **Known cost:** History is one navigation step farther from Home, and first
 > launch includes a small job setup section before logging can begin.
@@ -2024,3 +2024,24 @@ UI/UX bar from the product definition is achievable here.
 > **Revisit when:** Home has more than two recurring decisions, or user testing
 > shows that people expect history to be the first screen rather than a review
 > destination.
+
+### D33 — Ship the iOS app local-only (2026-08-11)
+
+> **Decision:** The first App Store release contains the local SQLite product
+> only. Remove account UI, Supabase auth, mobile sync, and cloud configuration
+> from the shipping app. Defer the Node API, Postgres, AWS, and Android
+> production work until a separate product need justifies them.
+
+> **Alternatives:** Keep optional cloud sync in the first release; delete all
+> server code immediately; ship Android and iOS together.
+
+> **Why:** None of those systems are required to log, review, import, export,
+> or back up a shift on one device. Keeping them in the first release creates
+> provider, privacy, account-deletion, migration, and store-review gates before
+> the core product has users. Historical SQLite migrations remain so existing
+> databases can upgrade without losing data, but the launch code no longer
+> reads the deferred sync state.
+
+> **Revisit when:** Users need a second-device backup, a web client, or a
+> server-backed account. That is the trigger to restore a deliberately scoped
+> backend, not a reason to block this release.

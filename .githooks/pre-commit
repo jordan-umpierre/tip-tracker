@@ -22,14 +22,6 @@ status=0
 ./scripts/test-schema.sh || status=1
 ./scripts/test-migration.sh || status=1
 ./scripts/test-backup-restore.sh || status=1
-npm --prefix server run verify || status=1
-node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON src/data/sync.test.ts || status=1
-for t in src/auth/*.test.ts; do
-  node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON "$t" || status=1
-done
-for t in src/sync/*.test.ts; do
-  node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON "$t" || status=1
-done
 for t in src/lib/*.test.ts; do
   node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON "$t" || status=1
 done

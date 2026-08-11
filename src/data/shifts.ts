@@ -103,8 +103,8 @@ export async function updateShift(
   // this changes what a shift says, not when it was made or whether it's
   // gone. created_at stays untouched on purpose: it records when the row
   // was first made, not last edited. updated_at moves to now, same as
-  // deleteShift -- both are writes, and updated_at exists to track "when
-  // did this row last change" for eventual sync conflict resolution.
+  // deleteShift -- both are writes, and updated_at preserves local record
+  // history in backups.
   await db.runAsync(
     `UPDATE shifts
      SET job_id = ?, shift_date = ?, start_time = ?, end_time = ?,
@@ -128,10 +128,8 @@ export async function deleteShift(id: string): Promise<void> {
   const now = new Date().toISOString();
 
   // Soft delete, per D4: set the tombstone instead of removing the row.
-  // The row has to stay so a second device, once sync exists, has
-  // something to receive that says "this one's gone" -- a row that's
-  // truly deleted is invisible to a device that never saw it in the first
-  // place, and it would just reappear on the next sync.
+  // Keeping the tombstone means a backup preserves the user's deletion
+  // instead of making the deleted row look like an old active record.
   await db.runAsync(`UPDATE shifts SET deleted_at = ?, updated_at = ? WHERE id = ?;`, now, now, id);
 }
 

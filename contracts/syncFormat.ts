@@ -129,7 +129,7 @@ function readNullableText(value: unknown) {
   return value === null ? null : readText(value);
 }
 
-export function readBoolean(value: unknown): boolean {
+function readBoolean(value: unknown): boolean {
   if (typeof value !== 'boolean') invalid();
   return value;
 }
@@ -139,7 +139,7 @@ export function readPositiveInteger(value: unknown): number {
   return Number(value);
 }
 
-export function readNonnegativeInteger(value: unknown): number {
+function readNonnegativeInteger(value: unknown): number {
   if (!Number.isSafeInteger(value) || Number(value) < 0) invalid();
   return Number(value);
 }
@@ -152,7 +152,7 @@ function readIntegerInRange(value: unknown, minimum: number, maximum: number) {
 
 // Round-tripping through Date and comparing back to the input is what rejects
 // "2026-1-5" and "2026-02-31": both parse, neither survives the comparison.
-export function readTimestamp(value: unknown): string {
+function readTimestamp(value: unknown): string {
   const text = readText(value);
   const date = new Date(text);
   if (Number.isNaN(date.valueOf()) || date.toISOString() !== text) invalid();

@@ -41,8 +41,9 @@ reasoning; the rest of this file is what happened.
 
 ## Packaging
 
-`d0a501a` added [`run.sh`](../../server/run.sh) and
-[`package-lambda.sh`](../../scripts/package-lambda.sh).
+`d0a501a` added [`run.sh`](../../server/run.sh) and a
+`package-lambda.sh` deployment helper. That helper was removed when the AWS
+path was sidelined for the local-only iOS release.
 
 The AWS Lambda Web Adapter is what makes this work without touching `src/`. It
 is a layer that starts an ordinary HTTP server, waits for its port, and turns
@@ -83,8 +84,9 @@ on deliberately. It was rejected on those grounds.
 
 ## What replaced it
 
-`b673a67` added [`deploy-lambda.sh`](../../scripts/deploy-lambda.sh), which
-packages, creates or updates the function, and prints the endpoint.
+`b673a67` added a `deploy-lambda.sh` helper, which packaged, created or updated
+the function, and printed the endpoint. That helper was removed when the AWS
+path was sidelined for the local-only iOS release.
 
 API Gateway invokes as a service principal, so there is no public resource
 policy for the block to override, and the grant names one API's ARN rather than

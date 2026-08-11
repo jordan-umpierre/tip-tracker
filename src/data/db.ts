@@ -94,13 +94,6 @@ async function openDb(): Promise<SQLite.SQLiteDatabase> {
     });
   }
 
-  const syncState = await db.getFirstAsync<{ applying_remote: number }>(
-    'SELECT applying_remote FROM sync_state WHERE singleton = 1;'
-  );
-  if (!syncState || syncState.applying_remote !== 0) {
-    throw new Error('The local sync state is missing or still applying remote changes.');
-  }
-
   return db;
 }
 

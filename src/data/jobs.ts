@@ -21,9 +21,8 @@ export async function createJob(name: string, hourlyRateCents: number): Promise<
   const db = await getDb();
 
   // UUIDs are generated on the device rather than left to the database to
-  // assign, per schema.sql's own comment: two phones both writing "row 5"
-  // would collide once sync exists. expo-crypto is the first-party module
-  // for this (see D2 -- prefer maintained Expo modules over random npm ones).
+  // assign, per schema.sql's own comment: stable IDs keep backup and exported
+  // records identifiable when the same data moves between devices.
   const id = Crypto.randomUUID();
 
   // Both created_at and updated_at get the same value on insert. They only

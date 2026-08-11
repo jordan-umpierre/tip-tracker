@@ -7,14 +7,13 @@ const settings = [
   { title: 'Import and export', detail: 'Move shift data in or out', path: '/settings/import-export' as const },
   { title: 'Federal withholding', detail: 'Manage optional tax estimates', path: '/settings/withholding' as const },
   { title: 'Device backup', detail: 'Back up or restore this device', path: '/settings/backup' as const },
-  { title: 'Cloud account', detail: 'Sign in and manage sync', path: '/settings/account' as const },
 ];
 
 export default function SettingsScreen() {
   return (
     <SafeAreaView style={styles.screen} edges={['bottom']}>
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
-        <Text style={styles.subtitle}>Optional tools for managing your income data.</Text>
+        <Text style={styles.subtitle}>Local tools for managing your income data.</Text>
         <View style={styles.list}>
           {settings.map((setting) => (
             <Pressable

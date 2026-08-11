@@ -29,8 +29,7 @@
       "expo-asset",
       "expo-router",
       "expo-status-bar",
-      "@react-native-community/datetimepicker",
-      "expo-secure-store"
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true
