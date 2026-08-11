@@ -10,9 +10,9 @@ Last updated: 2026-08-11
 
 ## Verdict
 
-**Not submitted yet, but the iOS launch path is now local-only** ([D33](decisions.md)). The account,
-sync, Postgres, and AWS work is sidelined. The remaining work is iOS acceptance,
-store metadata, privacy hosting, signing, and App Store Connect submission.
+**The iOS production build is submitted to App Store Connect** ([D33](decisions.md)). The account,
+sync, Postgres, and AWS work is sidelined. The remaining work is TestFlight
+processing, iOS acceptance, store metadata, privacy hosting, and App Review.
 
 ## What is shipping
 
@@ -37,13 +37,13 @@ jobs, import/export, backup, and optional estimate tools.
 
 ## Next work, in order
 
-1. Complete [`acceptance.md`](acceptance.md) on the iOS preview build.
+1. Wait for build 5 to finish TestFlight processing, then complete
+   [`acceptance.md`](acceptance.md) on the iOS build.
 2. Fix only failures found in that pass and repeat the focused checks.
 3. Host [`privacy-policy.md`](privacy-policy.md) at a public HTTPS URL.
-4. Prepare App Store Connect name, description, support URL, privacy URL,
+4. Complete App Store Connect name, description, support URL, privacy URL,
    screenshots, age rating, and App Privacy answers.
-5. Build the iOS production profile, submit to TestFlight, install it on the
-   iPhone, and then submit that build for App Store review.
+5. Submit the processed build for App Store review.
 
 ## Evidence already captured
 
@@ -54,6 +54,9 @@ jobs, import/export, backup, and optional estimate tools.
 - iOS and Android bundle exports previously passed.
 - First iOS preview build: local shift survived force-quit and relaunch on
   2026-08-07.
+- iOS production build 5 completed from commit `53d4b56` on 2026-08-11.
+- Build 5 submission is queued for App Store Connect processing under ASC app
+  `6800162471`.
 
 Exports and automated tests prove code paths and bundle generation. They do not
 prove a physical device flow, accessibility, signing, store review, or

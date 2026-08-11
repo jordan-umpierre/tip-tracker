@@ -18,4 +18,5 @@ cloud accounts, Postgres, and AWS are deferred.
 
 Verification: repository hook, TypeScript, Expo Doctor 20/20, dependency check,
 iOS bundle export, docs check, schema/migration/backup checks, Fallow dead-code
-and duplication scans, and changed-file Fallow audit.
+and duplication scans, changed-file Fallow audit, EAS production build 5, and
+App Store Connect submission queued under ASC app `6800162471`.
