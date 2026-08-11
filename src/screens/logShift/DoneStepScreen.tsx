@@ -47,7 +47,7 @@ export default function DoneStepScreen() {
             <Figure label="Date" value={formatLongDate(shift.shift_date)} />
             <Figure label="Hours" value={formatHours(shift.duration_seconds)} />
             <Figure label="Total income" value={formatCents(grossCents ?? 0)} />
-            <Figure label="Hourly rate" value={rateCents === null ? '—' : `${formatCents(rateCents)}/hr`} />
+            <Figure label="Earned per hour" value={rateCents === null ? '—' : `${formatCents(rateCents)}/hr`} />
           </View>
         ) : null}
       </View>

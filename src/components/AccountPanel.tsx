@@ -73,7 +73,9 @@ export default function AccountPanel() {
             {account.localRecordCount === 1 ? 'local record' : 'local records'}. Connecting
             permanently assigns this local database to {account.email ?? 'this account'}.
           </Text>
-          <Text style={styles.note}>Cloud data transfer is not enabled yet.</Text>
+          <Text style={styles.note}>
+            Your local data will sync to this account when a sync runs. SQLite remains the local source of truth.
+          </Text>
           <View style={styles.actions}>
             <Pressable
               accessibilityRole="button"

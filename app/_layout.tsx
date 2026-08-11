@@ -23,6 +23,7 @@ export default function RootLayout() {
         <Stack.Screen name="log-shift/job" options={{ title: 'Log a shift' }} />
         <Stack.Screen name="log-shift/date" options={{ title: 'Log a shift' }} />
         <Stack.Screen name="log-shift/details" options={{ title: 'Shift details' }} />
+        <Stack.Screen name="settings" options={{ title: 'Settings' }} />
         {/* No back button: the shift is already written, so stepping back into
             the form would offer to save a second copy of it. */}
         <Stack.Screen

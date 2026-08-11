@@ -39,7 +39,7 @@ though most users may never sign in.
 |---|---|
 | Does the app collect or share user data? | Yes |
 | Is data encrypted in transit? | Yes (HTTPS) |
-| Can users request data deletion? | Yes — in-app, Manage data → Cloud account → Delete cloud account |
+| Can users request data deletion? | Yes — in-app, Settings → Cloud account → Delete cloud account |
 | Data collected | Email address; app activity / other user-generated content; device or other IDs |
 | Data shared with third parties | None. Supabase and the API host are service providers processing on our behalf, which Google does not count as sharing |
 | Is any collection optional? | Yes — all of it. The app is fully usable with no account |

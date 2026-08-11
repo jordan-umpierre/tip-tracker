@@ -89,7 +89,7 @@ any other party's purposes.
 
 ## Deleting your data
 
-- **Delete the cloud account**: Manage data → Cloud account → Delete cloud
+- **Delete the cloud account**: Settings → Cloud account → Delete cloud
   account. This removes your account and its records from the server and asks
   the authentication provider to remove the identity. It cannot be undone. The
   jobs and shifts on your device are kept, and the device can connect to a new

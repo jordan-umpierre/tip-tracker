@@ -14,7 +14,7 @@ next to it rather than in your head.
 
 **Build under test**: iOS `preview` profile, first build, 2026-08-07.
 The `preview` EAS environment is populated, so the cloud account should be
-offered. If Manage data does not offer an account, the build is misconfigured —
+offered. If Settings does not offer an account, the build is misconfigured —
 that is the quiet-config trap in the roadmap, and it is a build problem, not a
 test failure.
 
@@ -91,7 +91,7 @@ Local-only estimator. Nothing here is written to the server.
 The staging backend is live. Password recovery only reaches the owner's
 mailbox — see the roadmap. Test recovery with your own address.
 
-- [ ] **Manage data offers a cloud account.** If it does not, stop: the build
+- [ ] **Settings offers a cloud account.** If it does not, stop: the build
       shipped with an empty environment.
 - [ ] **Create account** with a real address you control. Confirm the account
       exists on the next launch.

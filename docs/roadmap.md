@@ -52,7 +52,7 @@ signed-out local-only state, and it is correct for a user who never makes an
 account. It is a trap for a build: a `production` build with an empty
 environment compiles, passes review, and ships with sign-in and sync silently
 missing. Only a *partial* config throws. So when production is filled, fill all
-three at once, and confirm on the built app that Manage data offers an account
+three at once, and confirm on the built app that Settings offers an account
 rather than assuming the build was configured.
 
 Production is deferred on purpose. The current backend is staging — the Resend

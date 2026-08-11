@@ -1,167 +1,84 @@
 # Product
 
-What this app is, who it's for, what it deliberately doesn't do, and the order
-the feature set gets built in.
+Tip Tracker helps tipped, hourly, and gig workers answer two questions:
 
-Companion docs: [roadmap.md](roadmap.md) for what's next and what's done,
-[decisions.md](decisions.md) for the numbered technical decisions.
+1. What did I earn on each shift?
+2. What patterns do I see in my income?
 
----
+It is not a tax filing product, payroll system, bank connection, or source of
+financial advice.
 
-## What we know
+## V1
 
-- Name: `tip-tracker`
-- Target: production app on the Apple App Store and Google Play
-- Audience: public — any service worker, W2 or 1099
-- Initial scale: 3–10 users, scale up if demand appears
+Free local-first V1 includes:
 
----
+- multiple jobs and historical rates
+- shift logging with date, hours, tips, and optional notes
+- optional clock times for overtime estimates
+- edit and delete with confirmation
+- gross income trends and hourly earnings
+- CSV import/export
+- lossless JSON backup and empty-device restore
 
-## The problem
+The primary flow is deliberately short:
 
-Service workers have irregular income. They don't know what they actually make
-per hour, which shifts are worth taking, or what they'll owe at tax time. Cash
-tips make it worse — nothing withholds tax from cash.
+`Open → Log a shift → enter 2–4 values → save → review the recorded result`
 
-## What the full product will do
+Simple users do not need an account, tax settings, or a network connection.
 
-Log a shift in seconds. See what you actually earn — after tax, not before.
-Layer 0 and Layer 1 currently cover logging, gross totals, and trends; the tax
-and 1099 promises below remain planned layers, not current app behavior.
+## Optional tools
 
-## The three differentiators
+Settings contains advanced local tools:
 
-1. **Net, not gross.** Projected take-home, projected paycheck amount,
-   estimated refund or amount owed at year end. Opt-in, because most people
-   will find tax settings intimidating and should be able to skip them
-   entirely.
-2. **1099 as a first-class citizen.** Mileage and expenses, not just W2 shifts.
-   Tax projection matters *more* for them since nothing is withheld.
-3. **UI/UX quality.** Modern, fast, feels good to use.
+- per-job overtime rules, clearly labeled as estimates
+- a bounded federal withholding estimate for one regular W-2 paycheck
+- CSV import/export
+- full device backup and restore
+- an optional cloud-account panel
 
-## Explicitly out of scope (v1)
+The withholding calculator is not take-home pay, total payroll tax, annual tax
+liability, a refund, or an amount owed. Its disclosure stays beside the result.
 
-- Payroll integration or bank connections
-- Anything that files or submits a tax return
-- Social features, leaderboards, comparing to other users
-- Employer-side or manager-side views
+## Deferred scope
 
----
+The following require separate product and release decisions:
 
-## The four layers
+- premium billing and entitlement validation
+- production cloud backup and cross-device sync
+- 1099 mileage and expense tracking
+- state/local tax calculations
+- payroll, bank, employer, social, or tax-filing integrations
 
-Each layer is built on the one below it, and each is *additive* — none forces a
-rewrite of the one before. That property is the reason to ship in this order.
+The account and sync implementation remains available as a later layer, but it
+is not a V1 marketing promise until its provider, SMTP, migration, device, and
+privacy gates are complete.
 
-### Layer 0 — MVP
+## Trust rules
 
-- Create jobs. A job has a name and an hourly rate. Multiple jobs, different
-  rates.
-- Log a shift: date, which job, hours, tips, optional note. Hourly rate is
-  inherited from the job but overridable (raises happen, so do special events).
-- Multiple shifts per day, any number of days.
-- See a list of past shifts. Edit and delete them.
-- Import existing history from a shift CSV after a complete preview and
-  explicit confirmation. The columns are detected by name and shown for review
-  before anything is saved.
-- Gross totals only.
+- Store money as integer cents; never use floating point for stored money.
+- Store duration as integer seconds; never infer it from rounded display text.
+- Store a shift's rate on the shift so later job-rate changes cannot rewrite history.
+- Use date-only ISO strings so timezone changes cannot move a shift to another day.
+- Keep destructive local records as tombstones while sync exists.
+- Treat overtime and withholding outputs as estimates, never recorded facts.
+- Re-read SQLite after writes so the screen reflects committed local data.
 
-This is a complete, shippable, useful app. Someone would actually use it.
+## Architecture
 
-### Layer 1 — Trends
+```text
+UI → SQLite source of truth
+  ├── pure gross, trend, overtime, and withholding calculations
+  ├── CSV and JSON boundaries
+  └── optional account/sync layer
+```
 
-- Interactive gross-income timeline with 1W, 1M, 3M, 1Y, and All ranges
-- Earnings by day of week ("Mondays are $24/hr, Tuesdays are $33/hr")
-- Earnings by month and by year, going back as far as data exists
-- Gross per hour as the headline number, weighted by time
+The app does not need a global state store, a cache layer, or a service mesh.
+The hard part is preserving financial and offline correctness while keeping
+the logging path fast.
 
-No new data model. Every one of these is a query over Layer 0 data. That is
-exactly why it's Layer 1 and not MVP — it can't block anything.
+## Release standard
 
-### Layer 2 — Net income for W2
-
-- Opt-in per-job overtime settings: whether the job pays time-and-a-half and
-  when its fixed workweek starts
-- Opt-in tax profile: tax year, filing status, pay frequency, W-4 adjustments,
-  other income/adjustments, and actual withholding
-- Projected take-home per shift and per pay period
-- Projected paycheck amount (weekly / biweekly / semimonthly)
-- Year-end estimate: refund or amount due
-
-The first bounded tax slice is smaller than the full Layer 2 described above. D20
-starts with a 2026 federal income-tax withholding estimate for one regular W2
-paycheck, using user-entered federal taxable wages and the actual 2020-or-later
-W-4 values for that job. It does not claim take-home pay, total payroll tax,
-annual liability, refund, or amount due. Those remain later slices rather than
-being approximated under one number.
-
-D21 gives the W-4 settings a local, lossless persistence boundary. Each job can
-retain a history keyed by the first paycheck pay date a setting applies to, so
-a later W-4 does not rewrite older inputs. Schema version 4 and backup version
-2 are implemented. The opt-in Manage data surface now saves that history and
-calculates one disclosed 2026 regular-paycheck withholding estimate from
-user-entered paystub federal taxable wages. It does not store the paycheck
-wages or result, and it still does not create a paycheck record.
-
-### Layer 3 — 1099 mode
-
-- Mark a job as 1099 instead of W2
-- Log miles driven and deductible expenses
-- Self-employment tax, quarterly estimated payments
-
-### Why this order
-
-Layer 0 is where the risk of getting it wrong is highest and the cost of fixing
-it later is highest. Layers 2 and 3 are each individually bigger than Layer 0,
-and both depend on shift data being correct. Build the foundation, prove it
-works, then stack on it.
-
-Common failure mode this avoids: building the impressive tax engine first, then
-discovering the shift-logging flow is annoying enough that nobody logs shifts,
-which makes the tax engine worthless.
-
----
-
-## Pushback and risks
-
-Things a senior engineer would raise in review.
-
-### 1. Tax projections for strangers is a liability, not just a feature
-
-You're shipping financial estimates to the public. If someone under-saves for
-taxes because of a number this app showed them, that's real harm to a real
-person. This is the highest-risk part of the product and it is also the
-differentiator, so it can't just be dropped.
-
-Mitigations to build in from day one of Layer 2:
-
-- Never call it advice. It's an estimate.
-- Visible disclaimer wherever a projected number appears, not buried in a
-  settings page.
-- Show the inputs and the math, so a user can sanity-check it.
-- Be conservative by default. Over-estimating what's owed is a much kinder
-  failure than under-estimating.
-- Federal only, at first. Fifty states of tax law is not a v1 problem, and
-  pretending to handle a state you handle badly is worse than saying you don't.
-- Do not treat app gross as federal taxable wages. D20 starts from the paystub's
-  entered taxable-wages amount; an overtime-adjusted app value can become an
-  editable prefill only after its assumptions are visible.
-
-App store review may also scrutinize a finance app more closely. Worth knowing
-before submission, not during.
-
-### 2. "Superb UI/UX" is a constraint, not a feature
-
-It can't go on a task list and get checked off. It shows up as: no janky
-animations, no layout shift, works one-handed, works in bright sun, respects
-system dark mode, accessible font sizes. It's a bar we hold on every screen.
-
-The practical version for MVP: the log-a-shift flow is the *only* screen that
-gets obsessed over. Make that one excellent. Everything else can be clean and
-plain.
-
-### 3. Speed-first and tax-settings pull in opposite directions
-
-"Log in 10 seconds" and "configure your W4" are opposite experiences. The
-opt-in framing is the right instinct. Keep the tax module completely walled off
-so a user who never touches it never sees it.
+Static checks and exports are necessary but insufficient. A release also needs
+the physical-device checklist in [`acceptance.md`](acceptance.md), a hosted
+privacy policy, store metadata and screenshots, production provider settings,
+and a live database with every required migration applied.
