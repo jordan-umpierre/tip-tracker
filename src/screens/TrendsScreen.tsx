@@ -20,6 +20,8 @@ import {
   WeekdayTrend,
 } from '../lib/trends';
 
+// ponytail: Six colors cover normal job comparison; store a color per job if
+// people regularly need to distinguish more than six lines at once.
 const JOB_LINE_COLORS = ['#2563eb', '#d97706', '#059669', '#7c3aed', '#db2777', '#0f766e'];
 
 // fallow-ignore-next-line complexity -- Route-level coordinator: calculation branches are tested below the UI and its flows are device-checked; the repo has no component coverage reporter for CRAP scoring.

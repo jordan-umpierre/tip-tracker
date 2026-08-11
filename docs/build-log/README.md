@@ -147,3 +147,5 @@ name — the number adds sequence without costing you the description.
     year/month disclosure tree with year chips and month cards.
 38. [38-standalone-history.md](38-standalone-history.md) — moving history off
     Log income and ordering each selected month from earliest to latest.
+39. [39-job-income-lines.md](39-job-income-lines.md) — replacing redundant
+    wage/tip/total chart lines with one gross line per job in All jobs.

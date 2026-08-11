@@ -459,12 +459,14 @@ UI/UX bar from the product definition is achievable here.
 > Trends calculation becomes slow, or a server endpoint needs to return
 > summaries without sending the underlying rows.
 
-### D9 — Keep exact text around one focused income chart (2026-07-31; revised 2026-08-03)
+### D9 — Keep exact text around one focused income chart (2026-07-31; revised 2026-08-11)
 
-> **Decision:** Make one chronological gross-income line the first content on
-> Trends. Keep its exact gross, wage, tip, duration, date, and scope in text;
-> horizontal touch inspection changes those values to the nearest point.
-> Render the path with `react-native-svg`, not a general chart framework.
+> **Decision:** Make chronological gross income the first content on Trends.
+> A selected job draws one line; All jobs draws one line per job against the
+> same dates and scale. Keep exact combined gross, wage, tip, duration, date,
+> and scope in text. The All jobs legend also shows each job's exact gross and
+> horizontal touch inspection changes every value to the nearest point. Render
+> the paths with `react-native-svg`, not a general chart framework.
 >
 > Keep the fixed seven-weekday comparison as vertical React Native `View`s and
 > keep month/year summaries as numeric rows. Use the existing blue accent for
@@ -473,15 +475,18 @@ UI/UX bar from the product definition is achievable here.
 > **Alternatives:**
 > - Display numbers and weekday bars only
 > - Plot wage, tips, and gross as three permanent lines
+> - Plot an aggregate total over the per-job lines
 > - Install a full chart library
 > - Copy an investment chart's red/green gain and loss language
 >
 > **Why:** Multi-year CSV history created the condition that originally would
 > justify revisiting this decision: many chronological points and touch
-> inspection are now real requirements. A single gross line answers the main
-> question without the density of three overlapping series. Exact visible text
-> and an adjustable accessibility action keep shape and color from becoming
-> the only way to read the data.
+> inspection are now real requirements. Gross is the only line when one job is
+> selected. Multiple lines appear only for the comparison All jobs actually
+> needs, and an aggregate line is omitted because the large figure above the
+> chart already gives that total. Exact visible text and an adjustable
+> accessibility action keep shape and color from becoming the only way to read
+> the data.
 >
 > SVG supplies only the path primitives this screen needs and is supported by
 > Expo Go. Range controls, bucketing, scaling, and touch selection remain small
@@ -489,14 +494,14 @@ UI/UX bar from the product definition is achievable here.
 > without supplying a currently requested interaction.
 >
 > **Known cost:** the app owns a fixed line-chart layout and nearest-point
-> selection. It does not provide zoom, free-form dates, comparison overlays, or
-> period paging. Scrubbing and paging are not assigned to the same horizontal
+> selection. It does not provide zoom, free-form dates, arbitrary comparison
+> overlays, or period paging. Scrubbing and paging are not assigned to the same horizontal
 > gesture because their outcomes conflict; range buttons select the time scale.
 >
 > **Revisit when:** users need comparison series, custom dates, zooming, or
 > explicit navigation to an older week/month at its original resolution.
 
-### D10 — Define Trends as scoped, weighted calendar summaries (2026-07-31; revised 2026-08-10)
+### D10 — Define Trends as scoped, weighted calendar summaries (2026-07-31; revised 2026-08-11)
 
 > **Decision:** Trends defaults to all jobs and offers one job filter that
 > applies to the entire screen. The totals table is scoped to the chart's
@@ -543,11 +548,14 @@ UI/UX bar from the product definition is achievable here.
 > - Each range names its window as a date range built from that window's start
 >   and the newest shift in it, rather than describing the calculation that
 >   produced it. Ranges measured in months name months; the rest name days.
-> - Each chart point sums D5 gross, tips, and duration for its calendar bucket.
->   Three lines are drawn from those sums -- wage, tips, and total -- against one
->   shared vertical scale, and touch inspection exposes the exact breakdown.
->   This is recorded gross under the current contract, not overtime-adjusted
->   or after-tax income until D14's required profiles exist.
+> - Each aggregate chart point sums D5 gross, tips, and duration for its calendar
+>   bucket. A selected job draws that point's gross as one line. All jobs groups
+>   the same buckets by job and draws one gross line per job against one shared
+>   vertical scale. The combined total remains the large figure above the chart;
+>   it is not repeated as another line. Touch inspection exposes the exact
+>   combined breakdown and each job's gross. This is recorded gross under the
+>   current contract, not after-tax income; when D14 overtime settings apply,
+>   every aggregate and per-job point uses the same overtime estimate.
 > - Gridlines are labeled with the magnitude they represent, rounded to whole
 >   dollars and abbreviated above a thousand. Exact figures belong above the
 >   chart, where there is room for them.
@@ -614,9 +622,9 @@ UI/UX bar from the product definition is achievable here.
 > shift, and a column exists when a user has said they need it, not when a
 > competitor's screenshot shows one.
 >
-> The three chart lines share one vertical scale so their shapes are comparable.
-> Given its own scale, a $40 tip week would draw the same shape as a $400 income
-> week, which inverts the exact comparison the second line was added to support.
+> Per-job lines share one vertical scale so their amounts are comparable. Given
+> its own scale, a lower-income job could draw the same height as a higher-income
+> job, which would invert the comparison this view is meant to support.
 >
 > Worked weeks avoid calling an unlogged or unemployed week a measured zero.
 > Including empty weeks would require an employment start/end date the app does
@@ -634,9 +642,9 @@ UI/UX bar from the product definition is achievable here.
 > distinguishing them, and a user who does not read it can compare a 1W rate
 > against an all-history weekday chart and think they are the same measurement.
 >
-> Three lines and a labeled axis put more ink in the same space than one line
-> did, and the axis figures are drawn inside the plot rather than in a reserved
-> left gutter, so a low-running wage line can pass under a label.
+> Job colors come from a six-color palette. Labels and exact figures remain
+> visible, but colors repeat if more than six jobs have income in one window.
+> Store a job color only if real use shows that ceiling is too low.
 >
 > **Revisit when:** real use shows old shifts obscuring current patterns, users
 > ask for a separate tip-efficiency view, or a remembered job/date filter
