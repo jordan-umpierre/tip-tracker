@@ -7,6 +7,14 @@ export default function RootLayout() {
     <Stack screenOptions={{ headerBackButtonDisplayMode: 'minimal' }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="history" options={{ title: 'Shift history' }} />
+      <Stack.Screen
+        name="income-range"
+        options={{
+          presentation: 'formSheet',
+          sheetAllowedDetents: [0.9],
+          sheetGrabberVisible: true,
+        }}
+      />
 
       {/* Each logging step gets the native stack header, back button, and
           swipe gesture instead of rebuilding those behaviors in the form. */}

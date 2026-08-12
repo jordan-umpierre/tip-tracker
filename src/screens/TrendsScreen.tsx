@@ -1,6 +1,6 @@
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -15,6 +15,7 @@ import { getDb } from '../data/db';
 import { Job, listJobs } from '../data/jobs';
 import { listShifts, Shift } from '../data/shifts';
 import { formatCents, formatHours } from '../lib/format';
+import { parseCalendarDate } from '../lib/dates';
 import { calculateEstimatedGrossByShift, overtimeScope } from '../lib/overtime';
 import {
   calculateTrends,
@@ -40,7 +41,33 @@ export default function TrendsScreen() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [chartRange, setChartRange] = useState<TrendChartRange>('quarter');
+  const [chartPageOffset, setChartPageOffset] = useState(0);
+  const [customRange, setCustomRange] = useState<{
+    startDate: string;
+    endDate: string;
+  } | null>(null);
   const [chartSelectionDismissKey, setChartSelectionDismissKey] = useState(0);
+  const { customStart, customEnd } = useLocalSearchParams<{
+    customStart?: string;
+    customEnd?: string;
+  }>();
+
+  // fallow-ignore-next-line complexity -- Every route-param guard rejects a distinct malformed deep link before it reaches income calculations.
+  useEffect(() => {
+    if (
+      typeof customStart !== 'string' ||
+      typeof customEnd !== 'string' ||
+      !parseCalendarDate(customStart) ||
+      !parseCalendarDate(customEnd) ||
+      customStart > customEnd
+    ) {
+      return;
+    }
+
+    setCustomRange({ startDate: customStart, endDate: customEnd });
+    setChartRange('custom');
+    setChartPageOffset(0);
+  }, [customEnd, customStart]);
 
   const refresh = useCallback(async () => {
     try {
@@ -111,7 +138,18 @@ export default function TrendsScreen() {
   try {
     grossByShift = calculateEstimatedGrossByShift(shifts, jobs);
     weekdays = calculateTrends(shifts, selectedJobId, grossByShift).weekdays;
-    trendSeries = calculateTrendSeries(shifts, chartRange, selectedJobId, grossByShift);
+    trendSeries = calculateTrendSeries(
+      shifts,
+      chartRange,
+      selectedJobId,
+      grossByShift,
+      chartRange === 'custom' && customRange
+        ? {
+            customStartDate: customRange.startDate,
+            customEndDate: customRange.endDate,
+          }
+        : { pageOffset: chartPageOffset }
+    );
     chartPointsByJob = selectedJobId === null
       ? calculateTrendPointsByJob(shifts, trendSeries, grossByShift)
       : new Map([[selectedJobId, trendSeries.points]]);
@@ -155,6 +193,40 @@ export default function TrendsScreen() {
         }]
       : [];
   });
+  const scopedShifts = selectedJobId === null
+    ? shifts
+    : shifts.filter((shift) => shift.job_id === selectedJobId);
+  const canPageBackward =
+    chartRange !== 'all' &&
+    chartRange !== 'custom' &&
+    trendSeries.startDate !== null &&
+    scopedShifts.some((shift) => shift.shift_date < trendSeries.startDate!);
+
+  function handleJobChange(jobId: string | null) {
+    setSelectedJobId(jobId);
+    setChartPageOffset(0);
+  }
+
+  // fallow-ignore-next-line complexity -- The custom-sheet branch and preset reset branch are both explicit user actions and are device-checked together.
+  function handleRangeChange(range: TrendChartRange) {
+    if (range === 'custom') {
+      const latestDate = scopedShifts.reduce(
+        (latest, shift) => shift.shift_date > latest ? shift.shift_date : latest,
+        ''
+      );
+      router.push({
+        pathname: '/income-range',
+        params: {
+          startDate: customRange?.startDate ?? trendSeries.startDate ?? latestDate,
+          endDate: customRange?.endDate ?? trendSeries.anchorDate ?? latestDate,
+        },
+      });
+      return;
+    }
+
+    setChartRange(range);
+    setChartPageOffset(0);
+  }
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -169,7 +241,7 @@ export default function TrendsScreen() {
           <JobFilters
             jobs={jobsWithHistory}
             selectedJobId={selectedJobId}
-            onChange={setSelectedJobId}
+            onChange={handleJobChange}
           />
         ) : null}
 
@@ -181,7 +253,11 @@ export default function TrendsScreen() {
           selectionDismissKey={chartSelectionDismissKey}
           estimated={estimateScope.estimated}
           hasUntimedEstimate={estimateScope.hasUntimedEstimate}
-          onRangeChange={setChartRange}
+          canPageBackward={canPageBackward}
+          canPageForward={chartPageOffset < 0}
+          onRangeChange={handleRangeChange}
+          onPageBackward={() => setChartPageOffset((offset) => offset - 1)}
+          onPageForward={() => setChartPageOffset((offset) => Math.min(0, offset + 1))}
         />
 
         <TotalsTable

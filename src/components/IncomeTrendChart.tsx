@@ -4,6 +4,7 @@ import {
   LayoutChangeEvent,
   PanResponder,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -57,6 +58,7 @@ const ranges: { label: string; value: TrendChartRange }[] = [
   { label: '1Y', value: 'year' },
   { label: 'YTD', value: 'ytd' },
   { label: 'All', value: 'all' },
+  { label: 'Custom', value: 'custom' },
 ];
 
 const rangeAccessibilityLabels: Record<TrendChartRange, string> = {
@@ -66,6 +68,7 @@ const rangeAccessibilityLabels: Record<TrendChartRange, string> = {
   year: '1 year',
   ytd: 'Year to date',
   all: 'All time',
+  custom: 'Custom date range',
 };
 
 // How precisely to name the window under the dollar figure. Ranges measured in
@@ -79,6 +82,7 @@ const rangeLabelPrecision: Record<TrendChartRange, 'day' | 'month'> = {
   year: 'month',
   ytd: 'day',
   all: 'month',
+  custom: 'day',
 };
 
 type Props = {
@@ -89,7 +93,11 @@ type Props = {
   selectionDismissKey: number;
   estimated: boolean;
   hasUntimedEstimate: boolean;
+  canPageBackward: boolean;
+  canPageForward: boolean;
   onRangeChange: (range: TrendChartRange) => void;
+  onPageBackward: () => void;
+  onPageForward: () => void;
 };
 
 type IncomeTrendLine = {
@@ -100,7 +108,10 @@ type IncomeTrendLine = {
   points: CalendarTrend[];
 };
 
-type ChartTotals = Pick<CalendarTrend, 'durationSeconds' | 'tipsCents' | 'grossCents'>;
+type ChartTotals = Pick<
+  CalendarTrend,
+  'shiftCount' | 'durationSeconds' | 'tipsCents' | 'grossCents'
+>;
 
 type ChartPosition = { x: number; y: number };
 
@@ -113,7 +124,11 @@ export default function IncomeTrendChart({
   selectionDismissKey,
   estimated,
   hasUntimedEstimate,
+  canPageBackward,
+  canPageForward,
   onRangeChange,
+  onPageBackward,
+  onPageForward,
 }: Props) {
   const [chartWidth, setChartWidth] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -268,8 +283,12 @@ export default function IncomeTrendChart({
             selectedIndex={selectedIndex}
           />
         ) : null}
-        {series.points.length === 0 ? (
-          <Text style={styles.empty}>Log a shift to start your income trend.</Text>
+        {series.points.length === 0 || total.shiftCount === 0 ? (
+          <Text style={styles.empty}>
+            {series.points.length === 0
+              ? 'Log a shift to start your income trend.'
+              : 'No income in this period.'}
+          </Text>
         ) : null}
       </View>
 
@@ -286,6 +305,14 @@ export default function IncomeTrendChart({
           onRangeChange(nextRange);
         }}
       />
+      {range === 'all' || range === 'custom' ? null : (
+        <PeriodPager
+          canPageBackward={canPageBackward}
+          canPageForward={canPageForward}
+          onPageBackward={onPageBackward}
+          onPageForward={onPageForward}
+        />
+      )}
     </View>
   );
 }
@@ -444,24 +471,71 @@ function RangePicker({
   onSelect: (range: TrendChartRange) => void;
 }) {
   return (
-    <View accessibilityRole="tablist" style={styles.ranges}>
+    <ScrollView
+      horizontal
+      accessibilityRole="tablist"
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.ranges}
+    >
       {ranges.map((option) => {
-        const selected = option.value === selectedRange;
-        return (
-          <Pressable
-            key={option.value}
-            accessibilityLabel={rangeAccessibilityLabels[option.value]}
-            accessibilityRole="tab"
-            accessibilityState={{ selected }}
-            style={[styles.rangeButton, selected && styles.rangeButtonSelected]}
-            onPress={() => onSelect(option.value)}
-          >
-            <Text style={[styles.rangeText, selected && styles.rangeTextSelected]}>
-              {option.label}
-            </Text>
-          </Pressable>
-        );
-      })}
+          const selected = option.value === selectedRange;
+          return (
+            <Pressable
+              key={option.value}
+              accessibilityLabel={rangeAccessibilityLabels[option.value]}
+              accessibilityRole="tab"
+              accessibilityState={{ selected }}
+              style={[styles.rangeButton, selected && styles.rangeButtonSelected]}
+              onPress={() => onSelect(option.value)}
+            >
+              <Text style={[styles.rangeText, selected && styles.rangeTextSelected]}>
+                {option.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+    </ScrollView>
+  );
+}
+
+// fallow-ignore-next-line complexity -- Two mirrored buttons carry visible and accessibility disabled states; device acceptance checks both directions.
+function PeriodPager({
+  canPageBackward,
+  canPageForward,
+  onPageBackward,
+  onPageForward,
+}: {
+  canPageBackward: boolean;
+  canPageForward: boolean;
+  onPageBackward: () => void;
+  onPageForward: () => void;
+}) {
+  return (
+    <View style={styles.pager}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Previous income period"
+        accessibilityState={{ disabled: !canPageBackward }}
+        disabled={!canPageBackward}
+        style={[styles.pageButton, !canPageBackward && styles.pageButtonDisabled]}
+        onPress={onPageBackward}
+      >
+        <Text style={[styles.pageText, !canPageBackward && styles.pageTextDisabled]}>
+          ‹ Older
+        </Text>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Next income period"
+        accessibilityState={{ disabled: !canPageForward }}
+        disabled={!canPageForward}
+        style={[styles.pageButton, !canPageForward && styles.pageButtonDisabled]}
+        onPress={onPageForward}
+      >
+        <Text style={[styles.pageText, !canPageForward && styles.pageTextDisabled]}>
+          Newer ›
+        </Text>
+      </Pressable>
     </View>
   );
 }
@@ -469,11 +543,12 @@ function RangePicker({
 function totalPoints(points: CalendarTrend[]): ChartTotals {
   return points.reduce<ChartTotals>(
     (total, point) => ({
+      shiftCount: total.shiftCount + point.shiftCount,
       durationSeconds: total.durationSeconds + point.durationSeconds,
       tipsCents: total.tipsCents + point.tipsCents,
       grossCents: total.grossCents + point.grossCents,
     }),
-    { durationSeconds: 0, tipsCents: 0, grossCents: 0 }
+    { shiftCount: 0, durationSeconds: 0, tipsCents: 0, grossCents: 0 }
   );
 }
 
@@ -597,10 +672,10 @@ const styles = StyleSheet.create({
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendText: { color: '#4b5563', fontSize: 12, fontWeight: '600' },
   hint: { color: '#6b7280', fontSize: 12, textAlign: 'center', marginTop: 8 },
-  ranges: { flexDirection: 'row', gap: 6, marginTop: 12 },
+  ranges: { flexDirection: 'row', gap: 6, marginTop: 12, paddingRight: 2 },
   rangeButton: {
     minHeight: 44,
-    flex: 1,
+    minWidth: 54,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 22,
@@ -608,4 +683,14 @@ const styles = StyleSheet.create({
   rangeButtonSelected: { backgroundColor: '#2563eb' },
   rangeText: { color: '#2563eb', fontSize: 14, fontWeight: '700' },
   rangeTextSelected: { color: '#fff' },
+  pager: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
+  pageButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+    borderRadius: 22,
+    paddingHorizontal: 12,
+  },
+  pageButtonDisabled: { opacity: 0.45 },
+  pageText: { color: '#2563eb', fontSize: 14, fontWeight: '700' },
+  pageTextDisabled: { color: '#6b7280' },
 });

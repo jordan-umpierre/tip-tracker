@@ -49,7 +49,22 @@ export type CalendarTrend = TrendTotals & {
   period: string;
 };
 
-export type TrendChartRange = 'week' | 'month' | 'quarter' | 'year' | 'ytd' | 'all';
+export type TrendChartRange =
+  | 'week'
+  | 'month'
+  | 'quarter'
+  | 'year'
+  | 'ytd'
+  | 'all'
+  | 'custom';
+
+export type TrendSeriesOptions = {
+  // Zero is the latest window. Negative values move to earlier windows and
+  // positive values move forward by one whole range at a time.
+  pageOffset?: number;
+  customStartDate?: string;
+  customEndDate?: string;
+};
 
 export type TrendSeries = {
   anchorDate: string | null;
@@ -117,6 +132,15 @@ function monthKeys(startTimestamp: number, count: number): string[] {
   );
 }
 
+function calendarTimestamp(value: string, label: string): number {
+  const date = parseCalendarDate(value);
+  if (!date) {
+    throw new Error(`Invalid ${label}: ${value}`);
+  }
+
+  return Date.UTC(date.year, date.month - 1, date.day);
+}
+
 type DatedShift = {
   shift: Shift;
   date: NonNullable<ReturnType<typeof parseCalendarDate>>;
@@ -143,35 +167,139 @@ function bucketForRange(range: TrendChartRange): TrendSeries['bucket'] {
   return range === 'quarter' ? 'week' : 'month';
 }
 
+type SeriesWindow = {
+  startDate: string;
+  endDate: string;
+  bucket: TrendSeries['bucket'];
+  keys: string[];
+};
+
+function endOfMonth(timestamp: number): string {
+  const month = new Date(timestamp);
+  return dateKey(Date.UTC(month.getUTCFullYear(), month.getUTCMonth() + 1, 0));
+}
+
+function customSeriesWindow(startDate: string, endDate: string): SeriesWindow {
+  const startTimestamp = calendarTimestamp(startDate, 'custom start date');
+  const endTimestamp = calendarTimestamp(endDate, 'custom end date');
+  if (startTimestamp > endTimestamp) {
+    throw new Error('Custom start date must be on or before the end date');
+  }
+
+  const dayCount = Math.round((endTimestamp - startTimestamp) / DAY_IN_MILLISECONDS) + 1;
+  if (dayCount <= 31) {
+    return { startDate, endDate, bucket: 'day', keys: dayKeys(startTimestamp, dayCount) };
+  }
+
+  if (dayCount <= 366) {
+    const start = parseCalendarDate(startDate)!;
+    const end = parseCalendarDate(endDate)!;
+    const firstWeek = Date.parse(`${weekStartString(start)}T00:00:00.000Z`);
+    const lastWeek = Date.parse(`${weekStartString(end)}T00:00:00.000Z`);
+    const weekCount = Math.round((lastWeek - firstWeek) / (7 * DAY_IN_MILLISECONDS)) + 1;
+    return {
+      startDate,
+      endDate,
+      bucket: 'week',
+      keys: Array.from({ length: weekCount }, (_, index) =>
+        dateKey(firstWeek + index * 7 * DAY_IN_MILLISECONDS)
+      ),
+    };
+  }
+
+  const start = new Date(startTimestamp);
+  const end = new Date(endTimestamp);
+  const monthCount =
+    (end.getUTCFullYear() - start.getUTCFullYear()) * 12 +
+    end.getUTCMonth() -
+    start.getUTCMonth() +
+    1;
+  return {
+    startDate,
+    endDate,
+    bucket: 'month',
+    keys: monthKeys(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1), monthCount),
+  };
+}
+
 // fallow-ignore-next-line complexity -- Every range branch is covered through calculateTrendSeries in the direct-run assertions; this repo produces no Istanbul data for Fallow's CRAP model.
-function seriesKeys(range: TrendChartRange, oldest: DatedShift, newest: DatedShift): string[] {
+function presetSeriesWindow(
+  range: Exclude<TrendChartRange, 'custom'>,
+  oldest: DatedShift,
+  newest: DatedShift,
+  pageOffset: number
+): SeriesWindow {
   if (range === 'week' || range === 'month') {
     const dayCount = range === 'week' ? 7 : 30;
-    return dayKeys(newest.timestamp - (dayCount - 1) * DAY_IN_MILLISECONDS, dayCount);
+    const endTimestamp = newest.timestamp + pageOffset * dayCount * DAY_IN_MILLISECONDS;
+    const startTimestamp = endTimestamp - (dayCount - 1) * DAY_IN_MILLISECONDS;
+    return {
+      startDate: dateKey(startTimestamp),
+      endDate: dateKey(endTimestamp),
+      bucket: 'day',
+      keys: dayKeys(startTimestamp, dayCount),
+    };
   }
 
   if (range === 'quarter') {
     const newestWeekStart = Date.parse(`${weekStartString(newest.date)}T00:00:00.000Z`);
-    return Array.from({ length: 13 }, (_, index) =>
-      dateKey(newestWeekStart - (12 - index) * 7 * DAY_IN_MILLISECONDS)
-    );
+    const lastWeekStart = newestWeekStart + pageOffset * 13 * 7 * DAY_IN_MILLISECONDS;
+    const firstWeekStart = lastWeekStart - 12 * 7 * DAY_IN_MILLISECONDS;
+    return {
+      startDate: dateKey(firstWeekStart),
+      endDate:
+        pageOffset === 0
+          ? newest.shift.shift_date
+          : dateKey(lastWeekStart + 6 * DAY_IN_MILLISECONDS),
+      bucket: 'week',
+      keys: Array.from({ length: 13 }, (_, index) =>
+        dateKey(firstWeekStart + index * 7 * DAY_IN_MILLISECONDS)
+      ),
+    };
   }
 
   if (range === 'ytd') {
     // January through the month of the newest shift. Unlike every other range
     // this one is anchored to a calendar boundary rather than rolling backwards,
     // so the window shrinks to a single month each January.
-    return monthKeys(Date.UTC(newest.date.year, 0, 1), newest.date.month);
+    const year = newest.date.year + pageOffset;
+    const monthCount = pageOffset === 0 ? newest.date.month : 12;
+    return {
+      startDate: `${year}-01-01`,
+      endDate: pageOffset === 0 ? newest.shift.shift_date : `${year}-12-31`,
+      bucket: 'month',
+      keys: monthKeys(Date.UTC(year, 0, 1), monthCount),
+    };
   }
 
   if (range === 'year') {
-    return monthKeys(Date.UTC(newest.date.year, newest.date.month - 12, 1), 12);
+    const lastMonthStart = Date.UTC(
+      newest.date.year,
+      newest.date.month - 1 + pageOffset * 12,
+      1
+    );
+    const firstMonthStart = Date.UTC(
+      newest.date.year,
+      newest.date.month - 12 + pageOffset * 12,
+      1
+    );
+    return {
+      startDate: dateKey(firstMonthStart),
+      endDate: pageOffset === 0 ? newest.shift.shift_date : endOfMonth(lastMonthStart),
+      bucket: 'month',
+      keys: monthKeys(firstMonthStart, 12),
+    };
   }
 
   const start = Date.UTC(oldest.date.year, oldest.date.month - 1, 1);
   const monthCount =
     (newest.date.year - oldest.date.year) * 12 + newest.date.month - oldest.date.month + 1;
-  return monthKeys(start, monthCount);
+  return {
+    startDate: dateKey(start),
+    endDate: newest.shift.shift_date,
+    bucket: 'month',
+    keys: monthKeys(start, monthCount),
+  };
 }
 
 function pointKeyForShift(
@@ -189,23 +317,44 @@ export function calculateTrendSeries(
   shifts: Shift[],
   range: TrendChartRange,
   jobId: string | null = null,
-  grossByShift: ReadonlyMap<string, number> = NO_GROSS_OVERRIDES
+  grossByShift: ReadonlyMap<string, number> = NO_GROSS_OVERRIDES,
+  options: TrendSeriesOptions = {}
 ): TrendSeries {
   const datedShifts = datedShiftsForJob(shifts, jobId);
-  const bucket = bucketForRange(range);
+
+  const customWindow =
+    range === 'custom'
+      ? customSeriesWindow(options.customStartDate ?? '', options.customEndDate ?? '')
+      : null;
+  const bucket = customWindow?.bucket ?? bucketForRange(range);
 
   if (datedShifts.length === 0) {
-    return { anchorDate: null, startDate: null, bucket, points: [] };
+    if (!customWindow) {
+      return { anchorDate: null, startDate: null, bucket, points: [] };
+    }
+
+    return {
+      anchorDate: customWindow.endDate,
+      startDate: customWindow.startDate,
+      bucket,
+      points: customWindow.keys.map((period) => ({ period, ...emptyTotals() })),
+    };
   }
 
   datedShifts.sort((left, right) => left.timestamp - right.timestamp);
   const oldest = datedShifts[0];
   const newest = datedShifts[datedShifts.length - 1];
-  const keys = seriesKeys(range, oldest, newest);
+  const window =
+    customWindow ??
+    presetSeriesWindow(range as Exclude<TrendChartRange, 'custom'>, oldest, newest, options.pageOffset ?? 0);
 
-  const totalsByPoint = new Map(keys.map((key) => [key, emptyTotals()]));
+  const totalsByPoint = new Map(window.keys.map((key) => [key, emptyTotals()]));
 
   for (const { shift, date } of datedShifts) {
+    if (shift.shift_date < window.startDate || shift.shift_date > window.endDate) {
+      continue;
+    }
+
     const totals = totalsByPoint.get(pointKeyForShift(bucket, shift, date));
     if (totals) {
       addShift(
@@ -217,10 +366,8 @@ export function calculateTrendSeries(
   }
 
   return {
-    anchorDate: newest.shift.shift_date,
-    // Month buckets are keyed "2026-01"; widen that to the first of the month
-    // so callers always receive a full calendar date.
-    startDate: keys[0].length === 7 ? `${keys[0]}-01` : keys[0],
+    anchorDate: window.endDate,
+    startDate: window.startDate,
     bucket,
     points: [...totalsByPoint].map(([period, totals]) => ({ period, ...totals })),
   };

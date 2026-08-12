@@ -205,16 +205,49 @@ assert.equal(monthSeries.points.length, 30);
 assert.equal(monthSeries.points[0].period, '2024-02-02');
 assert.equal(monthSeries.points.at(-1)?.period, '2024-03-02');
 
+// Paging moves by one whole visible window. The previous week ends the day
+// before the latest week starts, so the two pages neither overlap nor leave a gap.
+const previousWeek = calculateTrendSeries(
+  chartShifts,
+  'week',
+  'job-a',
+  new Map(),
+  { pageOffset: -1 }
+);
+assert.equal(previousWeek.startDate, '2024-02-18');
+assert.equal(previousWeek.anchorDate, '2024-02-24');
+assert.equal(previousWeek.points.at(-1)?.grossCents, 1100);
+
 const quarterSeries = calculateTrendSeries(chartShifts, 'quarter', 'job-a');
 assert.equal(quarterSeries.bucket, 'week');
 assert.equal(quarterSeries.points.length, 13);
 assert.equal(quarterSeries.points.at(-1)?.period, '2024-02-25');
 assert.equal(quarterSeries.points.at(-1)?.grossCents, 4202);
+const previousQuarter = calculateTrendSeries(
+  chartShifts,
+  'quarter',
+  'job-a',
+  new Map(),
+  { pageOffset: -1 }
+);
+assert.equal(previousQuarter.points.at(-1)?.period, '2023-11-26');
+assert.equal(previousQuarter.anchorDate, '2023-12-02');
+assert.equal(quarterSeries.startDate, '2023-12-03');
 
 const yearSeries = calculateTrendSeries(chartShifts, 'year', 'job-a');
 assert.equal(yearSeries.points.length, 12);
 assert.equal(yearSeries.points[0].period, '2023-04');
 assert.equal(yearSeries.points.at(-1)?.period, '2024-03');
+const previousYear = calculateTrendSeries(
+  chartShifts,
+  'year',
+  'job-a',
+  new Map(),
+  { pageOffset: -1 }
+);
+assert.equal(previousYear.startDate, '2022-04-01');
+assert.equal(previousYear.anchorDate, '2023-03-31');
+assert.equal(previousYear.points.at(-1)?.period, '2023-03');
 
 // Year to date is the one range that does not roll backwards from the newest
 // shift: it always starts at January of that shift's year, so March 2 gives
@@ -231,6 +264,16 @@ assert.equal(
   calculateTrendSeries([shift('january', 'job-a', '2024-01-08', 3600, 0, 1000)], 'ytd').points.length,
   1
 );
+const previousCalendarYear = calculateTrendSeries(
+  chartShifts,
+  'ytd',
+  'job-a',
+  new Map(),
+  { pageOffset: -1 }
+);
+assert.equal(previousCalendarYear.startDate, '2023-01-01');
+assert.equal(previousCalendarYear.anchorDate, '2023-12-31');
+assert.equal(previousCalendarYear.points.length, 12);
 
 // startDate is what the chart labels the window with, so it has to line up with
 // the first bucket for every range, not just the month-keyed ones.
@@ -245,6 +288,46 @@ const allSeries = calculateTrendSeries([
 assert.deepEqual(
   allSeries.points.map((point) => [point.period, point.grossCents]),
   [['2022-12', 1000], ['2023-01', 0], ['2023-02', 1000]]
+);
+
+// A custom range keeps the exact requested boundaries while choosing a bucket
+// size that prevents a multi-year selection from producing hundreds of points.
+const customSeries = calculateTrendSeries(
+  chartShifts,
+  'custom',
+  'job-a',
+  new Map(),
+  { customStartDate: '2024-02-24', customEndDate: '2024-03-02' }
+);
+assert.equal(customSeries.bucket, 'day');
+assert.equal(customSeries.startDate, '2024-02-24');
+assert.equal(customSeries.anchorDate, '2024-03-02');
+assert.equal(customSeries.points.length, 8);
+assert.equal(
+  customSeries.points.reduce((total, point) => total + point.grossCents, 0),
+  5302
+);
+assert.equal(
+  calculateTrendSeries(chartShifts, 'custom', 'job-a', new Map(), {
+    customStartDate: '2024-01-01',
+    customEndDate: '2024-03-02',
+  }).bucket,
+  'week'
+);
+assert.equal(
+  calculateTrendSeries(chartShifts, 'custom', 'job-a', new Map(), {
+    customStartDate: '2022-01-01',
+    customEndDate: '2024-03-02',
+  }).bucket,
+  'month'
+);
+assert.throws(
+  () =>
+    calculateTrendSeries(chartShifts, 'custom', 'job-a', new Map(), {
+      customStartDate: '2024-03-02',
+      customEndDate: '2024-02-24',
+    }),
+  /Custom start date must be on or before the end date/
 );
 // The summary card beside the chart is calculated over shiftsInWindow, so this
 // has to return exactly what the series drew. Summing the series points and
