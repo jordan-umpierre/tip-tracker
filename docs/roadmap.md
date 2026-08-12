@@ -11,8 +11,8 @@ Last updated: 2026-08-11
 ## Verdict
 
 **The iOS production build is submitted to App Store Connect** ([D33](decisions.md)), but build 6
-predates the standalone history workflow and per-job income chart now on
-`main`. A replacement build is required before iOS acceptance. The account,
+predates the standalone history workflow and the current income exploration
+flow on `main`. A replacement build is required before iOS acceptance. The account,
 sync, Postgres, and AWS work is sidelined. The remaining work is the replacement
 build, TestFlight processing, iOS acceptance, store metadata, privacy hosting,
 and App Review.
@@ -21,7 +21,8 @@ and App Review.
 
 - create multiple jobs and preserve each shift's historical rate
 - log, edit, and delete shifts
-- review gross income and trends
+- review gross income by job, page through preset periods, choose a custom
+  range, and open the shifts behind a chart point ([D34](decisions.md))
 - import/export CSV data
 - create and restore a lossless JSON device backup
 - use optional, clearly labeled overtime and federal withholding estimates
@@ -40,7 +41,7 @@ jobs, import/export, backup, and optional estimate tools.
 
 ## Next work, in order
 
-1. Create and submit a production build from commit `b4b8ac2` or later.
+1. Create and submit a production build from commit `ad13533` or later.
 2. Wait for that build to finish TestFlight processing, then complete
    [`acceptance.md`](acceptance.md) on the iOS build.
 3. Fix only failures found in that pass and repeat the focused checks.
@@ -62,7 +63,7 @@ jobs, import/export, backup, and optional estimate tools.
 - Build 6 submission is in progress for App Store Connect under ASC app
   `6800162471`.
 - Build 6 does not contain the standalone history changes through `d210480` or
-  the per-job chart interaction through `b4b8ac2`; do not use it as acceptance
+  the income exploration changes through `ad13533`; do not use it as acceptance
   evidence for either workflow.
 
 Exports and automated tests prove code paths and bundle generation. They do not

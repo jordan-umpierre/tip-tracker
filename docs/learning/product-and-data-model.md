@@ -325,3 +325,27 @@ the change in the half that can be asserted was worth something on its own.
 
 The general shape: "this is cheap to lose" is a claim about the *system*, not
 the file. Check whether the thing that makes it cheap actually exists yet.
+
+### 2026-08-11 — "How should paging, custom ranges, and drill-down share one chart?"
+
+Start with gesture ownership. The line already uses horizontal movement to
+inspect its nearest point, so making that movement page as well would give one
+gesture two valid outcomes. Older and Newer buttons are less fashionable than a
+swipe, but they are visible, accessible, and deterministic.
+
+Then keep the date contract below the UI. Presets, custom boundaries, per-job
+lines, the totals table, and the detail screen all consume one `TrendSeries`.
+The detail route does not reconstruct what a week or month means; it asks the
+series for the dates behind the selected point and clamps partial buckets to the
+visible window. That is why the screen cannot disagree with the graph without a
+pure assertion failing first.
+
+More visualization is useful only when it answers a different question. The
+line answers when income arrived. Conditional job bars answer how the visible
+total is divided. A second time-series or a one-job bar would repeat the same
+data without adding a decision, so neither exists.
+
+The engineering lesson is that interaction design and data modeling meet at
+boundaries. Once a chart can page and drill down, its date window is no longer a
+labeling detail. It is an application contract worth owning once and testing
+directly.

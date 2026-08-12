@@ -149,3 +149,6 @@ name — the number adds sequence without costing you the description.
     Log income and ordering each selected month from earliest to latest.
 39. [39-job-income-lines.md](39-job-income-lines.md) — replacing redundant
     wage/tip/total chart lines with one gross line per job in All jobs.
+40. [40-income-exploration.md](40-income-exploration.md) — custom ranges,
+    explicit period paging, job-comparison bars, point-to-shift drill-down, and
+    reduced-motion-aware chart transitions.

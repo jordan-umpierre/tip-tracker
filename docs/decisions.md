@@ -2033,3 +2033,43 @@ UI/UX bar from the product definition is achievable here.
 > **Revisit when:** Users need a second-device backup, a web client, or a
 > server-backed account. That is the trigger to restore a deliberately scoped
 > backend, not a reason to block this release.
+
+### D34 — Give income exploration one gesture per outcome (2026-08-11)
+
+> **Decision:** Keep horizontal movement inside the line chart exclusively for
+> inspecting points. Older and newer preset periods use visible buttons. A
+> custom range uses the existing calendar in a native form sheet. A point or
+> whole window opens a separate shift-detail screen using the exact dates from
+> the pure trend series.
+>
+> Add one second chart only when it compares at least two jobs with income in
+> the visible window. Its bars focus the existing job scope rather than creating
+> another filter state. Range, page, and job changes get one 180 ms graph fade
+> that respects Reduce Motion; stack and sheet transitions remain native.
+>
+> **Alternatives:** Swipe the chart to page; add pinch-to-zoom; show several
+> permanent breakdown charts; put shift rows below the graph; introduce a chart
+> or date-range framework.
+>
+> **Why:** A horizontal drag cannot reliably mean both inspect this point and
+> move to another period. Visible paging controls preserve the scrub and remain
+> discoverable to assistive technology. The series already owns calendar
+> buckets, so it is also the only safe owner of drill-down boundaries and avoids
+> a detail screen quietly selecting different shifts than the graph.
+>
+> Custom ranges adapt from day to week to month buckets at 31 and 366 days. That
+> is enough density control for the current dataset without inventing zoom or a
+> general chart engine. The job bars are conditional because one labeled bar is
+> not a comparison, and the weekday chart remains all-history because narrowing
+> it to a short visible period would usually leave a misleading sample.
+>
+> **Known cost:** The custom calendar highlights the boundary currently being
+> edited, not every day between both boundaries. Older pages are anchored to the
+> newest shift in the selected scope rather than the device clock. The bar chart
+> repeats totals that also appear in the multi-line legend, but gives their
+> relative size a distinct visual use.
+>
+> **Revisit when:** Device use shows custom ranges need a visible span highlight;
+> users need to jump directly to a named prior period rather than page; more than
+> six simultaneous jobs make lines unreadable; or measured chart interaction
+> shows the fade obscures rather than clarifies a change.
