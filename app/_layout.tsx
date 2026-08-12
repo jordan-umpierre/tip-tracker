@@ -7,6 +7,7 @@ export default function RootLayout() {
     <Stack screenOptions={{ headerBackButtonDisplayMode: 'minimal' }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="history" options={{ title: 'Shift history' }} />
+      <Stack.Screen name="income-shifts" options={{ title: 'Income shifts' }} />
       <Stack.Screen
         name="income-range"
         options={{

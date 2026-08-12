@@ -10,6 +10,7 @@ import {
   calculateTrendPointsByJob,
   calculateTrendSeries,
   shiftsInWindow,
+  trendWindowForPoint,
 } from './trends.ts';
 
 function shift(
@@ -329,6 +330,26 @@ assert.throws(
     }),
   /Custom start date must be on or before the end date/
 );
+
+// Drill-down uses the same chart buckets and clamps a partial latest bucket to
+// the visible window instead of claiming unshown days from the rest of it.
+assert.deepEqual(trendWindowForPoint(weekSeries, '2024-02-29'), {
+  startDate: '2024-02-29',
+  endDate: '2024-02-29',
+});
+assert.deepEqual(trendWindowForPoint(quarterSeries, '2024-02-25'), {
+  startDate: '2024-02-25',
+  endDate: '2024-03-02',
+});
+assert.deepEqual(trendWindowForPoint(yearSeries, '2024-03'), {
+  startDate: '2024-03-01',
+  endDate: '2024-03-02',
+});
+assert.deepEqual(trendWindowForPoint(customSeries, null), {
+  startDate: '2024-02-24',
+  endDate: '2024-03-02',
+});
+assert.equal(trendWindowForPoint(weekSeries, '2020-01-01'), null);
 // The summary card beside the chart is calculated over shiftsInWindow, so this
 // has to return exactly what the series drew. Summing the series points and
 // summing the returned shifts is the check that the two can never disagree --

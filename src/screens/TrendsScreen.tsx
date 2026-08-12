@@ -275,6 +275,16 @@ export default function TrendsScreen() {
           onRangeChange={handleRangeChange}
           onPageBackward={() => setChartPageOffset((offset) => offset - 1)}
           onPageForward={() => setChartPageOffset((offset) => Math.min(0, offset + 1))}
+          onViewShifts={(startDate, endDate) =>
+            router.push({
+              pathname: '/income-shifts',
+              params: {
+                startDate,
+                endDate,
+                ...(selectedJobId === null ? {} : { jobId: selectedJobId }),
+              },
+            })
+          }
         />
 
         <TotalsTable

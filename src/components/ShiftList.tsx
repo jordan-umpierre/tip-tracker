@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { router } from 'expo-router';
 import {
   Alert,
   Animated,
@@ -20,9 +21,9 @@ type Props = {
   shifts: Shift[];
   jobs: Job[];
   grossByShift: ReadonlyMap<string, number>;
-  estimatedJobIds: ReadonlySet<string>;
   onShiftDeleted: () => void;
-  onShiftPress: (shift: Shift) => void;
+  browseHistory?: boolean;
+  emptyMessage?: string;
 };
 
 // fallow-ignore-next-line complexity -- List layout, period selection, and swipe actions are one device-tested interaction surface; the repo has no component coverage reporter for estimated CRAP scoring.
@@ -30,13 +31,16 @@ export default function ShiftList({
   shifts,
   jobs,
   grossByShift,
-  estimatedJobIds,
   onShiftDeleted,
-  onShiftPress,
+  browseHistory = true,
+  emptyMessage = 'No shifts logged yet.',
 }: Props) {
   // Shifts only store job_id, not the job's name. Build the lookup once per
   // render instead of scanning the jobs array for every row.
   const jobNameById = new Map(jobs.map((job) => [job.id, job.name]));
+  const estimatedJobIds = new Set(
+    jobs.filter((job) => job.overtime_enabled === 1).map((job) => job.id)
+  );
 
   const years = useMemo(
     () => groupShifts(shifts, grossByShift, estimatedJobIds),
@@ -47,7 +51,7 @@ export default function ShiftList({
   const selectedYear = years.find((year) => year.key === selectedYearKey) ?? years[0];
   const selectedMonth = selectedYear?.months.find((month) => month.key === selectedMonthKey)
     ?? selectedYear?.months[0];
-  const visibleShifts = selectedMonth?.shifts ?? [];
+  const visibleShifts = browseHistory ? selectedMonth?.shifts ?? [] : shifts;
 
   // Alert.alert is React Native's built-in native confirmation dialog --
   // no extra dependency for something this common. Delete is destructive
@@ -79,7 +83,7 @@ export default function ShiftList({
       contentInsetAdjustmentBehavior="automatic"
       contentContainerStyle={styles.content}
       ListHeaderComponent={
-        years.length > 0 ? (
+        browseHistory && years.length > 0 ? (
           <HistoryBrowser
             years={years}
             selectedYear={selectedYear}
@@ -94,7 +98,7 @@ export default function ShiftList({
       }
       ListEmptyComponent={
         <View style={styles.empty}>
-          <Text style={styles.emptyText}>No shifts logged yet.</Text>
+          <Text style={styles.emptyText}>{emptyMessage}</Text>
         </View>
       }
       renderItem={({ item }) =>
@@ -103,8 +107,13 @@ export default function ShiftList({
           shift={item}
           grossCents={grossByShift.get(item.id) ?? calculateShiftGrossCents(item)}
           estimated={estimatedJobIds.has(item.job_id)}
+          dateLabel={browseHistory
+            ? formatRowDate(item.shift_date)
+            : formatFullRowDate(item.shift_date)}
           onDelete={() => handleDeletePress(item)}
-          onPress={() => onShiftPress(item)}
+          onPress={() =>
+            router.push({ pathname: '/log-shift/details', params: { shiftId: item.id } })
+          }
         />
       }
     />
@@ -251,6 +260,20 @@ function formatRowDate(shiftDate: string): string {
   return `${WEEKDAY_NAMES[date.weekdayIndex]} ${date.day}`;
 }
 
+const fullRowDateFormatter = new Intl.DateTimeFormat('en-US', {
+  weekday: 'short',
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+
+function formatFullRowDate(shiftDate: string): string {
+  return parseCalendarDate(shiftDate)
+    ? fullRowDateFormatter.format(new Date(`${shiftDate}T00:00:00Z`))
+    : shiftDate;
+}
+
 // One action's width. Two are revealed -- Edit and Delete -- so the row slides
 // by twice this. Tapping a row still opens it for editing; the swipe action is
 // a second route to the same thing, for people who have already started the
@@ -269,6 +292,7 @@ function SwipeableShiftRow({
   shift,
   grossCents,
   estimated,
+  dateLabel,
   onDelete,
   onPress,
 }: {
@@ -276,6 +300,7 @@ function SwipeableShiftRow({
   shift: Shift;
   grossCents: number;
   estimated: boolean;
+  dateLabel: string;
   onDelete: () => void;
   onPress: () => void;
 }) {
@@ -385,7 +410,9 @@ function SwipeableShiftRow({
           <View style={styles.rowText}>
             <View style={styles.rowHeading}>
               <Text numberOfLines={1} style={styles.rowTitle}>
-                <Text style={styles.rowDate}>{formatRowDate(shift.shift_date)}</Text>
+                <Text style={styles.rowDate}>
+                  {dateLabel}
+                </Text>
                 {'   '}
                 {jobName}
               </Text>

@@ -428,6 +428,36 @@ export function shiftsInWindow(shifts: Shift[], series: TrendSeries): Shift[] {
   );
 }
 
+// Returns the exact calendar dates behind either the whole visible series or
+// one point on it. Week and month buckets can extend beyond a custom or latest
+// window, so both ends are clamped to the dates the chart actually drew.
+// fallow-ignore-next-line complexity -- Day, week, month, clamp, and rejection branches have direct assertions in trends.test.ts.
+export function trendWindowForPoint(
+  series: TrendSeries,
+  period: string | null
+): { startDate: string; endDate: string } | null {
+  if (!series.startDate || !series.anchorDate) return null;
+  if (period === null) {
+    return { startDate: series.startDate, endDate: series.anchorDate };
+  }
+  if (!series.points.some((point) => point.period === period)) return null;
+
+  let startDate = period;
+  let endDate = period;
+  if (series.bucket === 'week') {
+    const startTimestamp = calendarTimestamp(period, 'trend point date');
+    endDate = dateKey(startTimestamp + 6 * DAY_IN_MILLISECONDS);
+  } else if (series.bucket === 'month') {
+    startDate = `${period}-01`;
+    endDate = endOfMonth(calendarTimestamp(startDate, 'trend point month'));
+  }
+
+  return {
+    startDate: startDate < series.startDate ? series.startDate : startDate,
+    endDate: endDate > series.anchorDate ? series.anchorDate : endDate,
+  };
+}
+
 // fallow-ignore-next-line complexity -- Scope and aggregation branches are asserted in trends.test.ts.
 export function calculateTrends(
   shifts: Shift[],

@@ -11,7 +11,12 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path, Text as SvgText } from 'react-native-svg';
 import { formatCents, formatHours } from '../lib/format';
-import type { CalendarTrend, TrendChartRange, TrendSeries } from '../lib/trends';
+import {
+  trendWindowForPoint,
+  type CalendarTrend,
+  type TrendChartRange,
+  type TrendSeries,
+} from '../lib/trends';
 
 const GRAPH_HEIGHT = 194;
 const GRAPH_TOP = 12;
@@ -98,6 +103,7 @@ type Props = {
   onRangeChange: (range: TrendChartRange) => void;
   onPageBackward: () => void;
   onPageForward: () => void;
+  onViewShifts: (startDate: string, endDate: string) => void;
 };
 
 type IncomeTrendLine = {
@@ -129,12 +135,14 @@ export default function IncomeTrendChart({
   onRangeChange,
   onPageBackward,
   onPageForward,
+  onViewShifts,
 }: Props) {
   const [chartWidth, setChartWidth] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const total = useMemo(() => totalPoints(series.points), [series.points]);
   const selectedPoint = selectedIndex === null ? null : series.points[selectedIndex] ?? null;
   const displayed = selectedPoint ?? total;
+  const drilldownWindow = trendWindowForPoint(series, selectedPoint?.period ?? null);
   const pointWindowKey = `${series.bucket}:${series.points[0]?.period}:${series.points.at(-1)?.period}:${series.points.length}`;
   // Null means there is nothing to scale against. That is also the signal not to
   // print dollar figures up the side of an empty chart.
@@ -297,6 +305,31 @@ export default function IncomeTrendChart({
         <ChartLegend lines={drawnLines} selectedIndex={selectedIndex} />
       ) : null}
       <Text style={styles.hint}>Swipe across the line for exact values.</Text>
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ disabled: displayed.shiftCount === 0 || !drilldownWindow }}
+        disabled={displayed.shiftCount === 0 || !drilldownWindow}
+        style={[
+          styles.drilldownButton,
+          (displayed.shiftCount === 0 || !drilldownWindow) && styles.drilldownButtonDisabled,
+        ]}
+        onTouchStart={(event) => event.stopPropagation()}
+        onPress={() => {
+          if (drilldownWindow) {
+            onViewShifts(drilldownWindow.startDate, drilldownWindow.endDate);
+          }
+        }}
+      >
+        <Text
+          style={[
+            styles.drilldownText,
+            (displayed.shiftCount === 0 || !drilldownWindow) && styles.drilldownTextDisabled,
+          ]}
+        >
+          View {displayed.shiftCount} {displayed.shiftCount === 1 ? 'shift' : 'shifts'}
+        </Text>
+      </Pressable>
 
       <RangePicker
         selectedRange={range}
@@ -672,6 +705,17 @@ const styles = StyleSheet.create({
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendText: { color: '#4b5563', fontSize: 12, fontWeight: '600' },
   hint: { color: '#6b7280', fontSize: 12, textAlign: 'center', marginTop: 8 },
+  drilldownButton: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    borderRadius: 22,
+    paddingHorizontal: 16,
+  },
+  drilldownButtonDisabled: { opacity: 0.45 },
+  drilldownText: { color: '#2563eb', fontSize: 14, fontWeight: '700' },
+  drilldownTextDisabled: { color: '#6b7280' },
   ranges: { flexDirection: 'row', gap: 6, marginTop: 12, paddingRight: 2 },
   rangeButton: {
     minHeight: 44,
