@@ -1,7 +1,14 @@
 import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import IncomeTrendChart, { rangeLabel } from '../components/IncomeTrendChart';
 import { getDb } from '../data/db';
@@ -23,6 +30,7 @@ import {
 // ponytail: Six colors cover normal job comparison; store a color per job if
 // people regularly need to distinguish more than six lines at once.
 const JOB_LINE_COLORS = ['#2563eb', '#d97706', '#059669', '#7c3aed', '#db2777', '#0f766e'];
+const JOB_LINE_PATTERNS = [undefined, '8 4', '2 4', '10 3 2 3', '6 3', '1 3'];
 
 // fallow-ignore-next-line complexity -- Route-level coordinator: calculation branches are tested below the UI and its flows are device-checked; the repo has no component coverage reporter for CRAP scoring.
 export default function TrendsScreen() {
@@ -131,6 +139,8 @@ export default function TrendsScreen() {
     ? null
     : jobs.find((job) => job.id === selectedJobId);
   const estimateScope = overtimeScope(shifts, jobs, selectedJobId);
+  const jobIdsWithHistory = new Set(shifts.map((shift) => shift.job_id));
+  const jobsWithHistory = jobs.filter((job) => jobIdsWithHistory.has(job.id));
   const chartLines = jobs.flatMap((job, index) => {
     const points = chartPointsByJob.get(job.id);
     return points
@@ -138,6 +148,9 @@ export default function TrendsScreen() {
           key: job.id,
           label: job.name,
           color: JOB_LINE_COLORS[index % JOB_LINE_COLORS.length],
+          dash: selectedJobId === null
+            ? JOB_LINE_PATTERNS[index % JOB_LINE_PATTERNS.length]
+            : undefined,
           points,
         }]
       : [];
@@ -150,7 +163,15 @@ export default function TrendsScreen() {
         contentContainerStyle={styles.content}
         onTouchStart={() => setChartSelectionDismissKey((key) => key + 1)}
       >
-        <Text selectable style={styles.title}>Trends</Text>
+        <Text selectable style={styles.title}>View income</Text>
+
+        {jobsWithHistory.length > 1 ? (
+          <JobFilters
+            jobs={jobsWithHistory}
+            selectedJobId={selectedJobId}
+            onChange={setSelectedJobId}
+          />
+        ) : null}
 
         <IncomeTrendChart
           range={chartRange}
@@ -163,13 +184,16 @@ export default function TrendsScreen() {
           onRangeChange={setChartRange}
         />
 
-        <JobFilters jobs={jobs} selectedJobId={selectedJobId} onChange={setSelectedJobId} />
         <TotalsTable
           headline={rangeHeadline}
           estimated={estimateScope.estimated}
           window={rangeLabel(chartRange, trendSeries)}
         />
-        <WeekdayBars weekdays={weekdays} estimated={estimateScope.estimated} />
+        <WeekdayBars
+          weekdays={weekdays}
+          estimated={estimateScope.estimated}
+          scopeLabel={selectedJob ? selectedJob.name : 'All jobs'}
+        />
       </ScrollView>
       <StatusBar style="auto" />
     </SafeAreaView>
@@ -280,61 +304,104 @@ function money(cents: number | null, suffix = ''): string {
   return cents === null ? '—' : `${formatCents(cents)}${suffix}`;
 }
 
-function WeekdayBars({ weekdays, estimated }: { weekdays: WeekdayTrend[]; estimated: boolean }) {
+function WeekdayBars({
+  weekdays,
+  estimated,
+  scopeLabel,
+}: {
+  weekdays: WeekdayTrend[];
+  estimated: boolean;
+  scopeLabel: string;
+}) {
+  const { fontScale } = useWindowDimensions();
+  const largeText = fontScale >= 1.3;
   const maxRate = Math.max(0, ...weekdays.map((day) => day.grossPerHourCents ?? 0));
+  const columns = weekdays.map((day) => (
+      <WeekdayColumn
+        key={day.weekday}
+        day={day}
+        estimated={estimated}
+        fontScale={fontScale}
+        largeText={largeText}
+        maxRate={maxRate}
+      />
+  ));
 
   return (
     <View style={styles.section}>
       <Text selectable style={styles.sectionTitle}>
-        {estimated ? 'Estimated gross per hour by weekday' : 'Gross per hour by weekday'}
+        {estimated
+          ? 'Estimated all-time gross per hour by weekday'
+          : 'All-time gross per hour by weekday'}
       </Text>
       <Text style={styles.sectionNote}>
-        Hourly wages plus tips, weighted by time. Rates above; samples below.
+        All logged shifts · {scopeLabel}. Hourly wages plus tips, weighted by time.
       </Text>
-      <View style={styles.weekdayChart}>
-        {/* fallow-ignore-next-line complexity -- Each visible bar state needs its matching accessibility text. */}
-        {weekdays.map((day) => {
-          const height =
-            day.grossPerHourCents === null || maxRate === 0
-              ? '0%'
-              : (`${(day.grossPerHourCents / maxRate) * 100}%` as `${number}%`);
+      {largeText ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={[styles.weekdayChart, { height: Math.round(230 * fontScale) }]}>
+            {columns}
+          </View>
+        </ScrollView>
+      ) : (
+        <View style={styles.weekdayChart}>{columns}</View>
+      )}
+    </View>
+  );
+}
 
-          return (
-            <View
-              key={day.weekday}
-              accessible
-              accessibilityLabel={`${day.weekday}: ${estimated ? 'estimated ' : ''}${rateLabel(day.grossPerHourCents)}, ${sampleLabel(day.shiftCount, day.durationSeconds)}`}
-              style={styles.weekdayColumn}
-            >
-              <Text
-                selectable
-                adjustsFontSizeToFit
-                minimumFontScale={0.75}
-                numberOfLines={1}
-                style={styles.chartRate}
-              >
-                {day.grossPerHourCents === null ? '—' : formatCents(day.grossPerHourCents)}
-              </Text>
-              <View style={styles.verticalBarTrack}>
-                <View style={[styles.verticalBarFill, { height }]} />
-              </View>
-              <Text style={styles.weekdayName}>{day.weekday.slice(0, 3)}</Text>
-              {/* Always two lines, broken explicitly -- see
-                  stackedShiftCountLabel. Hours used to sit here too, but the
-                  count ate the second line and silently truncated them on most
-                  columns. They stay in the accessibility label above, where
-                  there is no width limit. */}
-              <Text
-                selectable
-                numberOfLines={2}
-                style={styles.weekdayContext}
-              >
-                {stackedShiftCountLabel(day.shiftCount)}
-              </Text>
-            </View>
-          );
-        })}
+// fallow-ignore-next-line complexity -- Visible large-text and no-data states each carry matching accessibility text; device acceptance covers this render-only component.
+function WeekdayColumn({
+  day,
+  estimated,
+  fontScale,
+  largeText,
+  maxRate,
+}: {
+  day: WeekdayTrend;
+  estimated: boolean;
+  fontScale: number;
+  largeText: boolean;
+  maxRate: number;
+}) {
+  const height =
+    day.grossPerHourCents === null || maxRate === 0
+      ? '0%'
+      : (`${(day.grossPerHourCents / maxRate) * 100}%` as `${number}%`);
+
+  return (
+    <View
+      accessible
+      accessibilityLabel={`${day.weekday}: ${estimated ? 'estimated ' : ''}${rateLabel(day.grossPerHourCents)}, ${sampleLabel(day.shiftCount, day.durationSeconds)}`}
+      style={[
+        styles.weekdayColumn,
+        largeText && {
+          flex: 0,
+          minWidth: Math.round(76 * fontScale),
+          width: Math.round(76 * fontScale),
+        },
+      ]}
+    >
+      <Text
+        selectable
+        adjustsFontSizeToFit
+        minimumFontScale={0.75}
+        numberOfLines={1}
+        style={styles.chartRate}
+      >
+        {day.grossPerHourCents === null ? '—' : formatCents(day.grossPerHourCents)}
+      </Text>
+      <View style={styles.verticalBarTrack}>
+        <View style={[styles.verticalBarFill, { height }]} />
       </View>
+      <Text style={styles.weekdayName}>{day.weekday.slice(0, 3)}</Text>
+      <Text
+        selectable
+        numberOfLines={2}
+        style={largeText ? styles.weekdayContextLargeText : styles.weekdayContext}
+      >
+        {stackedShiftCountLabel(day.shiftCount)}
+      </Text>
     </View>
   );
 }
@@ -437,6 +504,14 @@ const styles = StyleSheet.create({
     // short "6 shifts" render taller and lower than the wrapped ones beside
     // it, comparing rates against a baseline that was not shared.
     height: 36,
+    color: '#4b5563',
+    fontSize: 13,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+    lineHeight: 18,
+    textAlign: 'center',
+  },
+  weekdayContextLargeText: {
     color: '#4b5563',
     fontSize: 13,
     fontWeight: '600',

@@ -96,6 +96,7 @@ type IncomeTrendLine = {
   key: string;
   label: string;
   color: string;
+  dash?: string;
   points: CalendarTrend[];
 };
 
@@ -333,6 +334,7 @@ function IncomeLines({
             d={path}
             fill="none"
             stroke={line.color}
+            strokeDasharray={line.dash}
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeWidth="3"
@@ -412,7 +414,18 @@ function ChartLegend({
           : line.points[selectedIndex];
         return (
           <View key={line.key} style={styles.legendItem}>
-            <View style={[styles.legendSwatch, { backgroundColor: line.color }]} />
+            <Svg width="16" height="4">
+              <Line
+                x1="0"
+                x2="16"
+                y1="2"
+                y2="2"
+                stroke={line.color}
+                strokeDasharray={line.dash}
+                strokeLinecap="round"
+                strokeWidth="3"
+              />
+            </Svg>
             <Text selectable style={styles.legendText}>
               {line.label} {formatCents(value?.grossCents ?? 0)}
             </Text>
@@ -582,9 +595,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  // A short bar rather than a dot, so it reads as the same mark that is drawn
-  // on the chart.
-  legendSwatch: { width: 14, height: 3, borderRadius: 2 },
   legendText: { color: '#4b5563', fontSize: 12, fontWeight: '600' },
   hint: { color: '#6b7280', fontSize: 12, textAlign: 'center', marginTop: 8 },
   ranges: { flexDirection: 'row', gap: 6, marginTop: 12 },
