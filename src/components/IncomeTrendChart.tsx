@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Text as SvgText } from 'react-native-svg';
+import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
 import { formatCents, formatHours } from '../lib/format';
 import {
   trendWindowForPoint,
@@ -30,6 +31,7 @@ const PLOT_HEIGHT = GRAPH_HEIGHT - GRAPH_TOP - GRAPH_BOTTOM;
 // 0 is the top, which is the largest gross in the window; there is no line at 1
 // because the bottom edge is always zero and drawing it says nothing.
 const AXIS_FRACTIONS = [0, 0.25, 0.5, 0.75];
+const CHART_ENTERING = FadeIn.duration(180).reduceMotion(ReduceMotion.System);
 
 const dayFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -144,6 +146,7 @@ export default function IncomeTrendChart({
   const displayed = selectedPoint ?? total;
   const drilldownWindow = trendWindowForPoint(series, selectedPoint?.period ?? null);
   const pointWindowKey = `${series.bucket}:${series.points[0]?.period}:${series.points.at(-1)?.period}:${series.points.length}`;
+  const chartTransitionKey = `${scopeLabel}:${pointWindowKey}:${lines.map((line) => line.key).join(',')}`;
   // Null means there is nothing to scale against. That is also the signal not to
   // print dollar figures up the side of an empty chart.
   const maxGross = useMemo(() => {
@@ -266,39 +269,41 @@ export default function IncomeTrendChart({
         </Text>
       ) : null}
 
-      <View
-        accessible
-        accessibilityActions={[
-          { name: 'decrement', label: 'Previous income point' },
-          { name: 'increment', label: 'Next income point' },
-        ]}
-        accessibilityHint="Swipe up or down to move between dates."
-        accessibilityLabel={estimated ? 'Estimated gross income chart' : 'Gross income chart'}
-        accessibilityRole="adjustable"
-        accessibilityState={{ disabled: series.points.length === 0 }}
-        accessibilityValue={{ text: accessibilityValue }}
-        style={styles.chart}
-        onAccessibilityAction={handleAccessibilityAction}
-        onLayout={handleLayout}
-        onTouchStart={(event) => event.stopPropagation()}
-        {...panResponder.panHandlers}
-      >
-        {chartWidth > 0 ? (
-          <IncomeLines
-            width={chartWidth}
-            lines={drawnLines}
-            maxGross={maxGross}
-            selectedIndex={selectedIndex}
-          />
-        ) : null}
-        {series.points.length === 0 || total.shiftCount === 0 ? (
-          <Text style={styles.empty}>
-            {series.points.length === 0
-              ? 'Log a shift to start your income trend.'
-              : 'No income in this period.'}
-          </Text>
-        ) : null}
-      </View>
+      <Animated.View key={chartTransitionKey} entering={CHART_ENTERING}>
+        <View
+          accessible
+          accessibilityActions={[
+            { name: 'decrement', label: 'Previous income point' },
+            { name: 'increment', label: 'Next income point' },
+          ]}
+          accessibilityHint="Swipe up or down to move between dates."
+          accessibilityLabel={estimated ? 'Estimated gross income chart' : 'Gross income chart'}
+          accessibilityRole="adjustable"
+          accessibilityState={{ disabled: series.points.length === 0 }}
+          accessibilityValue={{ text: accessibilityValue }}
+          style={styles.chart}
+          onAccessibilityAction={handleAccessibilityAction}
+          onLayout={handleLayout}
+          onTouchStart={(event) => event.stopPropagation()}
+          {...panResponder.panHandlers}
+        >
+          {chartWidth > 0 ? (
+            <IncomeLines
+              width={chartWidth}
+              lines={drawnLines}
+              maxGross={maxGross}
+              selectedIndex={selectedIndex}
+            />
+          ) : null}
+          {series.points.length === 0 || total.shiftCount === 0 ? (
+            <Text style={styles.empty}>
+              {series.points.length === 0
+                ? 'Log a shift to start your income trend.'
+                : 'No income in this period.'}
+            </Text>
+          ) : null}
+        </View>
+      </Animated.View>
 
       <ChartAxisLabels series={series} />
       {drawnLines.length > 1 ? (
