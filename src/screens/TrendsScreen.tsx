@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import IncomeTrendChart, { rangeLabel } from '../components/IncomeTrendChart';
+import JobIncomeChart from '../components/JobIncomeChart';
 import { getDb } from '../data/db';
 import { Job, listJobs } from '../data/jobs';
 import { listShifts, Shift } from '../data/shifts';
@@ -193,6 +194,22 @@ export default function TrendsScreen() {
         }]
       : [];
   });
+  const jobIncome = chartLines.map((line) =>
+    line.points.reduce(
+      (total, point) => ({
+        ...total,
+        grossCents: total.grossCents + point.grossCents,
+        shiftCount: total.shiftCount + point.shiftCount,
+      }),
+      {
+        id: line.key,
+        name: line.label,
+        color: line.color,
+        grossCents: 0,
+        shiftCount: 0,
+      }
+    )
+  );
   const scopedShifts = selectedJobId === null
     ? shifts
     : shifts.filter((shift) => shift.job_id === selectedJobId);
@@ -265,6 +282,14 @@ export default function TrendsScreen() {
           estimated={estimateScope.estimated}
           window={rangeLabel(chartRange, trendSeries)}
         />
+        {selectedJobId === null ? (
+          <JobIncomeChart
+            jobs={jobIncome}
+            window={rangeLabel(chartRange, trendSeries)}
+            estimated={estimateScope.estimated}
+            onSelectJob={handleJobChange}
+          />
+        ) : null}
         <WeekdayBars
           weekdays={weekdays}
           estimated={estimateScope.estimated}
