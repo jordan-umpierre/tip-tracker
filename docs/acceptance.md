@@ -3,7 +3,9 @@
 This is the final hands-on gate for the local-only App Store launch. Run it on
 the signed iOS preview or production candidate build, not Expo Go.
 
-**Build under test:** record the EAS build ID and device here before starting.
+**Build under test:** iOS 1.0.0 build 7, EAS build
+`3c241984-17ff-4bd0-98db-b2b5461cea23`, commit `4fb1350`. Record the physical
+device here before starting: pending.
 
 ## Local core
 

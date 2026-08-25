@@ -10,12 +10,12 @@ Last updated: 2026-08-25
 
 ## Verdict
 
-**The code and hosted release links are ready for a new iOS production
-candidate** ([D33](decisions.md)). Build 6 reached App Store Connect, but it
-predates the standalone history flow, income exploration, dependency updates,
-and release-recovery fixes now on `main`. The account, sync, Postgres, and AWS
-work remains sidelined. The remaining work is the replacement build, TestFlight
-processing, iOS acceptance, store metadata, and App Review.
+**iOS production candidate build 7 is built and uploaded to App Store Connect
+for TestFlight processing** ([D33](decisions.md)). It contains the standalone
+history flow, income exploration, Expo SDK 57 dependency updates, and
+release-recovery fixes through commit `4fb1350`. The account, sync, Postgres,
+and AWS work remains sidelined. The remaining work is Apple processing, iOS
+acceptance, store metadata, and App Review.
 
 ## What is shipping
 
@@ -41,13 +41,12 @@ jobs, import/export, backup, and optional estimate tools.
 
 ## Next work, in order
 
-1. Create and submit a production build from commit `a47610a` or later.
-2. Wait for that build to finish TestFlight processing, then complete
+1. Wait for build 7 to finish TestFlight processing, then complete
    [`acceptance.md`](acceptance.md) on the iOS build.
-3. Fix only failures found in that pass and repeat the focused checks.
-4. Complete App Store Connect name, description, support URL, privacy URL,
+2. Fix only failures found in that pass and repeat the focused checks.
+3. Complete App Store Connect name, description, support URL, privacy URL,
    screenshots, age rating, and App Privacy answers.
-5. Submit the accepted build for App Store review.
+4. Submit the accepted build for App Store review.
 
 ## Evidence already captured
 
@@ -71,6 +70,11 @@ jobs, import/export, backup, and optional estimate tools.
 - Build 6 does not contain the standalone history changes through `d210480` or
   the income exploration changes through `ad13533`; do not use it as acceptance
   evidence for either workflow.
+- iOS production build 7 (`3c241984-17ff-4bd0-98db-b2b5461cea23`) completed as
+  an Expo SDK 57 store build from commit `4fb1350` on 2026-08-25.
+- EAS submission `6198cb77-98f8-43fa-b5fd-838cc451dce8` finished, and Apple
+  accepted build 7 for App Store Connect processing. It has not been submitted
+  for App Review.
 
 Exports and automated tests prove code paths and bundle generation. They do not
 prove a physical device flow, accessibility, signing, store review, or

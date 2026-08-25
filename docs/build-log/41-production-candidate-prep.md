@@ -51,3 +51,35 @@ Both routes returned HTTP 200 with the expected policy and support content.
 The app's release-link test pins HTTPS, host, and route values. TypeScript, the
 repository hook, iOS export, and changed-file Fallow audit passed after wiring
 the links.
+
+## `4fb1350` — verify and prepare the replacement candidate
+
+The exact clean commit passed the Expo dependency check, all 21 Expo Doctor
+checks, TypeScript, the repository hook, an iOS export, and an inspected
+production archive. The archive contained no files from `Visual-Inspiration/`,
+local environment files, or the static website source. Both public release
+links returned the expected content.
+
+The full Fallow run reported no dead code and no duplication. Its 25 health
+findings are inherited architecture hotspots already assigned to post-release
+work; the changed-file audit passed. The npm audit still reports 15 transitive
+Expo and React Native build-tool advisories. npm's only complete proposal is a
+breaking Expo SDK 46 downgrade, so those advisories remain documented rather
+than forcing an unsupported dependency graph.
+
+## iOS production candidate 7
+
+EAS created the signed iOS 1.0.0 build 7 from commit `4fb1350`:
+
+- build ID: `3c241984-17ff-4bd0-98db-b2b5461cea23`
+- build status: `FINISHED`
+- profile and distribution: `production`, App Store
+- Expo SDK: `57.0.0`
+- submission ID: `6198cb77-98f8-43fa-b5fd-838cc451dce8`
+- submission status: `FINISHED`
+- App Store Connect app: `6800162471`
+
+Apple accepted the binary on 2026-08-25 and began TestFlight processing. This
+upload did not submit the app for App Review. The remaining release gate is the
+hands-on iOS acceptance pass, followed by store metadata and an explicit App
+Review submission.
