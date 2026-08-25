@@ -4,7 +4,7 @@
     "src/data/sync.test.ts",
     "src/lib/*.test.ts",
     "src/sync/*.test.ts",
-    "site/assets/style.scss"
+    "site/assets/style.css"
   ],
   "ignoreDependencies": ["expo"]
 }
