@@ -44,8 +44,9 @@ the signed iOS preview or production candidate build, not Expo Go.
 - [ ] Dynamic Type does not clip labels or hide actions.
 - [ ] The app works in airplane mode because the launch app has no network
       dependency.
-- [ ] Privacy policy URL, support URL, App Privacy answers, screenshots, age
-      rating, and app description match the local-only build.
+- [ ] Settings opens the public privacy policy and support pages in the browser.
+- [ ] The App Store Connect privacy URL, support URL, App Privacy answers,
+      screenshots, age rating, and app description match the local-only build.
 
 Android, cloud sync, accounts, server deployment, and AWS are intentionally
 outside this acceptance pass.

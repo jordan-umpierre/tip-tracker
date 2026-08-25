@@ -36,7 +36,7 @@ Not automated on purpose: deciding whether a commit is "real work" or
 bookkeeping needs a judgment a script can't make, and a check that guessed
 would either nag constantly or pass while missing things.
 
-Last updated: 2026-08-11
+Last updated: 2026-08-25
 
 ---
 
@@ -152,3 +152,6 @@ name — the number adds sequence without costing you the description.
 40. [40-income-exploration.md](40-income-exploration.md) — custom ranges,
     explicit period paging, job-comparison bars, point-to-shift drill-down, and
     reduced-motion-aware chart transitions.
+41. [41-production-candidate-prep.md](41-production-candidate-prep.md) — Expo
+    dependency alignment, recoverable local-data failures, deterministic EAS
+    input, and public privacy and support links before the replacement build.

@@ -6,16 +6,16 @@ should happen next. Historical implementation detail belongs in the
 [`product.md`](product.md); technical rationale belongs in
 [`decisions.md`](decisions.md).
 
-Last updated: 2026-08-11
+Last updated: 2026-08-25
 
 ## Verdict
 
-**The iOS production build is submitted to App Store Connect** ([D33](decisions.md)), but build 6
-predates the standalone history workflow and the current income exploration
-flow on `main`. A replacement build is required before iOS acceptance. The account,
-sync, Postgres, and AWS work is sidelined. The remaining work is the replacement
-build, TestFlight processing, iOS acceptance, store metadata, privacy hosting,
-and App Review.
+**The code and hosted release links are ready for a new iOS production
+candidate** ([D33](decisions.md)). Build 6 reached App Store Connect, but it
+predates the standalone history flow, income exploration, dependency updates,
+and release-recovery fixes now on `main`. The account, sync, Postgres, and AWS
+work remains sidelined. The remaining work is the replacement build, TestFlight
+processing, iOS acceptance, store metadata, and App Review.
 
 ## What is shipping
 
@@ -41,26 +41,32 @@ jobs, import/export, backup, and optional estimate tools.
 
 ## Next work, in order
 
-1. Create and submit a production build from commit `ad13533` or later.
+1. Create and submit a production build from commit `a47610a` or later.
 2. Wait for that build to finish TestFlight processing, then complete
    [`acceptance.md`](acceptance.md) on the iOS build.
 3. Fix only failures found in that pass and repeat the focused checks.
-4. Host [`privacy-policy.md`](privacy-policy.md) at a public HTTPS URL.
-5. Complete App Store Connect name, description, support URL, privacy URL,
+4. Complete App Store Connect name, description, support URL, privacy URL,
    screenshots, age rating, and App Privacy answers.
-6. Submit the processed build for App Store review.
+5. Submit the accepted build for App Store review.
 
 ## Evidence already captured
 
-- Expo Doctor: 20/20 checks passed.
+- Expo Doctor: 21/21 checks passed on 2026-08-25.
 - Expo dependencies: up to date.
-- TypeScript: passed after the local-only cut.
+- TypeScript and the iOS bundle export pass on current `main`.
 - SQLite schema, migration, backup, and pure calculation checks exist.
-- iOS and Android bundle exports previously passed.
+- Failed database opens can retry, and failed shift deletion or release-flow
+  reads now show recoverable errors. Focused regression tests cover the retry
+  and deletion paths.
+- The production EAS archive excludes local environment files and the preserved
+  `Visual-Inspiration/` references.
+- The public [privacy policy](https://jordan-umpierre.github.io/tip-tracker/privacy/)
+  and [support page](https://jordan-umpierre.github.io/tip-tracker/support/)
+  are live and linked from Settings.
 - First iOS preview build: local shift survived force-quit and relaunch on
   2026-08-07.
 - iOS production build 6 completed from commit `149e4ae` on 2026-08-11.
-- Build 6 submission is in progress for App Store Connect under ASC app
+- Build 6 submission finished for App Store Connect under ASC app
   `6800162471`.
 - Build 6 does not contain the standalone history changes through `d210480` or
   the income exploration changes through `ad13533`; do not use it as acceptance

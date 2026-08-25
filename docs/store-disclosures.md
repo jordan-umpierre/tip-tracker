@@ -20,8 +20,9 @@ server.
 
 ## Required links
 
-- **Privacy policy URL:** the hosted copy of [privacy-policy.md](privacy-policy.md).
-- **Support URL/contact:** the support address listed in the policy.
+- **Privacy policy URL:** https://jordan-umpierre.github.io/tip-tracker/privacy/
+- **Support URL:** https://jordan-umpierre.github.io/tip-tracker/support/
+- **Support contact:** umpierrejordan@gmail.com
 
 ## What would change these answers
 
