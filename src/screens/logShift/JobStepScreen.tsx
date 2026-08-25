@@ -1,8 +1,8 @@
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Job, listActiveJobs } from '../../data/jobs';
+import ShiftScreenState from '../../components/ShiftScreenState';
+import { useShiftScreenData } from '../../hooks/useShiftScreenData';
 import { formatCents } from '../../lib/format';
 
 // Step zero, and only when it is a real question. Home sends the user straight
@@ -10,13 +10,9 @@ import { formatCents } from '../../lib/format';
 // because asking "which job?" of someone who has one is a tap that can only
 // have one answer.
 export default function JobStepScreen() {
-  const [jobs, setJobs] = useState<Job[]>([]);
+  const { loading, error, jobs, refresh } = useShiftScreenData('job picker');
 
-  useEffect(() => {
-    listActiveJobs()
-      .then(setJobs)
-      .catch((cause) => console.error('Could not load jobs for the log flow.', cause));
-  }, []);
+  if (loading || error) return <ShiftScreenState error={error} onRetry={refresh} />;
 
   return (
     <SafeAreaView style={styles.screen} edges={['bottom']}>

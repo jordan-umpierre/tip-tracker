@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { MONTH_NAMES, parseCalendarDate, WEEKDAY_NAMES } from '../lib/dates';
 import { formatCents, formatHours } from '../lib/format';
+import { deleteShiftWithFeedback } from '../lib/shiftActions';
 import { groupShifts } from '../lib/shiftGroups';
 import { calculateShiftGrossCents } from '../lib/totals';
 import { Job } from '../data/jobs';
@@ -65,8 +66,10 @@ export default function ShiftList({
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          await deleteShift(shift.id);
-          onShiftDeleted();
+          await deleteShiftWithFeedback(shift.id, deleteShift, onShiftDeleted, (cause) => {
+            console.error('Could not delete the shift.', cause);
+            Alert.alert('Shift not deleted', 'Nothing changed. Try again.');
+          });
         },
       },
     ]);

@@ -1,6 +1,7 @@
 import { Asset } from 'expo-asset';
 import { File } from 'expo-file-system';
 import * as SQLite from 'expo-sqlite';
+import { createRetryablePromise } from '../lib/retryablePromise';
 
 const DATABASE_NAME = 'tip-tracker.db';
 const SCHEMA_VERSION = 6;
@@ -23,16 +24,13 @@ const migrationSqlByFromVersion: Record<number, number> = {
   5: require('./migrations/5-to-6.sql'),
 };
 
-// Opening a connection is async, and we only want to do it once -- not a
-// fresh connection per call. This caches the in-flight (or finished) open,
-// so every caller awaits the same promise instead of racing to open twice.
-let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
+// Opening a connection is async, and we only want one successful connection --
+// not a fresh connection per call. Concurrent callers share the same attempt,
+// while a rejected attempt clears itself so a visible Retry action can recover.
+const openDbOnce = createRetryablePromise(openDb);
 
 export function getDb(): Promise<SQLite.SQLiteDatabase> {
-  if (!dbPromise) {
-    dbPromise = openDb();
-  }
-  return dbPromise;
+  return openDbOnce();
 }
 
 async function openDb(): Promise<SQLite.SQLiteDatabase> {

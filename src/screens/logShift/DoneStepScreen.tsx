@@ -1,7 +1,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import ShiftScreenState from '../../components/ShiftScreenState';
 import { listShifts, Shift } from '../../data/shifts';
 import { formatCents, formatHours, formatLongDate } from '../../lib/format';
 import { calculateShiftGrossCents } from '../../lib/totals';
@@ -16,21 +17,42 @@ import { calculateShiftGrossCents } from '../../lib/totals';
 export default function DoneStepScreen() {
   const { shiftId } = useLocalSearchParams<{ shiftId: string }>();
   const [shift, setShift] = useState<Shift | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const shifts = await listShifts();
+      const savedShift = shifts.find((entry) => entry.id === shiftId);
+      if (!savedShift) throw new Error(`Saved shift ${shiftId ?? '<missing>'} was not found.`);
+      setShift(savedShift);
+    } catch (cause) {
+      console.error('Could not read the saved shift.', cause);
+      setShift(null);
+      setError('The saved shift could not be read.');
+    } finally {
+      setLoading(false);
+    }
+  }, [shiftId]);
 
   useEffect(() => {
     // ponytail: reads every shift to find one. listShifts is the only reader
     // that exists and this screen is shown once per logged shift, so a
     // dedicated by-id query is not worth its own migration of this module --
     // add one if a second caller ever needs it.
-    listShifts()
-      .then((shifts) => setShift(shifts.find((entry) => entry.id === shiftId) ?? null))
-      .catch((cause) => console.error('Could not read the saved shift.', cause));
-  }, [shiftId]);
+    void refresh();
+  }, [refresh]);
 
-  const grossCents = shift === null ? null : calculateShiftGrossCents(shift);
+  if (loading || error || shift === null) {
+    return <ShiftScreenState error={error} onRetry={refresh} />;
+  }
+
+  const grossCents = calculateShiftGrossCents(shift);
   // Guarded because a zero-duration shift cannot be saved, but this screen
   // should not divide by whatever it happens to be handed.
-  const rateCents = shift === null || grossCents === null || shift.duration_seconds === 0
+  const rateCents = shift.duration_seconds === 0
     ? null
     : Math.round((grossCents * 3600) / shift.duration_seconds);
 
@@ -42,14 +64,12 @@ export default function DoneStepScreen() {
         </View>
         <Text selectable style={styles.title}>Shift logged</Text>
 
-        {shift ? (
-          <View style={styles.figures}>
-            <Figure label="Date" value={formatLongDate(shift.shift_date)} />
-            <Figure label="Hours" value={formatHours(shift.duration_seconds)} />
-            <Figure label="Total income" value={formatCents(grossCents ?? 0)} />
-            <Figure label="Earned per hour" value={rateCents === null ? '—' : `${formatCents(rateCents)}/hr`} />
-          </View>
-        ) : null}
+        <View style={styles.figures}>
+          <Figure label="Date" value={formatLongDate(shift.shift_date)} />
+          <Figure label="Hours" value={formatHours(shift.duration_seconds)} />
+          <Figure label="Total income" value={formatCents(grossCents)} />
+          <Figure label="Earned per hour" value={rateCents === null ? '—' : `${formatCents(rateCents)}/hr`} />
+        </View>
       </View>
 
       <View style={styles.footer}>
