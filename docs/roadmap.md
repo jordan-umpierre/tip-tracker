@@ -1,95 +1,61 @@
 # Roadmap
 
-This file answers what is true now, what blocks the iOS release, and what
-should happen next. Historical implementation detail belongs in the
-[`build log`](build-log/README.md); product scope belongs in
-[`product.md`](product.md); technical rationale belongs in
-[`decisions.md`](decisions.md).
-
 Last updated: 2026-08-25
 
-## Verdict
+## NEXT
 
-**iOS production candidate build 7 is built and uploaded to App Store Connect
-for TestFlight processing** ([D33](decisions.md)). It contains the standalone
-history flow, income exploration, Expo SDK 57 dependency updates, and
-release-recovery fixes through commit `4fb1350`. The account, sync, Postgres,
-and AWS work remains sidelined. The remaining work is Apple processing, iOS
-acceptance, store metadata, and App Review.
+1. Wait for build 7 to finish TestFlight processing.
+2. Run [acceptance.md](acceptance.md) on that iOS build.
+3. Fix only failures found in that pass and repeat the focused checks.
+4. Complete the App Store listing and submit the accepted build for review.
 
-## What is shipping
+## Current status
 
-- create multiple jobs and preserve each shift's historical rate
+iOS production candidate build 7 is uploaded to App Store Connect for
+TestFlight processing. It contains the standalone history flow, income
+exploration, Expo SDK 57 dependency updates, and release-recovery fixes through
+commit `4fb1350`.
+
+The shipping app is local-only under [D33](decisions.md). Account, sync,
+Postgres, AWS, and Android production work remain deferred.
+
+## Shipping scope
+
+- create jobs and preserve historical rates
 - log, edit, and delete shifts
-- review gross income by job, page through preset periods, choose a custom
-  range, and open the shifts behind a chart point ([D34](decisions.md))
-- import/export CSV data
-- create and restore a lossless JSON device backup
-- use optional, clearly labeled overtime and federal withholding estimates
+- review gross income by job and date range
+- open the shifts behind a chart point
+- import and export CSV data
+- create and restore a lossless JSON backup
+- use optional overtime and federal withholding estimates
 
-The primary flow is `Open → Log income → finish the task` ([D32](decisions.md)). Settings contains
-jobs, import/export, backup, and optional estimate tools.
+The primary navigation is the native Log and Trends tabs under
+[D11](decisions.md). Settings contains jobs, file tools, backup, and optional
+estimate settings.
 
-## Deferred
+## Release evidence
 
-- Android production release and Android-specific acceptance
-- accounts, cloud backup, cross-device sync, and the API
-- Postgres, Supabase, AWS, Lambda, and deployment automation
-- one-time purchases and entitlement enforcement
-- 1099 mileage, expenses, quarterly-tax calculations, state/local taxes,
-  payroll, bank, employer, social, or tax-filing integrations
+- Expo Doctor passed 21 of 21 checks on 2026-08-25.
+- Expo dependencies, TypeScript, and the iOS bundle export passed.
+- SQLite schema, migration, backup, and pure calculation checks passed.
+- Failed database opens can retry, and release-flow read failures are visible.
+- The EAS archive excludes local environment and visual-reference files.
+- The public privacy and support pages are live and linked from Settings.
+- A local shift survived force-quit and relaunch on an iOS preview build.
+- Production build 7 came from commit `4fb1350`.
+- EAS build `3c241984-17ff-4bd0-98db-b2b5461cea23` finished.
+- Submission `6198cb77-98f8-43fa-b5fd-838cc451dce8` finished.
+- Apple accepted the binary for App Store Connect processing.
+- The build has not been submitted for App Review.
 
-## Next work, in order
+Automated checks and exports do not prove the physical-device flow,
+accessibility, signing, store review, or production behavior.
 
-1. Wait for build 7 to finish TestFlight processing, then complete
-   [`acceptance.md`](acceptance.md) on the iOS build.
-2. Fix only failures found in that pass and repeat the focused checks.
-3. Complete App Store Connect name, description, support URL, privacy URL,
-   screenshots, age rating, and App Privacy answers.
-4. Submit the accepted build for App Store review.
+## Data contract
 
-## Evidence already captured
+SQLite is the local source of truth. Money is integer cents, duration is integer
+seconds, dates are date-only ISO strings, and each shift stores the rate that
+applied when it was worked.
 
-- Expo Doctor: 21/21 checks passed on 2026-08-25.
-- Expo dependencies: up to date.
-- TypeScript and the iOS bundle export pass on current `main`.
-- SQLite schema, migration, backup, and pure calculation checks exist.
-- Failed database opens can retry, and failed shift deletion or release-flow
-  reads now show recoverable errors. Focused regression tests cover the retry
-  and deletion paths.
-- The production EAS archive excludes local environment files and the preserved
-  `Visual-Inspiration/` references.
-- The public [privacy policy](https://jordan-umpierre.github.io/tip-tracker/privacy/)
-  and [support page](https://jordan-umpierre.github.io/tip-tracker/support/)
-  are live and linked from Settings.
-- First iOS preview build: local shift survived force-quit and relaunch on
-  2026-08-07.
-- iOS production build 6 completed from commit `149e4ae` on 2026-08-11.
-- Build 6 submission finished for App Store Connect under ASC app
-  `6800162471`.
-- Build 6 does not contain the standalone history changes through `d210480` or
-  the income exploration changes through `ad13533`; do not use it as acceptance
-  evidence for either workflow.
-- iOS production build 7 (`3c241984-17ff-4bd0-98db-b2b5461cea23`) completed as
-  an Expo SDK 57 store build from commit `4fb1350` on 2026-08-25.
-- EAS submission `6198cb77-98f8-43fa-b5fd-838cc451dce8` finished, and Apple
-  accepted build 7 for App Store Connect processing. It has not been submitted
-  for App Review.
-
-Exports and automated tests prove code paths and bundle generation. They do not
-prove a physical device flow, accessibility, signing, store review, or
-production deployment.
-
-## Technical boundary
-
-SQLite is the local source of truth. Money is integer cents, duration is
-integer seconds, dates are date-only ISO strings, and a shift stores the rate
-that applied when it was worked. Historical SQLite migrations still contain
-the old sync tables so existing databases can be upgraded safely; the launch
-app no longer reads or writes that deferred state.
-
-## History
-
-Use the [build log](build-log/README.md) for the chronological implementation
-record. Use [decisions.md](decisions.md) only when the reason behind a choice
-matters.
+Historical migrations retain old sync tables so existing databases can upgrade
+without data loss. The shipping app does not read or write that deferred state.

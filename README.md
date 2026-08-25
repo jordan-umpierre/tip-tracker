@@ -1,70 +1,51 @@
 # Tip Tracker
 
-Tip Tracker is a local-first income tracker for tipped, hourly, and gig
-workers. Create jobs, log shifts, and review gross income without an internet
+Tip Tracker is a local-only iOS app for tipped, hourly, and gig workers. It
+records shifts and shows gross income without requiring an account or network
 connection.
 
-## iOS launch scope
-
-The first App Store release is deliberately small:
+## What ships
 
 - multiple jobs with historical hourly rates
-- shift logging with date, hours, tips, and an optional note
-- optional start and end times for overtime estimates
+- guided shift logging with optional clock times and notes
 - shift history with edit and delete confirmation
-- gross income trends
-- CSV import/export
-- lossless JSON device backup and restore
-- optional federal withholding estimates, clearly labeled as estimates
+- gross income trends by job and date range
+- CSV import and export
+- lossless JSON backup and restore
+- optional overtime and federal withholding estimates
 
-The main path is:
+SQLite on the device is the source of truth. The iOS app does not use the
+retained server experiment, cloud sync, analytics, advertising, or payments.
 
-`Open → Log a shift → enter the shift → save → see what was recorded`
+## Data rules
 
-The app is local-only. SQLite is the source of truth and no account, API,
-cloud sync, analytics, or AWS service is required to use it.
+- Money uses integer cents.
+- Duration uses integer seconds.
+- Dates use `YYYY-MM-DD`.
+- Each shift keeps the rate that applied when it was worked.
+- Deleted jobs and shifts keep tombstones so backup and migration history stay
+  lossless.
+- Overtime and withholding outputs are estimates, not recorded earnings.
 
-## Deferred
-
-- Android production release and Android-specific acceptance
-- Node API, accounts, Postgres, cloud backup, and cross-device sync
-- AWS/Lambda deployment
-- premium billing or entitlement enforcement
-- 1099 mileage, expenses, quarterly taxes, state/local tax calculations,
-  payroll, bank connections, or tax filing
-
-These are separate products, not hidden launch requirements.
-
-## Architecture
+## Code map
 
 ```text
-Expo / React Native
-├── Log, history, settings, and trends screens
-├── pure TypeScript calculations and parsers
-└── SQLite on the device
-    ├── jobs, shifts, and optional withholding settings
-    └── backup and CSV import/export boundaries
+app/            Expo Router routes
+src/screens/    screen implementations
+src/data/       SQLite schema, migrations, and queries
+src/lib/        calculations, CSV handling, and tests
+server/         retained backend experiment, not part of the iOS release
 ```
 
-Money is stored as integer cents, duration as integer seconds, dates as
-`YYYY-MM-DD`, and each shift keeps the rate that applied when it was worked.
+## Working here
 
-## Stack
+- [Current status and next work](docs/roadmap.md)
+- [Current technical decisions](docs/decisions.md)
+- [iOS acceptance checklist](docs/acceptance.md)
 
-- TypeScript, React Native, and Expo SDK 57
-- Expo Router
-- SQLite via `expo-sqlite`
-- Node.js remains available for a future backend, but is not part of the iOS
-  launch path
-
-## Checks
+Run the repository checks through the tracked hook:
 
 ```sh
-npx tsc --noEmit
-npx expo-doctor
-npx expo install --check
-./scripts/check-docs.sh
+git config core.hooksPath .githooks
+.githooks/pre-commit
 ```
-
-The repository hook runs the schema, migration, backup, and pure-library
-checks before a commit.

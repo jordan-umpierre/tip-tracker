@@ -14,8 +14,8 @@ Before changing anything:
 2. Verify the working tree, branch tracking, stashes, and
    `git config --get core.hooksPath`. The hooks path must be `.githooks` so
    every commit runs the repository checks.
-3. Read the relevant tracked decision, schema, source, test, and build-log files
-   before relying on remembered project details.
+3. Read the relevant tracked decision, schema, source, and test files before
+   relying on remembered project details.
 
 Do not duplicate changing status, schema conventions, test counts, or next
 steps here. Follow the global engineering, teaching, code-style, and Git rules.

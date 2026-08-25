@@ -9,8 +9,8 @@ import { InvalidSyncQueryError, InvalidSyncRequestError, type SyncService } from
 
 const JSON_BODY_LIMIT = "32kb";
 
-// D26 pushes one mutation per request, serialized, so a first upload of a
-// long shift history is hundreds of legitimate sequential requests from one
+// Sync pushes one mutation per request, so a first upload of a long shift
+// history is hundreds of legitimate sequential requests from one
 // address. The budget has to clear that comfortably while still bounding a
 // flood: ten requests a second sustained is far more than a serialized client
 // can produce over a real network.
