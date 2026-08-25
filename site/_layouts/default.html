@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <meta name="description" content="{{ page.description | default: site.description | escape }}">
+    <title>{{ page.title | escape }} | {{ site.title }}</title>
+    <link rel="stylesheet" href="{{ '/assets/style.css' | relative_url }}">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="{{ '/' | relative_url }}">Tip Tracker</a>
+      <nav aria-label="Support pages">
+        <a href="{{ '/privacy/' | relative_url }}">Privacy</a>
+        <a href="{{ '/support/' | relative_url }}">Support</a>
+      </nav>
+    </header>
+
+    <main>
+      {{ content }}
+    </main>
+
+    <footer>
+      Tip Tracker stores your income data on your device.
+    </footer>
+  </body>
+</html>

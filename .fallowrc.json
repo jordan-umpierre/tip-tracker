@@ -3,7 +3,8 @@
     "src/auth/*.test.ts",
     "src/data/sync.test.ts",
     "src/lib/*.test.ts",
-    "src/sync/*.test.ts"
+    "src/sync/*.test.ts",
+    "site/assets/style.scss"
   ],
   "ignoreDependencies": ["expo"]
 }
