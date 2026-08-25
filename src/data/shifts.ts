@@ -1,23 +1,16 @@
 import * as Crypto from 'expo-crypto';
 import { getDb } from './db';
 import type { ShiftImportRow } from '../lib/shiftImportCsv';
+import {
+  deleteShiftInDatabase,
+  listShiftsInDatabase,
+} from './shiftRepository';
+import type { Shift } from './shiftRepository';
+
+export type { Shift } from './shiftRepository';
 
 // Matches schema.sql's shifts columns verbatim, same reasoning as jobs.ts's
 // Job type -- no camelCase mapping layer until something actually needs one.
-export type Shift = {
-  id: string;
-  job_id: string;
-  shift_date: string;
-  start_time: string | null;
-  end_time: string | null;
-  duration_seconds: number;
-  tips_cents: number;
-  hourly_rate_cents: number;
-  note: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
 export async function createShift(
   jobId: string,
   shiftDate: string,
@@ -76,13 +69,7 @@ export async function listShifts(): Promise<Shift[]> {
   // a tombstone and has to be excluded here, same as archived_at on jobs.
   // Most recent first, since that's the natural order for a list a user
   // scrolls through.
-  return db.getAllAsync<Shift>(
-    `SELECT id, job_id, shift_date, start_time, end_time, duration_seconds,
-            tips_cents, hourly_rate_cents, note, created_at, updated_at
-     FROM shifts
-     WHERE deleted_at IS NULL
-     ORDER BY shift_date DESC;`
-  );
+  return listShiftsInDatabase(db);
 }
 
 export async function updateShift(
@@ -130,7 +117,7 @@ export async function deleteShift(id: string): Promise<void> {
   // Soft delete, per D4: set the tombstone instead of removing the row.
   // Keeping the tombstone means a backup preserves the user's deletion
   // instead of making the deleted row look like an old active record.
-  await db.runAsync(`UPDATE shifts SET deleted_at = ?, updated_at = ? WHERE id = ?;`, now, now, id);
+  await deleteShiftInDatabase(db, id, now);
 }
 
 export async function importShifts(jobId: string, rows: ShiftImportRow[]): Promise<number> {

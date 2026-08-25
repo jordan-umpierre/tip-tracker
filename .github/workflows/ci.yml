@@ -82,3 +82,8 @@ jobs:
 
       - name: Run the repository checks
         run: ./.githooks/pre-commit
+
+      # The shipping app is local-only, but the retained server must not rot.
+      # Keep this result separate from the iOS repository checks above.
+      - name: Verify retained server
+        run: npm --prefix server run verify

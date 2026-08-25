@@ -4,18 +4,16 @@
 # fact other than the unit it deliberately changes. It also forces the UPDATE
 # to fail and checks that the surrounding transaction restores version 1.
 #
-# Then walks the whole chain, 1 to 2 to 3 to 4 to 5, the way db.ts does. That part exists
-# because the runner used to apply a single file and then stamp the newest
-# version number, which was only ever correct while there was one hop: a
-# version-1 database upgrading to version 3 got 1-to-2.sql and a "3" marker,
-# claiming a shape it did not have.
+# It also applies every SQL file independently of the app runner. The shared
+# runner itself is exercised by databaseMigration.test.ts, so wiring and SQL
+# behavior can disagree and fail instead of mirroring each other.
 
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 
 if ! command -v sqlite3 >/dev/null; then
-  echo "WARN  sqlite3 not installed, migration tests skipped"
-  exit 0
+  echo "FAIL  sqlite3 is required for migration tests"
+  exit 1
 fi
 
 migration_path=${1:-src/data/migrations/1-to-2.sql}
@@ -129,7 +127,7 @@ fi
 [ "$(shifts_snapshot "$rollback_db")" = "$rollback_before" ] || fail "rollback changed a shift field"
 [ "$(sqlite3 "$rollback_db" 'PRAGMA integrity_check;')" = "ok" ] || fail "rollback integrity_check failed"
 
-# --- the full chain, as db.ts walks it -------------------------------------
+# --- the full SQL-file chain -----------------------------------------------
 #
 # Each hop stamps its own version rather than jumping straight to the newest,
 # so the marker never describes a shape the database has not reached.

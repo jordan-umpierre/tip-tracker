@@ -264,6 +264,11 @@ const differentTimeConflict = inspectShiftImportConflicts(overnight.rows, [
 assert.equal(differentTimeConflict.possibleDuplicates, 0);
 
 assert.match(parseShiftImportCsv('').errors[0].message, /empty/);
+assert.match(
+  parseShiftImportCsv(`${HEADER}\n`).errors[0].message,
+  /no shift rows/,
+  'a header without data rows must not look importable'
+);
 assert.match(parseShiftImportCsv('x'.repeat(1_000_001)).errors[0].message, /too large/);
 
 const maximumRows = `${HEADER}\n${`${row()}\n`.repeat(10_000)}\n`;

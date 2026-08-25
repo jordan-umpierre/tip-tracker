@@ -18,6 +18,7 @@ import { Job, listJobs } from '../../data/jobs';
 import { createShift, listShifts, Shift, updateShift } from '../../data/shifts';
 import { durationSecondsBetween, parseCalendarDate, timeInputValue } from '../../lib/dates';
 import { formatClockSpan, formatLongDate, hoursInputValue, moneyInputValue } from '../../lib/format';
+import { parseShiftDetailsInput } from '../../lib/shiftDetails';
 
 // The last step of logging, and the whole of editing.
 //
@@ -168,46 +169,43 @@ export default function DetailsStepScreen() {
       return;
     }
 
-    // Number(), paired with the empty-string checks, rejects pasted text such
-    // as "7.5 hours". parseFloat() would silently accept that as 7.5.
-    const hoursValue = hours.trim() === '' ? null : Number(hours);
-    const tipsValue = tips.trim() === '' ? 0 : Number(tips);
-    const rateValue = Number(hourlyRate);
+    const parsedDetails = parseShiftDetailsInput({
+      hours,
+      tips,
+      hourlyRate,
+      note,
+      startTime,
+      endTime,
+      elapsedSeconds,
+    });
 
-    if (
-      (hoursValue !== null && !Number.isFinite(hoursValue)) ||
-      !Number.isFinite(tipsValue) ||
-      tipsValue < 0 ||
-      hourlyRate.trim() === '' ||
-      !Number.isFinite(rateValue) ||
-      rateValue < 0
-    ) {
-      Alert.alert(
-        'Check shift details',
-        'Enter valid hours. Tips and hourly rate cannot be negative.'
-      );
+    if (!parsedDetails.ok) {
+      if (parsedDetails.error === 'invalid-numbers') {
+        Alert.alert(
+          'Check shift details',
+          'Enter valid hours. Tips and hourly rate cannot be negative.'
+        );
+      } else if (parsedDetails.error === 'incomplete-times') {
+        Alert.alert(
+          'Check shift times',
+          'Enter both a start time and an end time, or leave both blank.'
+        );
+      } else {
+        Alert.alert(
+          'Check hours worked',
+          'Enter hours greater than zero, or enter different start and end times.'
+        );
+      }
       return;
     }
 
-    // Math.round rather than a bare multiply, to avoid floating point landing
-    // one cent off.
-    const tipsCents = Math.round(tipsValue * 100);
-    const hourlyRateCents = Math.round(rateValue * 100);
-    const noteValue = note.trim() === '' ? null : note.trim();
-
-    if ((startTime !== null) !== (endTime !== null)) {
-      Alert.alert('Check shift times', 'Enter both a start time and an end time, or leave both blank.');
-      return;
-    }
-
-    const durationSeconds = hoursValue === null
-      ? elapsedSeconds
-      : Math.round(hoursValue * 3600);
-
-    if (durationSeconds === null || durationSeconds <= 0) {
-      Alert.alert('Check hours worked', 'Enter hours greater than zero, or enter different start and end times.');
-      return;
-    }
+    const {
+      durationSeconds,
+      tipsCents,
+      hourlyRateCents,
+      note: noteValue,
+      durationWasEntered,
+    } = parsedDetails.value;
 
     // The write, defined before the two places that reach it: the warning below
     // saves either duration depending on which the user picks, so the write
@@ -261,7 +259,7 @@ export default function DetailsStepScreen() {
     // D18 says wins on purpose. Longer than the clock span is not a break --
     // nobody works eight hours inside a two-minute window -- so it is one of
     // the two fields being wrong, and the app cannot tell which. Ask.
-    if (hoursValue !== null && elapsedSeconds !== null && durationSeconds > elapsedSeconds) {
+    if (durationWasEntered && elapsedSeconds !== null && durationSeconds > elapsedSeconds) {
       Alert.alert(
         'Hours are longer than the times',
         `Those times are ${formatClockSpan(elapsedSeconds)} apart, but hours worked says ${formatClockSpan(durationSeconds)}.`,

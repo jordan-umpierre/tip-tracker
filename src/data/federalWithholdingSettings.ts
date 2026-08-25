@@ -1,5 +1,4 @@
 import * as Crypto from 'expo-crypto';
-import type * as SQLite from 'expo-sqlite';
 import { getDb } from './db';
 import { parseCalendarDate } from '../lib/dates';
 import type { FederalWithholdingSettingValues } from '../lib/federalWithholdingForm';
@@ -13,8 +12,6 @@ export type FederalWithholdingSettings = FederalWithholdingSettingValues & {
   created_at: string;
   updated_at: string;
 };
-
-type RowReader = Pick<SQLite.SQLiteDatabase, 'getAllAsync'>;
 
 export class DuplicateFederalWithholdingSettingsError extends Error {}
 
@@ -85,18 +82,5 @@ export async function getFederalWithholdingSettingsForPayDate(
      LIMIT 1;`,
     jobId,
     payDate
-  );
-}
-
-export async function readFederalWithholdingSettingsForBackup(
-  database: RowReader
-): Promise<FederalWithholdingSettings[]> {
-  return database.getAllAsync<FederalWithholdingSettings>(
-    `SELECT id, job_id, effective_from, filing_status, pay_periods_per_year,
-            step2_checked, step3_credits_cents, step4a_other_income_cents,
-            step4b_deductions_cents, step4c_extra_withholding_cents, exempt,
-            created_at, updated_at, deleted_at
-     FROM federal_withholding_settings
-     ORDER BY id;`
   );
 }

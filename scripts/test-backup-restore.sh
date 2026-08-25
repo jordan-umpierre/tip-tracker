@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 
-# Proves the current tables can reproduce every stored backup column and that
-# one bad shift rolls the preceding job insert back. The TypeScript contract
-# test covers JSON validation; this script covers SQLite parity and rollback.
+# Independently proves the current tables can reproduce every stored backup
+# column and that SQLite rolls back a bad multi-table insert. The production
+# restore transaction is exercised by backupRepository.test.ts.
 
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 
 if ! command -v sqlite3 >/dev/null; then
-  echo "WARN  sqlite3 not installed, backup restore database test skipped"
-  exit 0
+  echo "FAIL  sqlite3 is required for backup restore database tests"
+  exit 1
 fi
 
 tmpdir=$(mktemp -d)
@@ -112,4 +112,4 @@ if [ "$(sqlite3 "$rollback_db" 'SELECT COUNT(*) FROM jobs; SELECT COUNT(*) FROM 
   exit 1
 fi
 
-echo "backup restore database OK"
+echo "backup SQLite constraints OK"

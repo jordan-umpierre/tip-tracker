@@ -15,11 +15,10 @@
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 
-# No sqlite3 means no test. Say so out loud rather than passing silently, since
-# a check that quietly does nothing is worse than no check.
+# A commit cannot claim schema verification when sqlite3 is unavailable.
 if ! command -v sqlite3 >/dev/null; then
-  echo "WARN  sqlite3 not installed, schema tests skipped"
-  exit 0
+  echo "FAIL  sqlite3 is required for schema tests"
+  exit 1
 fi
 
 # A throwaway directory rather than a bare temp file, so the trap can delete the
