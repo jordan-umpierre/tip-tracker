@@ -19,3 +19,20 @@ Before changing anything:
 
 Do not duplicate changing status, schema conventions, test counts, or next
 steps here. Follow the global engineering, teaching, code-style, and Git rules.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs are tracked with GitHub Issues. See
+`docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The repository uses the default triage label vocabulary. See
+`docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This repository uses a single-context domain-document layout. See
+`docs/agents/domain.md`.
