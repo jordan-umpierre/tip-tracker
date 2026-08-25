@@ -1,0 +1,55 @@
+# EAS prioritizes this file over .gitignore, so keep the same local exclusions
+# here and add anything that should never enter a cloud build archive.
+
+# Local-only files
+CLAUDE.md
+.DS_Store
+*.pem
+*.db
+fake-data/
+Visual-Inspiration/
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# Local agent tooling
+.fallow/
+.playwright-cli/
+.agents/
+skills-lock.json
+.claude/skills/
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# local env files
+.env
+.env.*
+!.env.example
+
+# typescript
+*.tsbuildinfo
+
+# generated native folders
+/ios
+/android

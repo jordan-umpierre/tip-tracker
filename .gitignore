@@ -16,6 +16,10 @@ CLAUDE.md
 # import data, it wants a generator script and a note, not a pile of CSVs.
 fake-data/
 
+# Local design references. Keep them on this Mac without uploading them to Git
+# or including them in the EAS build archive.
+Visual-Inspiration/
+
 # NOTE: running create-expo-app overwrites both this file and README.md with
 # its own versions. Afterward: re-add the CLAUDE.md line above, or CLAUDE.md
 # starts getting tracked without anyone noticing, and restore README.md from
