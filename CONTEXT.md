@@ -41,7 +41,7 @@ The deposited amount on a completed Paycheck after all employer payroll deductio
 _Avoid_: Net income, Estimated after-tax income
 
 **Estimated take-home pay**:
-A prediction of a future Paycheck's deposited amount using the supported wage, withholding, payroll-tax, and deduction inputs. An actual Paycheck replaces its estimate for completed pay periods.
+A prediction of a future Paycheck's deposited amount using supported federal withholding and payroll-tax calculations plus worker-supplied nonfederal deductions. Missing deductions make the result incomplete, and an actual Paycheck replaces its estimate for completed pay periods.
 _Avoid_: Take-home pay, annual tax liability
 
 **Estimated after-tax income**:
