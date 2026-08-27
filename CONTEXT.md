@@ -20,6 +20,18 @@ _Avoid_: Employment type, job type
 Recorded wages, tips, and contractor revenue before taxes or contractor expenses.
 _Avoid_: Take-home pay, net income
 
+**Paycheck**:
+A payment from one W-2 Job for a defined pay period. A Paycheck may record the employer's gross pay, payroll deductions, and deposited amount; it is not a Shift.
+_Avoid_: Shift, contractor payment
+
+**Take-home pay**:
+The deposited amount on a completed Paycheck after all employer payroll deductions.
+_Avoid_: Net income, Estimated after-tax income
+
+**Estimated take-home pay**:
+A prediction of a future Paycheck's deposited amount using the supported wage, withholding, payroll-tax, and deduction inputs. An actual Paycheck replaces its estimate for completed pay periods.
+_Avoid_: Take-home pay, annual tax liability
+
 **Estimated after-tax income**:
 Gross income minus supported estimated federal taxes and recorded contractor expenses. It excludes state and local taxes, benefits, insurance, retirement contributions, garnishments, and unrecorded expenses.
 _Avoid_: Net income, take-home pay
@@ -31,6 +43,10 @@ _Avoid_: Tax payment, tax bill
 **Contractor expense**:
 A recorded business expense associated with self-employed work that may reduce estimated taxable profit.
 _Avoid_: Deduction
+
+**Contractor net profit**:
+Recorded contractor revenue minus recorded Contractor expenses, before personal federal taxes. The calculation does not decide whether an expense is deductible under tax law.
+_Avoid_: Net income, Take-home pay, Estimated after-tax income
 
 **Federal withholding estimate**:
 An estimate of federal income-tax withholding for one regular W-2 paycheck. It is not annual tax liability or Estimated after-tax income.
