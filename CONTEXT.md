@@ -16,6 +16,14 @@ _Avoid_: Entry, work session
 The optional classification of a Job as W-2 employment, self-employed contract work, or not configured.
 _Avoid_: Employment type, job type
 
+**Tax household**:
+The person or joint filers whose income, deductions, credits, taxes, withholding, and payments are combined on one federal tax return. It does not mean everyone living at one address.
+_Avoid_: App account, household members
+
+**Tax profile**:
+The optional, tax-year-specific facts a Tax household supplies for an annual federal projection. Worker-supplied totals for outside income, adjustments, deductions, credits, other taxes, withholding, and payments are inputs, not Tip Tracker determinations of eligibility.
+_Avoid_: Tax return, W-4 settings
+
 **Gross income**:
 Recorded wages, tips, and contractor revenue before taxes or contractor expenses.
 _Avoid_: Take-home pay, net income
