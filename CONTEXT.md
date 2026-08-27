@@ -24,6 +24,18 @@ _Avoid_: Take-home pay, net income
 A payment from one W-2 Job for a defined pay period. A Paycheck may record the employer's gross pay, payroll deductions, and deposited amount; it is not a Shift.
 _Avoid_: Shift, contractor payment
 
+**Pay period**:
+The date range for one W-2 Job that an employer groups into one Paycheck. Shifts within the range provide estimated earnings until payroll is reconciled.
+_Avoid_: Trend period, workweek
+
+**Payroll reconciliation**:
+The comparison between estimated Shift earnings for a Pay period and the actual gross and deposited amounts on its Paycheck. The Paycheck controls paid-income and tax totals after reconciliation; the Shifts remain the work record.
+_Avoid_: Duplicate income, Shift correction
+
+**Payroll adjustment**:
+The difference between estimated Shift earnings and actual Paycheck gross for a reconciled Pay period. The difference is not assigned to an individual Shift without supporting payroll detail.
+_Avoid_: Missing Shift, calculation error
+
 **Take-home pay**:
 The deposited amount on a completed Paycheck after all employer payroll deductions.
 _Avoid_: Net income, Estimated after-tax income
