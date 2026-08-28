@@ -33,6 +33,12 @@ The primary navigation is the native Log and Trends tabs under
 [D11](decisions.md). Settings contains jobs, file tools, backup, and optional
 estimate settings.
 
+## Planned follow-up
+
+The [restaurant roles and estimated net pay map](https://github.com/jordan-umpierre/tip-tracker/issues/1)
+plans a later refinement. Its implementation is not part of build 7 or the
+current `NEXT` release work.
+
 ## Release evidence
 
 - Expo Doctor passed 21 of 21 checks on 2026-08-25.
