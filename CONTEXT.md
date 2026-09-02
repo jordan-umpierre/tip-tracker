@@ -26,6 +26,19 @@ _Avoid_: Paycheck, entry, work session
 Recorded wages and tips before taxes and payroll deductions.
 _Avoid_: Net pay, take-home pay
 
+**Payroll-taxable wages**:
+The worker-confirmed portion of one Paycheck's earnings subject to a named
+payroll tax, such as federal income-tax withholding, Social Security, or
+Medicare. Shift-derived Gross income may prefill this amount but does not prove
+it.
+_Avoid_: Gross income, tax liability, Social Security wage base
+
+**Earnings received outside the Paycheck**:
+The worker-confirmed portion of a Pay period's earnings already paid through
+cash tips, daily tip payouts, or another method. It remains part of Gross income
+and Payroll-taxable wages but is not paid again in the Paycheck.
+_Avoid_: Payroll deduction, reimbursement, untaxed income
+
 **Workweek**:
 A Job employer's recurring 168-hour period used to group Shifts for overtime.
 A changed Workweek applies from its chosen date without altering earlier work.
@@ -47,14 +60,16 @@ deductions.
 _Avoid_: Net income, Gross income, Estimated net pay
 
 **Estimated net pay**:
-A prediction of one Paycheck's Net pay using supported payroll calculations and
-worker-supplied payroll inputs. Missing inputs make the estimate incomplete, and
-the estimate never replaces an actual Paycheck amount.
+A prediction of one Paycheck's Net pay using supported payroll calculations,
+worker-confirmed Payroll-taxable wages, and worker-supplied payroll inputs.
+Missing inputs make the estimate incomplete, and the estimate never replaces
+an actual Paycheck amount.
 _Avoid_: Net pay, net income, annual tax liability
 
 **Payroll deduction setting**:
-A worker-provided rule for a recurring deduction from a Job's Paychecks. It
-applies from a chosen paycheck pay date and helps calculate Estimated net pay.
+A worker-provided fixed-dollar default for a named recurring deduction from a
+Job's Paychecks. It applies from a chosen paycheck pay date, can be adjusted for
+one estimate, and helps calculate Estimated net pay.
 _Avoid_: W-4 deduction, actual Paycheck deduction
 
 **Payroll reconciliation**:
